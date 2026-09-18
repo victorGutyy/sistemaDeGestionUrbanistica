@@ -3,11 +3,14 @@ import { AppLayout } from './components/layout/AppLayout'
 import { CarteraPage } from './pages/CarteraPage'
 import { ContabilidadPage } from './pages/ContabilidadPage'
 import { LoginPage } from './pages/LoginPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
+import { NominaPage } from './pages/NominaPage'
 import { ProyectosPage } from './pages/ProyectosPage'
 import { RegistrarAbonoPage } from './pages/RegistrarAbonoPage'
 import { RegistrarMovimientoPage } from './pages/RegistrarMovimientoPage'
+import { RegistrarPagoNominaPage } from './pages/RegistrarPagoNominaPage'
+import { RegistrarTrabajadorPage } from './pages/RegistrarTrabajadorPage'
 import { RegistrarVentaPage } from './pages/RegistrarVentaPage'
+import { TrabajadorDetallePage } from './pages/TrabajadorDetallePage'
 import { VentaDetallePage } from './pages/VentaDetallePage'
 
 function App() {
@@ -24,7 +27,10 @@ function App() {
         <Route path="/cartera" element={<CarteraPage />} />
         <Route path="/contabilidad" element={<ContabilidadPage />} />
         <Route path="/contabilidad/nuevo" element={<RegistrarMovimientoPage />} />
-        <Route path="/nomina" element={<PlaceholderPage title="Nómina y talento humano" />} />
+        <Route path="/nomina" element={<NominaPage />} />
+        <Route path="/trabajadores/nuevo" element={<RegistrarTrabajadorPage />} />
+        <Route path="/trabajadores/:id/pagos/nuevo" element={<RegistrarPagoNominaPage />} />
+        <Route path="/trabajadores/:id" element={<TrabajadorDetallePage />} />
       </Route>
     </Routes>
   )

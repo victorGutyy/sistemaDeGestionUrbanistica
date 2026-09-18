@@ -231,3 +231,87 @@ export function obtenerConsolidadoCaja(filtro?: { desde?: string; hasta?: string
   const query = params.toString()
   return solicitar<ConsolidadoCaja>(`/finanzas/consolidado${query ? `?${query}` : ''}`)
 }
+
+export type EstadoTrabajador = 'ACTIVO' | 'INACTIVO'
+export type TipoNovedad = 'HORAS_EXTRA' | 'DESCUENTO' | 'INCAPACIDAD'
+
+export interface Trabajador {
+  id: string
+  nombre: string
+  documento: string
+  cargo: string
+  salarioBase: string
+  fechaIngreso: string
+  telefono: string | null
+  email: string | null
+  estado: EstadoTrabajador
+}
+
+export interface CrearTrabajadorPayload {
+  nombre: string
+  documento: string
+  cargo: string
+  salarioBase: string
+  fechaIngreso: string
+  telefono?: string
+  email?: string
+}
+
+export function listarTrabajadores() {
+  return solicitar<Trabajador[]>('/trabajadores')
+}
+
+export function crearTrabajador(payload: CrearTrabajadorPayload) {
+  return solicitar<Trabajador>('/trabajadores', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export interface NovedadNomina {
+  id: string
+  tipo: TipoNovedad
+  valor: string
+  descripcion: string | null
+}
+
+export interface PagoNomina {
+  id: string
+  trabajadorId: string
+  periodoInicio: string
+  periodoFin: string
+  salarioBase: string
+  valorPagado: string
+  fechaPago: string
+  novedades: NovedadNomina[]
+  trabajador: Trabajador
+}
+
+export interface TrabajadorConPagos extends Trabajador {
+  pagos: PagoNomina[]
+}
+
+export function obtenerTrabajador(id: string) {
+  return solicitar<TrabajadorConPagos>(`/trabajadores/${id}`)
+}
+
+export interface CrearNovedadPayload {
+  tipo: TipoNovedad
+  valor: string
+  descripcion?: string
+}
+
+export interface CrearPagoNominaPayload {
+  trabajadorId: string
+  periodoInicio: string
+  periodoFin: string
+  fechaPago: string
+  novedades?: CrearNovedadPayload[]
+}
+
+export function crearPagoNomina(payload: CrearPagoNominaPayload) {
+  return solicitar<PagoNomina>('/nomina/pagos', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
