@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EstadoProyecto {
+  ACTIVO
+  FINALIZADO
+}
+
+enum EstadoLote {
+  DISPONIBLE
+  RESERVADO
+  VENDIDO
+}
+
+enum FormaPago {
+  CONTADO
+  FINANCIADO
+}
+
+// Predio de mayor extensión que la empresa compra y subdivide en lotes.
+model Proyecto {
+  id          String         @id @default(uuid())
+  nombre      String
+  ubicacion   String?
+  areaTotal   Decimal        @db.Decimal(12, 2)
+  valorCompra Decimal?       @db.Decimal(14, 2)
+  fechaCompra DateTime?
+  estado      EstadoProyecto @default(ACTIVO)
+  lotes       Lote[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+// Subdivisión individual de un Proyecto, en venta.
+// compradorNombre y formaPagoPrevista son un resumen simple para esta
+// primera etapa; el módulo de Ventas y Financiación los reemplazará por
+// relaciones reales a Cliente y Venta (con su plan de pagos).
+model Lote {
+  id                String     @id @default(uuid())
+  proyectoId        String
+  proyecto          Proyecto   @relation(fields: [proyectoId], references: [id])
+  numero            String
+  area              Decimal    @db.Decimal(10, 2)
+  valorVenta        Decimal    @db.Decimal(14, 2)
+  estado            EstadoLote @default(DISPONIBLE)
+  formaPagoPrevista FormaPago?
+  compradorNombre   String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@unique([proyectoId, numero])
+}
