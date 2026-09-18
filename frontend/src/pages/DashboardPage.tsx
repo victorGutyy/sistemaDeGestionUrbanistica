@@ -1,11 +1,32 @@
 import { useEffect, useState } from 'react'
-import { obtenerDashboard, urlExportarDashboard, type ResumenDashboard } from '../lib/api'
+import { ejecutarRecordatorios, obtenerDashboard, urlExportarDashboard, type ResumenDashboard } from '../lib/api'
 
 export function DashboardPage() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [resumen, setResumen] = useState<ResumenDashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false)
+  const [resultadoRecordatorios, setResultadoRecordatorios] = useState<string | null>(null)
+
+  async function handleEnviarRecordatorios() {
+    setEnviandoRecordatorios(true)
+    setResultadoRecordatorios(null)
+    setError(null)
+    try {
+      const resultado = await ejecutarRecordatorios()
+      setResultadoRecordatorios(
+        `${resultado.enviados} recordatorio(s) enviado(s)` +
+          (resultado.omitidosSinCorreo > 0
+            ? `, ${resultado.omitidosSinCorreo} omitido(s) por no tener correo registrado`
+            : ''),
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron enviar los recordatorios')
+    } finally {
+      setEnviandoRecordatorios(false)
+    }
+  }
 
   useEffect(() => {
     const filtro = { desde: desde || undefined, hasta: hasta || undefined }
@@ -24,6 +45,14 @@ export function DashboardPage() {
           <p className="text-sm text-slate-500">Ingresos, egresos y cartera, consolidado y por proyecto.</p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleEnviarRecordatorios}
+            disabled={enviandoRecordatorios}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {enviandoRecordatorios ? 'Enviando...' : 'Enviar recordatorios de pago'}
+          </button>
           <a
             href={urlExportarDashboard('pdf', filtroActual)}
             target="_blank"
@@ -84,6 +113,12 @@ export function DashboardPage() {
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+
+      {resultadoRecordatorios && (
+        <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {resultadoRecordatorios}
+        </div>
       )}
 
       {resumen && (

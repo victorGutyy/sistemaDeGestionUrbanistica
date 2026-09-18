@@ -408,3 +408,12 @@ export function urlExportarDashboard(formato: 'pdf' | 'excel', filtro?: { desde?
   params.set('formato', formato)
   return `${API_URL}/dashboard/exportar?${params.toString()}`
 }
+
+export interface ResultadoRecordatorios {
+  enviados: number
+  omitidosSinCorreo: number
+}
+
+export function ejecutarRecordatorios() {
+  return solicitar<ResultadoRecordatorios>('/recordatorios/ejecutar', { method: 'POST' })
+}
