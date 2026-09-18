@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
+import { CarteraPage } from './pages/CarteraPage'
 import { LoginPage } from './pages/LoginPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { ProyectosPage } from './pages/ProyectosPage'
@@ -18,7 +19,7 @@ function App() {
         <Route path="/ventas/nueva" element={<RegistrarVentaPage />} />
         <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />
         <Route path="/ventas/:id" element={<VentaDetallePage />} />
-        <Route path="/cartera" element={<PlaceholderPage title="Cartera y mora" />} />
+        <Route path="/cartera" element={<CarteraPage />} />
         <Route path="/contabilidad" element={<PlaceholderPage title="Finanzas generales" />} />
         <Route path="/nomina" element={<PlaceholderPage title="Nómina y talento humano" />} />
       </Route>

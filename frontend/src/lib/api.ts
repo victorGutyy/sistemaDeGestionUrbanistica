@@ -141,3 +141,33 @@ export function crearAbono(formData: FormData) {
 export function urlComprobante(abonoId: string) {
   return `${API_URL}/abonos/${abonoId}/comprobante`
 }
+
+export type Semaforo = 'VERDE' | 'AMARILLO' | 'ROJO'
+
+export interface FilaCartera {
+  cliente: Cliente
+  semaforo: Semaforo
+  saldoVencido: string
+  interesMora: string
+  proximaCuota: Cuota | null
+}
+
+export function listarCartera() {
+  return solicitar<FilaCartera[]>('/cartera')
+}
+
+export interface FilaReporteCartera {
+  proyectoId: string
+  nombre: string
+  saldoVencido: string
+  interesMora: string
+}
+
+export interface ReporteCartera {
+  porProyecto: FilaReporteCartera[]
+  consolidado: { saldoVencido: string; interesMora: string }
+}
+
+export function obtenerReporteCartera() {
+  return solicitar<ReporteCartera>('/cartera/reporte')
+}
