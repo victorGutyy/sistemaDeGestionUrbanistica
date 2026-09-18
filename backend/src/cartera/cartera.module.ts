@@ -5,5 +5,6 @@ import { CarteraService } from './cartera.service.js';
 @Module({
   controllers: [CarteraController],
   providers: [CarteraService],
+  exports: [CarteraService],
 })
 export class CarteraModule {}

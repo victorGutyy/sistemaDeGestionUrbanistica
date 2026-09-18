@@ -5,5 +5,6 @@ import { FinanzasService } from './finanzas.service.js';
 @Module({
   controllers: [FinanzasController],
   providers: [FinanzasService],
+  exports: [FinanzasService],
 })
 export class FinanzasModule {}

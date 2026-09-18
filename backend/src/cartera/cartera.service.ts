@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import {
   calcularDiasHastaVencer,
   calcularSemaforo,
-  evaluarCuotaVencida,
+  evaluarCuotaPendiente,
   type Semaforo,
 } from './mora.js';
 
@@ -44,10 +44,10 @@ export class CarteraService {
         let interesMora = new Prisma.Decimal(0);
 
         for (const cuota of cuotasPendientes) {
-          const vencida = evaluarCuotaVencida(cuota, cuota.abonos, hoy, TASA_MORA_MENSUAL);
-          if (vencida) {
-            saldoVencido = saldoVencido.plus(vencida.saldoVencido);
-            interesMora = interesMora.plus(vencida.interesMora);
+          const evaluacion = evaluarCuotaPendiente(cuota, cuota.abonos, hoy, TASA_MORA_MENSUAL);
+          if (evaluacion?.vencida) {
+            saldoVencido = saldoVencido.plus(evaluacion.saldo);
+            interesMora = interesMora.plus(evaluacion.interesMora);
           }
         }
 
@@ -92,18 +92,24 @@ export class CarteraService {
     const hoy = new Date();
     let saldoVencidoConsolidado = new Prisma.Decimal(0);
     let interesMoraConsolidado = new Prisma.Decimal(0);
+    let saldoPorVencerConsolidado = new Prisma.Decimal(0);
 
     const porProyecto = proyectos.map((proyecto) => {
       let saldoVencido = new Prisma.Decimal(0);
       let interesMora = new Prisma.Decimal(0);
+      let saldoPorVencer = new Prisma.Decimal(0);
 
       for (const lote of proyecto.lotes) {
         for (const venta of lote.ventas) {
           for (const cuota of venta.cuotas) {
-            const vencida = evaluarCuotaVencida(cuota, cuota.abonos, hoy, TASA_MORA_MENSUAL);
-            if (vencida) {
-              saldoVencido = saldoVencido.plus(vencida.saldoVencido);
-              interesMora = interesMora.plus(vencida.interesMora);
+            const evaluacion = evaluarCuotaPendiente(cuota, cuota.abonos, hoy, TASA_MORA_MENSUAL);
+            if (!evaluacion) continue;
+
+            if (evaluacion.vencida) {
+              saldoVencido = saldoVencido.plus(evaluacion.saldo);
+              interesMora = interesMora.plus(evaluacion.interesMora);
+            } else {
+              saldoPorVencer = saldoPorVencer.plus(evaluacion.saldo);
             }
           }
         }
@@ -111,13 +117,18 @@ export class CarteraService {
 
       saldoVencidoConsolidado = saldoVencidoConsolidado.plus(saldoVencido);
       interesMoraConsolidado = interesMoraConsolidado.plus(interesMora);
+      saldoPorVencerConsolidado = saldoPorVencerConsolidado.plus(saldoPorVencer);
 
-      return { proyectoId: proyecto.id, nombre: proyecto.nombre, saldoVencido, interesMora };
+      return { proyectoId: proyecto.id, nombre: proyecto.nombre, saldoVencido, interesMora, saldoPorVencer };
     });
 
     return {
       porProyecto,
-      consolidado: { saldoVencido: saldoVencidoConsolidado, interesMora: interesMoraConsolidado },
+      consolidado: {
+        saldoVencido: saldoVencidoConsolidado,
+        interesMora: interesMoraConsolidado,
+        saldoPorVencer: saldoPorVencerConsolidado,
+      },
     };
   }
 }

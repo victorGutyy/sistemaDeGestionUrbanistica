@@ -35,34 +35,35 @@ export function calcularDiasHastaVencer(fechaVencimiento: Date, hoy: Date): numb
   return -diferenciaEnDiasCalendario(fechaVencimiento, hoy);
 }
 
-export interface ResultadoCuotaVencida {
+export interface ResultadoCuotaPendiente {
+  vencida: boolean;
   diasAtraso: number;
-  saldoVencido: Prisma.Decimal;
+  saldo: Prisma.Decimal;
   interesMora: Prisma.Decimal;
 }
 
-// Devuelve null si la cuota ya está paga o si todavía no vence: solo
-// interesa cuando de verdad hay algo atrasado que reportar.
-export function evaluarCuotaVencida(
+// Clasifica una cuota no pagada como "vencida" o "por vencer" y trae su
+// saldo pendiente (con interés de mora si aplica). Devuelve null solo
+// cuando la cuota ya está PAGADA — ahí no hay nada que reportar.
+export function evaluarCuotaPendiente(
   cuota: { estado: EstadoCuota; fechaVencimiento: Date; valor: Prisma.Decimal },
   abonos: { valor: Prisma.Decimal }[],
   hoy: Date,
   tasaMoraMensual: Prisma.Decimal,
-): ResultadoCuotaVencida | null {
+): ResultadoCuotaPendiente | null {
   if (cuota.estado === EstadoCuota.PAGADA) {
     return null;
   }
 
   const diasAtraso = diferenciaEnDiasCalendario(cuota.fechaVencimiento, hoy);
-  if (diasAtraso <= 0) {
-    return null;
-  }
+  const vencida = diasAtraso > 0;
+  const saldo = calcularSaldoCuota(cuota.valor, abonos);
 
-  const saldoVencido = calcularSaldoCuota(cuota.valor, abonos);
   return {
+    vencida,
     diasAtraso,
-    saldoVencido,
-    interesMora: calcularInteresMora(saldoVencido, diasAtraso, tasaMoraMensual),
+    saldo,
+    interesMora: vencida ? calcularInteresMora(saldo, diasAtraso, tasaMoraMensual) : new Prisma.Decimal(0),
   };
 }
 

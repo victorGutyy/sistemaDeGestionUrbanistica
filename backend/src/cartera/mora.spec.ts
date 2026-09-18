@@ -6,7 +6,7 @@ import {
   calcularSaldoCuota,
   calcularSemaforo,
   diferenciaEnDiasCalendario,
-  evaluarCuotaVencida,
+  evaluarCuotaPendiente,
 } from './mora.js';
 
 describe('diferenciaEnDiasCalendario', () => {
@@ -73,11 +73,11 @@ describe('calcularSemaforo', () => {
   });
 });
 
-describe('evaluarCuotaVencida', () => {
+describe('evaluarCuotaPendiente', () => {
   const hoy = new Date(2026, 2, 20);
 
   it('devuelve null si la cuota ya está PAGADA, aunque la fecha haya pasado', () => {
-    const resultado = evaluarCuotaVencida(
+    const resultado = evaluarCuotaPendiente(
       { estado: EstadoCuota.PAGADA, fechaVencimiento: new Date(2026, 2, 1), valor: new Prisma.Decimal('100') },
       [],
       hoy,
@@ -86,26 +86,29 @@ describe('evaluarCuotaVencida', () => {
     expect(resultado).toBeNull();
   });
 
-  it('devuelve null si todavía no vence', () => {
-    const resultado = evaluarCuotaVencida(
+  it('clasifica como "por vencer" (no vencida) cuando todavía no llega la fecha, sin interés de mora', () => {
+    const resultado = evaluarCuotaPendiente(
       { estado: EstadoCuota.PENDIENTE, fechaVencimiento: new Date(2026, 2, 25), valor: new Prisma.Decimal('100') },
       [],
       hoy,
       new Prisma.Decimal('3'),
     );
-    expect(resultado).toBeNull();
+    expect(resultado?.vencida).toBe(false);
+    expect(resultado?.saldo.toString()).toBe('100');
+    expect(resultado?.interesMora.toString()).toBe('0');
   });
 
   it('calcula días de atraso, saldo vencido e interés cuando sí está vencida', () => {
-    const resultado = evaluarCuotaVencida(
+    const resultado = evaluarCuotaPendiente(
       { estado: EstadoCuota.PARCIAL, fechaVencimiento: new Date(2026, 2, 5), valor: new Prisma.Decimal('1000000') },
       [{ valor: new Prisma.Decimal('400000') }],
       hoy,
       new Prisma.Decimal('3'),
     );
 
+    expect(resultado?.vencida).toBe(true);
     expect(resultado?.diasAtraso).toBe(15);
-    expect(resultado?.saldoVencido.toString()).toBe('600000');
+    expect(resultado?.saldo.toString()).toBe('600000');
     // 600,000 * 3% * (15/30) = 9,000
     expect(resultado?.interesMora.toString()).toBe('9000');
   });
