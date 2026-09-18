@@ -28,6 +28,16 @@ enum FormaPago {
   FINANCIADO
 }
 
+enum EstadoVenta {
+  ACTIVA
+  CANCELADA
+}
+
+enum EstadoCuota {
+  PENDIENTE
+  PAGADA
+}
+
 // Predio de mayor extensión que la empresa compra y subdivide en lotes.
 model Proyecto {
   id          String         @id @default(uuid())
@@ -43,21 +53,67 @@ model Proyecto {
 }
 
 // Subdivisión individual de un Proyecto, en venta.
-// compradorNombre y formaPagoPrevista son un resumen simple para esta
-// primera etapa; el módulo de Ventas y Financiación los reemplazará por
-// relaciones reales a Cliente y Venta (con su plan de pagos).
 model Lote {
-  id                String     @id @default(uuid())
-  proyectoId        String
-  proyecto          Proyecto   @relation(fields: [proyectoId], references: [id])
-  numero            String
-  area              Decimal    @db.Decimal(10, 2)
-  valorVenta        Decimal    @db.Decimal(14, 2)
-  estado            EstadoLote @default(DISPONIBLE)
-  formaPagoPrevista FormaPago?
-  compradorNombre   String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  id         String     @id @default(uuid())
+  proyectoId String
+  proyecto   Proyecto   @relation(fields: [proyectoId], references: [id])
+  numero     String
+  area       Decimal    @db.Decimal(10, 2)
+  valorVenta Decimal    @db.Decimal(14, 2)
+  estado     EstadoLote @default(DISPONIBLE)
+  ventas     Venta[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@unique([proyectoId, numero])
+}
+
+// Comprador de uno o más lotes.
+model Cliente {
+  id        String   @id @default(uuid())
+  nombre    String
+  documento String   @unique
+  telefono  String?
+  email     String?
+  direccion String?
+  ventas    Venta[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Transacción de venta de un Lote a un Cliente. Se guarda como historial:
+// si una venta se cancela, queda marcada CANCELADA en vez de borrarse, para
+// no perder el rastro de por qué el lote volvió a estar disponible.
+model Venta {
+  id           String      @id @default(uuid())
+  loteId       String
+  lote         Lote        @relation(fields: [loteId], references: [id])
+  clienteId    String
+  cliente      Cliente     @relation(fields: [clienteId], references: [id])
+  valorTotal   Decimal     @db.Decimal(14, 2)
+  cuotaInicial Decimal     @db.Decimal(14, 2)
+  // numeroCuotas y tasaInteres solo aplican cuando formaPago = FINANCIADO.
+  numeroCuotas Int?
+  tasaInteres  Decimal?    @db.Decimal(5, 2)
+  formaPago    FormaPago
+  fechaVenta   DateTime    @default(now())
+  estado       EstadoVenta @default(ACTIVA)
+  cuotas       Cuota[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+// Una fila del plan de pagos de una Venta financiada.
+model Cuota {
+  id               String      @id @default(uuid())
+  ventaId          String
+  venta            Venta       @relation(fields: [ventaId], references: [id])
+  numero           Int
+  fechaVencimiento DateTime
+  valor            Decimal     @db.Decimal(14, 2)
+  estado           EstadoCuota @default(PENDIENTE)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([ventaId, numero])
 }
