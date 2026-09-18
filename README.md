@@ -41,17 +41,27 @@ La aplicación queda disponible en `http://localhost:5173`.
 
 ## Base de datos
 
-Si no tienes PostgreSQL instalado localmente, la forma más rápida de levantar uno para desarrollo es con Docker:
+Para desarrollo local usamos PostgreSQL en Docker (Docker Desktop ya instalado en esta máquina):
 
 ```bash
 docker run --name sistema-urbanismo-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=sistema_urbanismo -p 5432:5432 -d postgres:16
+docker update --restart unless-stopped sistema-urbanismo-db
 ```
 
-Y luego usar esa misma base en `DATABASE_URL` dentro de `backend/.env`.
+El contenedor queda con reinicio automático, así que normalmente no hay que volver a crearlo — si por alguna razón no está corriendo, revísalo con `docker ps -a` y arráncalo con `docker start sistema-urbanismo-db`.
+
+Con la base arriba, `backend/.env` ya apunta a ella (`postgresql://postgres:postgres@localhost:5432/sistema_urbanismo`). Para crear/actualizar las tablas:
+
+```bash
+cd backend
+npx prisma migrate dev
+```
 
 ## Estado actual
 
 - ✅ Estructura del monorepo, backend NestJS + Prisma, frontend React + Vite + Tailwind.
-- ✅ Modelo de datos `Proyecto` / `Lote` (módulo de Proyectos y Lotes).
-- ✅ Layout base (login + navegación lateral: Proyectos, Cartera, Contabilidad, Nómina).
-- ⏳ Ventas y Financiación, Pagos y Abonos, Cartera y Mora, Finanzas generales, Nómina, Dashboard — pendientes.
+- ✅ Módulo de Proyectos y Lotes (CRUD básico).
+- ✅ Módulo de Ventas y Financiación (plan de pagos con interés simple sobre saldo inicial).
+- ✅ Layout base (login + navegación lateral: Proyectos, Cartera, Contabilidad, Nómina) y pantalla de Registrar venta.
+- ✅ PostgreSQL real conectado (Docker) y probado de punta a punta: crear proyecto → lote → venta → plan de cuotas.
+- ⏳ Pagos y Abonos, Cartera y Mora, Finanzas generales, Nómina, Dashboard — pendientes.
