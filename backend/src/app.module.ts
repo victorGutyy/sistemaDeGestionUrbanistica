@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AbonosModule } from './abonos/abonos.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { CarteraModule } from './cartera/cartera.module.js';
 import { ClientesModule } from './clientes/clientes.module.js';
 import { LotesModule } from './lotes/lotes.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -20,6 +21,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     ClientesModule,
     VentasModule,
     AbonosModule,
+    CarteraModule,
   ],
   controllers: [AppController],
   providers: [AppService],
