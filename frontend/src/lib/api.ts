@@ -1,9 +1,12 @@
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
 async function solicitar<T>(path: string, options?: RequestInit): Promise<T> {
+  // Si el body es FormData (subida de archivos), no fijamos Content-Type:
+  // el navegador debe poner el boundary del multipart él mismo.
+  const esFormData = options?.body instanceof FormData
   const respuesta = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: esFormData ? options?.headers : { 'Content-Type': 'application/json', ...options?.headers },
   })
 
   if (!respuesta.ok) {
@@ -73,10 +76,21 @@ export interface CrearVentaPayload {
   fechaVenta?: string
 }
 
+export type EstadoCuota = 'PENDIENTE' | 'PARCIAL' | 'PAGADA'
+export type MedioPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'CHEQUE' | 'TARJETA'
+
 export interface Cuota {
+  id: string
   numero: number
   fechaVencimiento: string
   valor: string
+  estado: EstadoCuota
+}
+
+export interface EstadoCuenta {
+  totalPagado: string
+  saldoPendiente: string
+  proximaCuota: Cuota | null
 }
 
 export interface Venta {
@@ -88,6 +102,8 @@ export interface Venta {
   cliente: Cliente
   lote: Lote
   cuotas: Cuota[]
+  // Solo viene en la respuesta de obtenerVenta (GET /ventas/:id), no al crear.
+  estadoCuenta?: EstadoCuenta
 }
 
 export function crearVenta(payload: CrearVentaPayload) {
@@ -99,4 +115,29 @@ export function crearVenta(payload: CrearVentaPayload) {
 
 export function obtenerVenta(id: string) {
   return solicitar<Venta>(`/ventas/${id}`)
+}
+
+export interface Abono {
+  id: string
+  ventaId: string
+  cuotaId: string | null
+  fecha: string
+  valor: string
+  medioPago: MedioPago
+  comprobanteUrl: string | null
+}
+
+export function listarAbonosPorVenta(ventaId: string) {
+  return solicitar<Abono[]>(`/abonos?ventaId=${ventaId}`)
+}
+
+export function crearAbono(formData: FormData) {
+  return solicitar<Abono>('/abonos', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export function urlComprobante(abonoId: string) {
+  return `${API_URL}/abonos/${abonoId}/comprobante`
 }
