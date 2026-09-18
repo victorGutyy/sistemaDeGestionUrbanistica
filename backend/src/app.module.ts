@@ -3,7 +3,9 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { ClientesModule } from './clientes/clientes.module.js';
+import { LotesModule } from './lotes/lotes.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { ProyectosModule } from './proyectos/proyectos.module.js';
 import { VentasModule } from './ventas/ventas.module.js';
 
 @Module({
@@ -12,6 +14,8 @@ import { VentasModule } from './ventas/ventas.module.js';
       isGlobal: true,
     }),
     PrismaModule,
+    ProyectosModule,
+    LotesModule,
     ClientesModule,
     VentasModule,
   ],
