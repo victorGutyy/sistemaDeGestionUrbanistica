@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   crearVenta,
   listarClientes,
@@ -13,6 +13,7 @@ type OrigenCliente = 'existente' | 'nuevo'
 
 export function RegistrarVentaPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [lotes, setLotes] = useState<Lote[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -20,7 +21,7 @@ export function RegistrarVentaPage() {
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
-  const [loteId, setLoteId] = useState('')
+  const [loteId, setLoteId] = useState(searchParams.get('loteId') ?? '')
   const [origenCliente, setOrigenCliente] = useState<OrigenCliente>('existente')
   const [clienteId, setClienteId] = useState('')
   const [clienteNombre, setClienteNombre] = useState('')
@@ -37,9 +38,18 @@ export function RegistrarVentaPage() {
       .then(([lotesRecibidos, clientesRecibidos]) => {
         setLotes(lotesRecibidos)
         setClientes(clientesRecibidos)
+
+        const loteIdPreseleccionado = searchParams.get('loteId')
+        const lotePreseleccionado = lotesRecibidos.find((lote) => lote.id === loteIdPreseleccionado)
+        if (lotePreseleccionado) {
+          setValorTotal(lotePreseleccionado.valorVenta)
+          setCuotaInicial(lotePreseleccionado.valorVenta)
+        }
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setCargando(false))
+    // Solo debe correr al montar: solo nos interesa el loteId que llegó en la URL al abrir la página.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function alSeleccionarLote(id: string) {

@@ -5,10 +5,13 @@ import { ContabilidadPage } from './pages/ContabilidadPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { NominaPage } from './pages/NominaPage'
+import { ProyectoDetallePage } from './pages/ProyectoDetallePage'
 import { ProyectosPage } from './pages/ProyectosPage'
 import { RegistrarAbonoPage } from './pages/RegistrarAbonoPage'
+import { RegistrarLotePage } from './pages/RegistrarLotePage'
 import { RegistrarMovimientoPage } from './pages/RegistrarMovimientoPage'
 import { RegistrarPagoNominaPage } from './pages/RegistrarPagoNominaPage'
+import { RegistrarProyectoPage } from './pages/RegistrarProyectoPage'
 import { RegistrarTrabajadorPage } from './pages/RegistrarTrabajadorPage'
 import { RegistrarVentaPage } from './pages/RegistrarVentaPage'
 import { TrabajadorDetallePage } from './pages/TrabajadorDetallePage'
@@ -23,6 +26,9 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/proyectos" element={<ProyectosPage />} />
+        <Route path="/proyectos/nuevo" element={<RegistrarProyectoPage />} />
+        <Route path="/proyectos/:id/lotes/nuevo" element={<RegistrarLotePage />} />
+        <Route path="/proyectos/:id" element={<ProyectoDetallePage />} />
         <Route path="/ventas/nueva" element={<RegistrarVentaPage />} />
         <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />
         <Route path="/ventas/:id" element={<VentaDetallePage />} />

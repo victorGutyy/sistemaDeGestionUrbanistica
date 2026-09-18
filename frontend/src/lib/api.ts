@@ -42,11 +42,57 @@ export interface Proyecto {
   ubicacion: string | null
   areaTotal: string
   estado: 'ACTIVO' | 'FINALIZADO'
-  _count: { lotes: number }
+  // Solo viene en la respuesta de listarProyectos, no en obtenerProyecto.
+  _count?: { lotes: number }
 }
 
 export function listarProyectos() {
   return solicitar<Proyecto[]>('/proyectos')
+}
+
+export interface CrearProyectoPayload {
+  nombre: string
+  ubicacion?: string
+  areaTotal: string
+  valorCompra?: string
+  fechaCompra?: string
+}
+
+export function crearProyecto(payload: CrearProyectoPayload) {
+  return solicitar<Proyecto>('/proyectos', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export interface LoteDeProyecto {
+  id: string
+  numero: string
+  area: string
+  valorVenta: string
+  estado: EstadoLote
+}
+
+export interface ProyectoConLotes extends Proyecto {
+  lotes: LoteDeProyecto[]
+}
+
+export function obtenerProyecto(id: string) {
+  return solicitar<ProyectoConLotes>(`/proyectos/${id}`)
+}
+
+export interface CrearLotePayload {
+  proyectoId: string
+  numero: string
+  area: string
+  valorVenta: string
+}
+
+export function crearLote(payload: CrearLotePayload) {
+  return solicitar<LoteDeProyecto>('/lotes', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function listarLotesDisponibles() {

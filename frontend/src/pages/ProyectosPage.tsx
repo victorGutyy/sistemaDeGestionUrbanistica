@@ -21,12 +21,20 @@ export function ProyectosPage() {
           <h1 className="text-lg font-semibold text-slate-900">Proyectos</h1>
           <p className="text-sm text-slate-500">Predios y su subdivisión en lotes.</p>
         </div>
-        <Link
-          to="/ventas/nueva"
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Registrar venta
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/proyectos/nuevo"
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Nuevo proyecto
+          </Link>
+          <Link
+            to="/ventas/nueva"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Registrar venta
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -56,10 +64,14 @@ export function ProyectosPage() {
             )}
             {proyectos.map((proyecto) => (
               <tr key={proyecto.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-3">{proyecto.nombre}</td>
+                <td className="px-4 py-3">
+                  <Link to={`/proyectos/${proyecto.id}`} className="text-blue-600 hover:underline">
+                    {proyecto.nombre}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">{proyecto.ubicacion ?? '—'}</td>
                 <td className="px-4 py-3">{proyecto.areaTotal} m²</td>
-                <td className="px-4 py-3">{proyecto._count.lotes}</td>
+                <td className="px-4 py-3">{proyecto._count?.lotes ?? 0}</td>
                 <td className="px-4 py-3">{proyecto.estado}</td>
               </tr>
             ))}
