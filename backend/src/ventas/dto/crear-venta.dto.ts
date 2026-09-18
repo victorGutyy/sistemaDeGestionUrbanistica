@@ -9,7 +9,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { FormaPago } from '../../../generated/prisma/enums.js';
+import { FormaPago } from '../../generated/prisma/enums.js';
 import { CrearClienteDto } from '../../clientes/dto/crear-cliente.dto.js';
 
 export class CrearVentaDto {

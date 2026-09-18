@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { generarPlanDePagos } from './plan-de-pagos.js';
 
 // Compara por fecha calendario local, no por instante UTC: `toISOString()`

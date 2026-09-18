@@ -5,7 +5,9 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  // Dentro de src/: el compilador de Nest (tsconfig.build.json) exige que
+  // todo lo importado esté bajo rootDir "./src".
+  output = "../src/generated/prisma"
 }
 
 datasource db {

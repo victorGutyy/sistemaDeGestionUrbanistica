@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { parsearFechaLocal } from '../common/fecha.util.js';
-import { Prisma } from '../../generated/prisma/client.js';
-import { EstadoLote, FormaPago } from '../../generated/prisma/enums.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { EstadoLote, FormaPago } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CrearVentaDto } from './dto/crear-venta.dto.js';
 import { generarPlanDePagos } from './plan-de-pagos.js';

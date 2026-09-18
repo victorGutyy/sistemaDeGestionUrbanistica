@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { EstadoLote, FormaPago } from '../../generated/prisma/enums.js';
+import { EstadoLote, FormaPago } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { VentasService } from './ventas.service.js';
 
