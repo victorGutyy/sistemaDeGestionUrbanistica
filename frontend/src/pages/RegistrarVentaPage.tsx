@@ -26,6 +26,8 @@ export function RegistrarVentaPage() {
   const [clienteId, setClienteId] = useState('')
   const [clienteNombre, setClienteNombre] = useState('')
   const [clienteDocumento, setClienteDocumento] = useState('')
+  const [clienteTelefono, setClienteTelefono] = useState('')
+  const [clienteEmail, setClienteEmail] = useState('')
   const [formaPago, setFormaPago] = useState<FormaPago>('CONTADO')
   const [valorTotal, setValorTotal] = useState('')
   const [cuotaInicial, setCuotaInicial] = useState('')
@@ -82,7 +84,14 @@ export function RegistrarVentaPage() {
         loteId,
         ...(origenCliente === 'existente'
           ? { clienteId }
-          : { clienteNuevo: { nombre: clienteNombre, documento: clienteDocumento } }),
+          : {
+              clienteNuevo: {
+                nombre: clienteNombre,
+                documento: clienteDocumento,
+                telefono: clienteTelefono || undefined,
+                email: clienteEmail || undefined,
+              },
+            }),
         formaPago,
         valorTotal,
         cuotaInicial,
@@ -191,6 +200,19 @@ export function RegistrarVentaPage() {
                 placeholder="Documento"
                 value={clienteDocumento}
                 onChange={(event) => setClienteDocumento(event.target.value)}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <input
+                placeholder="Teléfono (opcional)"
+                value={clienteTelefono}
+                onChange={(event) => setClienteTelefono(event.target.value)}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <input
+                type="email"
+                placeholder="Correo electrónico (opcional)"
+                value={clienteEmail}
+                onChange={(event) => setClienteEmail(event.target.value)}
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
