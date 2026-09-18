@@ -6,3 +6,7 @@ dist
 .env
 
 /src/generated/prisma
+
+# Comprobantes subidos por los usuarios: son datos, no código.
+/uploads/*
+!/uploads/.gitkeep

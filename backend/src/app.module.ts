@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AbonosModule } from './abonos/abonos.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { ClientesModule } from './clientes/clientes.module.js';
@@ -18,6 +19,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     LotesModule,
     ClientesModule,
     VentasModule,
+    AbonosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

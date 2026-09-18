@@ -7,7 +7,7 @@ generator client {
   provider = "prisma-client"
   // Dentro de src/: el compilador de Nest (tsconfig.build.json) exige que
   // todo lo importado esté bajo rootDir "./src".
-  output = "../src/generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -37,7 +37,15 @@ enum EstadoVenta {
 
 enum EstadoCuota {
   PENDIENTE
+  PARCIAL
   PAGADA
+}
+
+enum MedioPago {
+  EFECTIVO
+  TRANSFERENCIA
+  CHEQUE
+  TARJETA
 }
 
 // Predio de mayor extensión que la empresa compra y subdivide en lotes.
@@ -101,6 +109,7 @@ model Venta {
   fechaVenta   DateTime    @default(now())
   estado       EstadoVenta @default(ACTIVA)
   cuotas       Cuota[]
+  abonos       Abono[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
@@ -114,8 +123,27 @@ model Cuota {
   fechaVencimiento DateTime
   valor            Decimal     @db.Decimal(14, 2)
   estado           EstadoCuota @default(PENDIENTE)
+  abonos           Abono[]
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
   @@unique([ventaId, numero])
+}
+
+// Un pago del cliente sobre una Venta. Si se financió, normalmente se
+// indica a qué Cuota corresponde (cuotaId) para poder marcarla PAGADA o
+// PARCIAL; en una venta de contado, o en un abono todavía sin asignar,
+// cuotaId queda nulo y el pago solo cuenta hacia el total de la venta.
+model Abono {
+  id             String    @id @default(uuid())
+  ventaId        String
+  venta          Venta     @relation(fields: [ventaId], references: [id])
+  cuotaId        String?
+  cuota          Cuota?    @relation(fields: [cuotaId], references: [id])
+  fecha          DateTime
+  valor          Decimal   @db.Decimal(14, 2)
+  medioPago      MedioPago
+  comprobanteUrl String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }

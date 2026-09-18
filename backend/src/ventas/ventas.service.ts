@@ -4,6 +4,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { EstadoLote, FormaPago } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CrearVentaDto } from './dto/crear-venta.dto.js';
+import { calcularEstadoCuenta } from './estado-cuenta.js';
 import { generarPlanDePagos } from './plan-de-pagos.js';
 
 @Injectable()
@@ -102,11 +103,21 @@ export class VentasService {
     });
   }
 
-  buscarPorId(id: string) {
-    return this.prisma.venta.findUniqueOrThrow({
+  async buscarPorId(id: string) {
+    const venta = await this.prisma.venta.findUniqueOrThrow({
       where: { id },
-      include: { cuotas: { orderBy: { numero: 'asc' } }, cliente: true, lote: true },
+      include: {
+        cuotas: { orderBy: { numero: 'asc' } },
+        abonos: true,
+        cliente: true,
+        lote: true,
+      },
     });
+
+    return {
+      ...venta,
+      estadoCuenta: calcularEstadoCuenta(venta),
+    };
   }
 
   listar() {
