@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { CarteraPage } from './pages/CarteraPage'
 import { ContabilidadPage } from './pages/ContabilidadPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { NominaPage } from './pages/NominaPage'
 import { ProyectosPage } from './pages/ProyectosPage'
@@ -19,7 +20,8 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
 
       <Route element={<AppLayout />}>
-        <Route path="/" element={<Navigate to="/proyectos" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/proyectos" element={<ProyectosPage />} />
         <Route path="/ventas/nueva" element={<RegistrarVentaPage />} />
         <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />

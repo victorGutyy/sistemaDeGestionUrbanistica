@@ -1,8 +1,9 @@
-import { Building2, Calculator, Users, Wallet } from 'lucide-react'
+import { Building2, Calculator, LayoutDashboard, Users, Wallet } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 
 const navItems = [
+  { to: '/dashboard', label: 'Panel general', icon: LayoutDashboard },
   { to: '/proyectos', label: 'Proyectos', icon: Building2 },
   { to: '/cartera', label: 'Cartera', icon: Wallet },
   { to: '/contabilidad', label: 'Contabilidad', icon: Calculator },

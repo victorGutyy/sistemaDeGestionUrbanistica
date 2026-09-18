@@ -315,3 +315,50 @@ export function crearPagoNomina(payload: CrearPagoNominaPayload) {
     body: JSON.stringify(payload),
   })
 }
+
+export interface ResumenFilaProyecto {
+  proyectoId: string
+  nombre: string
+  ingresosPorVentas: string
+  ingresosGenerales: string
+  gastos: string
+  cajaNeta: string
+  saldoVencido: string
+  interesMora: string
+  saldoPorVencer: string
+}
+
+export interface ResumenDashboard {
+  periodo: { desde: string | null; hasta: string | null }
+  finanzas: {
+    ingresosPorVentas: string
+    ingresosGenerales: string
+    gastos: string
+    totalIngresos: string
+    cajaNeta: string
+  }
+  cartera: {
+    saldoVencido: string
+    interesMora: string
+    saldoPorVencer: string
+  }
+  porProyecto: ResumenFilaProyecto[]
+}
+
+function construirQueryPeriodo(filtro?: { desde?: string; hasta?: string }) {
+  const params = new URLSearchParams()
+  if (filtro?.desde) params.set('desde', filtro.desde)
+  if (filtro?.hasta) params.set('hasta', filtro.hasta)
+  return params
+}
+
+export function obtenerDashboard(filtro?: { desde?: string; hasta?: string }) {
+  const query = construirQueryPeriodo(filtro).toString()
+  return solicitar<ResumenDashboard>(`/dashboard${query ? `?${query}` : ''}`)
+}
+
+export function urlExportarDashboard(formato: 'pdf' | 'excel', filtro?: { desde?: string; hasta?: string }) {
+  const params = construirQueryPeriodo(filtro)
+  params.set('formato', formato)
+  return `${API_URL}/dashboard/exportar?${params.toString()}`
+}
