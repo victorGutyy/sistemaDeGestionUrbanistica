@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AbonosModule } from './abonos/abonos.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -11,6 +12,7 @@ import { LotesModule } from './lotes/lotes.module.js';
 import { NominaModule } from './nomina/nomina.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProyectosModule } from './proyectos/proyectos.module.js';
+import { RecordatoriosModule } from './recordatorios/recordatorios.module.js';
 import { TrabajadoresModule } from './trabajadores/trabajadores.module.js';
 import { VentasModule } from './ventas/ventas.module.js';
 
@@ -19,6 +21,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     ProyectosModule,
     LotesModule,
@@ -30,6 +33,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     TrabajadoresModule,
     NominaModule,
     DashboardModule,
+    RecordatoriosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

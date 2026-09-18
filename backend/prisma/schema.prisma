@@ -133,16 +133,20 @@ model Venta {
 
 // Una fila del plan de pagos de una Venta financiada.
 model Cuota {
-  id               String      @id @default(uuid())
-  ventaId          String
-  venta            Venta       @relation(fields: [ventaId], references: [id])
-  numero           Int
-  fechaVencimiento DateTime
-  valor            Decimal     @db.Decimal(14, 2)
-  estado           EstadoCuota @default(PENDIENTE)
-  abonos           Abono[]
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  id                    String      @id @default(uuid())
+  ventaId               String
+  venta                 Venta       @relation(fields: [ventaId], references: [id])
+  numero                Int
+  fechaVencimiento      DateTime
+  valor                 Decimal     @db.Decimal(14, 2)
+  estado                EstadoCuota @default(PENDIENTE)
+  abonos                Abono[]
+  // Cuándo se envió el recordatorio de pago de esta cuota (null = todavía
+  // no se ha enviado). Evita que el proceso diario le avise dos veces al
+  // mismo cliente por la misma cuota.
+  recordatorioEnviadoEn DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 
   @@unique([ventaId, numero])
 }
