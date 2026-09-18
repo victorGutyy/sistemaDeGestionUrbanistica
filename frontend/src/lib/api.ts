@@ -171,3 +171,63 @@ export interface ReporteCartera {
 export function obtenerReporteCartera() {
   return solicitar<ReporteCartera>('/cartera/reporte')
 }
+
+export type TipoMovimiento = 'INGRESO' | 'GASTO'
+
+export interface Movimiento {
+  id: string
+  tipo: TipoMovimiento
+  fecha: string
+  valor: string
+  concepto: string
+  proyectoId: string | null
+  proyecto: Proyecto | null
+}
+
+export interface CrearMovimientoPayload {
+  tipo: TipoMovimiento
+  fecha: string
+  valor: string
+  concepto: string
+  proyectoId?: string
+}
+
+export function crearMovimiento(payload: CrearMovimientoPayload) {
+  return solicitar<Movimiento>('/finanzas/movimientos', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function listarMovimientos(filtro?: { desde?: string; hasta?: string }) {
+  const params = new URLSearchParams()
+  if (filtro?.desde) params.set('desde', filtro.desde)
+  if (filtro?.hasta) params.set('hasta', filtro.hasta)
+  const query = params.toString()
+  return solicitar<Movimiento[]>(`/finanzas/movimientos${query ? `?${query}` : ''}`)
+}
+
+export interface ResumenCaja {
+  ingresosPorVentas: string
+  ingresosGenerales: string
+  gastos: string
+  totalIngresos: string
+  cajaNeta: string
+}
+
+export interface ResumenPorProyecto extends ResumenCaja {
+  proyectoId: string
+  nombre: string
+}
+
+export interface ConsolidadoCaja extends ResumenCaja {
+  porProyecto: ResumenPorProyecto[]
+}
+
+export function obtenerConsolidadoCaja(filtro?: { desde?: string; hasta?: string }) {
+  const params = new URLSearchParams()
+  if (filtro?.desde) params.set('desde', filtro.desde)
+  if (filtro?.hasta) params.set('hasta', filtro.hasta)
+  const query = params.toString()
+  return solicitar<ConsolidadoCaja>(`/finanzas/consolidado${query ? `?${query}` : ''}`)
+}
