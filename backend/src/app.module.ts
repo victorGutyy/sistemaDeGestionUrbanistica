@@ -5,6 +5,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { CarteraModule } from './cartera/cartera.module.js';
 import { ClientesModule } from './clientes/clientes.module.js';
+import { FinanzasModule } from './finanzas/finanzas.module.js';
 import { LotesModule } from './lotes/lotes.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProyectosModule } from './proyectos/proyectos.module.js';
@@ -22,6 +23,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     VentasModule,
     AbonosModule,
     CarteraModule,
+    FinanzasModule,
   ],
   controllers: [AppController],
   providers: [AppService],

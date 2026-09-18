@@ -48,18 +48,24 @@ enum MedioPago {
   TARJETA
 }
 
+enum TipoMovimiento {
+  INGRESO
+  GASTO
+}
+
 // Predio de mayor extensión que la empresa compra y subdivide en lotes.
 model Proyecto {
-  id          String         @id @default(uuid())
+  id          String                 @id @default(uuid())
   nombre      String
   ubicacion   String?
-  areaTotal   Decimal        @db.Decimal(12, 2)
-  valorCompra Decimal?       @db.Decimal(14, 2)
+  areaTotal   Decimal                @db.Decimal(12, 2)
+  valorCompra Decimal?               @db.Decimal(14, 2)
   fechaCompra DateTime?
-  estado      EstadoProyecto @default(ACTIVO)
+  estado      EstadoProyecto         @default(ACTIVO)
   lotes       Lote[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  movimientos MovimientoFinanciero[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 }
 
 // Subdivisión individual de un Proyecto, en venta.
@@ -146,4 +152,20 @@ model Abono {
   comprobanteUrl String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+}
+
+// Gasto o ingreso general de la empresa, no ligado necesariamente a un
+// proyecto (arriendo de oficina, venta de un excedente, etc.). Los pagos
+// de clientes por la venta de lotes ya se registran como Abono; no se
+// duplican aquí, el consolidado de caja los suma desde su propia tabla.
+model MovimientoFinanciero {
+  id         String         @id @default(uuid())
+  tipo       TipoMovimiento
+  fecha      DateTime
+  valor      Decimal        @db.Decimal(14, 2)
+  concepto   String
+  proyectoId String?
+  proyecto   Proyecto?      @relation(fields: [proyectoId], references: [id])
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 }
