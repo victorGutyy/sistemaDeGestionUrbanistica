@@ -53,6 +53,17 @@ enum TipoMovimiento {
   GASTO
 }
 
+enum EstadoTrabajador {
+  ACTIVO
+  INACTIVO
+}
+
+enum TipoNovedad {
+  HORAS_EXTRA
+  DESCUENTO
+  INCAPACIDAD
+}
+
 // Predio de mayor extensión que la empresa compra y subdivide en lotes.
 model Proyecto {
   id          String                 @id @default(uuid())
@@ -168,4 +179,53 @@ model MovimientoFinanciero {
   proyecto   Proyecto?      @relation(fields: [proyectoId], references: [id])
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+}
+
+// Empleado de la empresa (no de un proyecto en particular).
+model Trabajador {
+  id           String           @id @default(uuid())
+  nombre       String
+  documento    String           @unique
+  cargo        String
+  salarioBase  Decimal          @db.Decimal(14, 2)
+  fechaIngreso DateTime
+  telefono     String?
+  email        String?
+  estado       EstadoTrabajador @default(ACTIVO)
+  pagos        PagoNomina[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+// Pago de nómina de un Trabajador por un período. salarioBase y
+// valorPagado quedan como una foto de ese momento (igual que Cuota.valor
+// en Ventas): si el salario del trabajador cambia después, los pagos ya
+// hechos no deben cambiar retroactivamente.
+model PagoNomina {
+  id            String          @id @default(uuid())
+  trabajadorId  String
+  trabajador    Trabajador      @relation(fields: [trabajadorId], references: [id])
+  periodoInicio DateTime
+  periodoFin    DateTime
+  salarioBase   Decimal         @db.Decimal(14, 2)
+  valorPagado   Decimal         @db.Decimal(14, 2)
+  fechaPago     DateTime
+  novedades     NovedadNomina[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+// Horas extra, descuento o incapacidad aplicada a un pago de nómina.
+// valor es un monto en pesos, no horas x tarifa: liquidar recargos
+// nocturnos, límites de incapacidad de la EPS, etc. está fuera de este
+// alcance — aquí solo se registra el efecto final en pesos.
+model NovedadNomina {
+  id          String      @id @default(uuid())
+  pagoId      String
+  pago        PagoNomina  @relation(fields: [pagoId], references: [id])
+  tipo        TipoNovedad
+  valor       Decimal     @db.Decimal(14, 2)
+  descripcion String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }

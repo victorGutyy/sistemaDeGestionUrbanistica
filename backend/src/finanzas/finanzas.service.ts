@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoVenta } from '../generated/prisma/enums.js';
+import { EstadoVenta, TipoMovimiento } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { calcularConsolidado, fechaEnRango } from './consolidado.js';
 import { CrearMovimientoDto } from './dto/crear-movimiento.dto.js';
@@ -46,12 +46,13 @@ export class FinanzasService {
   }
 
   async consolidado(filtro: FiltroPeriodoDto) {
-    const [movimientos, ventas, proyectos] = await Promise.all([
+    const [movimientosRegistrados, ventas, pagosNomina, proyectos] = await Promise.all([
       this.prisma.movimientoFinanciero.findMany({ where: { fecha: construirRangoFechas(filtro) } }),
       this.prisma.venta.findMany({
         where: { estado: EstadoVenta.ACTIVA },
         include: { lote: true, abonos: true },
       }),
+      this.prisma.pagoNomina.findMany(),
       this.prisma.proyecto.findMany({ select: { id: true, nombre: true } }),
     ]);
 
@@ -69,6 +70,16 @@ export class FinanzasService {
         }
       }
     }
+
+    // Los pagos de nómina son un gasto real de la empresa, igual que un
+    // MovimientoFinanciero tipo GASTO, pero viven en su propia tabla
+    // (ver Nomina) y no están ligados a ningún proyecto.
+    const movimientos = [
+      ...movimientosRegistrados,
+      ...pagosNomina
+        .filter((pago) => fechaEnRango(pago.fechaPago, filtro))
+        .map((pago) => ({ tipo: TipoMovimiento.GASTO, valor: pago.valorPagado, proyectoId: null })),
+    ];
 
     return calcularConsolidado({ movimientos, abonos, proyectos });
   }
