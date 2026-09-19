@@ -25,7 +25,7 @@ export function AppLayout() {
     <div className="flex min-h-screen bg-slate-50">
       <aside className="flex w-60 flex-col border-r border-slate-200 bg-white">
         <div className="px-5 py-5">
-          <p className="text-sm font-semibold text-slate-900">Sistema Urbanismo</p>
+          <p className="text-sm font-semibold text-slate-900">Urbanix</p>
         </div>
 
         <nav className="flex-1 space-y-1 px-3">

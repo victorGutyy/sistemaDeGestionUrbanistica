@@ -1,4 +1,4 @@
-# Sistema Urbanismo
+# Urbanix
 
 Sistema de gestión para una empresa de urbanismo: compra de predios, subdivisión en lotes, ventas financiadas, cartera y mora, finanzas generales y nómina. Reemplaza el control manual que hoy se lleva en Excel.
 
