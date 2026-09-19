@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ActualizarEstadoProyectoDto } from './dto/actualizar-estado-proyecto.dto.js';
 import { CrearProyectoDto } from './dto/crear-proyecto.dto.js';
 
 @Injectable()
@@ -35,5 +36,17 @@ export class ProyectosService {
       throw new NotFoundException(`No existe el proyecto ${id}`);
     }
     return proyecto;
+  }
+
+  async actualizarEstado(id: string, dto: ActualizarEstadoProyectoDto) {
+    const proyecto = await this.prisma.proyecto.findUnique({ where: { id } });
+    if (!proyecto) {
+      throw new NotFoundException(`No existe el proyecto ${id}`);
+    }
+
+    return this.prisma.proyecto.update({
+      where: { id },
+      data: { estado: dto.estado },
+    });
   }
 }

@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { EstadoProyecto } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CrearLoteDto } from './dto/crear-lote.dto.js';
 import { ListarLotesQueryDto } from './dto/listar-lotes-query.dto.js';
@@ -11,6 +12,9 @@ export class LotesService {
     const proyecto = await this.prisma.proyecto.findUnique({ where: { id: dto.proyectoId } });
     if (!proyecto) {
       throw new NotFoundException(`No existe el proyecto ${dto.proyectoId}`);
+    }
+    if (proyecto.estado === EstadoProyecto.FINALIZADO) {
+      throw new ConflictException(`El proyecto ${proyecto.nombre} ya está finalizado, no admite lotes nuevos`);
     }
 
     const yaExiste = await this.prisma.lote.findUnique({

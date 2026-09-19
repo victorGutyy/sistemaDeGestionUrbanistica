@@ -28,7 +28,7 @@ describe('LotesService.crear', () => {
   });
 
   it('rechaza si el proyecto ya tiene un lote con ese número', async () => {
-    prisma.proyecto.findUnique.mockResolvedValue({ id: 'p-1' });
+    prisma.proyecto.findUnique.mockResolvedValue({ id: 'p-1', estado: 'ACTIVO' });
     prisma.lote.findUnique.mockResolvedValue({ id: 'lote-existente' });
 
     await expect(
@@ -36,8 +36,16 @@ describe('LotesService.crear', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('rechaza agregar un lote a un proyecto ya finalizado', async () => {
+    prisma.proyecto.findUnique.mockResolvedValue({ id: 'p-1', nombre: 'Proyecto Test', estado: 'FINALIZADO' });
+
+    await expect(
+      service.crear({ proyectoId: 'p-1', numero: 'L-1', area: '500', valorVenta: '80000000' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('crea el lote cuando el proyecto existe y el número está libre', async () => {
-    prisma.proyecto.findUnique.mockResolvedValue({ id: 'p-1' });
+    prisma.proyecto.findUnique.mockResolvedValue({ id: 'p-1', estado: 'ACTIVO' });
     prisma.lote.findUnique.mockResolvedValue(null);
     prisma.lote.create.mockResolvedValue({ id: 'lote-nuevo' });
 

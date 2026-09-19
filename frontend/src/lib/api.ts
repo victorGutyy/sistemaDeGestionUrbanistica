@@ -81,6 +81,13 @@ export function obtenerProyecto(id: string) {
   return solicitar<ProyectoConLotes>(`/proyectos/${id}`)
 }
 
+export function actualizarEstadoProyecto(id: string, estado: 'ACTIVO' | 'FINALIZADO') {
+  return solicitar<Proyecto>(`/proyectos/${id}/estado`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado }),
+  })
+}
+
 export interface CrearLotePayload {
   proyectoId: string
   numero: string
