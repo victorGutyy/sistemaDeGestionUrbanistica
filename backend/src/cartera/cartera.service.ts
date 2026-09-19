@@ -25,7 +25,7 @@ export class CarteraService {
       include: {
         ventas: {
           where: { estado: EstadoVenta.ACTIVA },
-          include: { cuotas: { include: { abonos: true } } },
+          include: { cuotas: { include: { abonos: true } }, lote: { include: { proyecto: true } } },
         },
       },
       orderBy: { nombre: 'asc' },
@@ -70,6 +70,13 @@ export class CarteraService {
           saldoVencido,
           interesMora,
           proximaCuota,
+          // Para poder ir directo al seguimiento de cuotas/abonos de cada
+          // venta (VentaDetallePage), sin tener que buscarla aparte.
+          ventas: cliente.ventas.map((venta) => ({
+            id: venta.id,
+            numeroLote: venta.lote.numero,
+            nombreProyecto: venta.lote.proyecto.nombre,
+          })),
         };
       });
   }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   listarCartera,
   obtenerReporteCartera,
@@ -66,12 +67,13 @@ export function CarteraPage() {
               <th className="px-4 py-3 font-medium">Saldo vencido</th>
               <th className="px-4 py-3 font-medium">Interés de mora</th>
               <th className="px-4 py-3 font-medium">Próxima cuota</th>
+              <th className="px-4 py-3 font-medium">Seguimiento</th>
             </tr>
           </thead>
           <tbody>
             {!cargando && filas.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
                   No hay clientes con ventas activas todavía.
                 </td>
               </tr>
@@ -93,6 +95,19 @@ export function CarteraPage() {
                   {fila.proximaCuota
                     ? `#${fila.proximaCuota.numero} · ${fila.proximaCuota.fechaVencimiento.slice(0, 10)}`
                     : '—'}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-col gap-0.5">
+                    {fila.ventas.map((venta) => (
+                      <Link
+                        key={venta.id}
+                        to={`/ventas/${venta.id}`}
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                      >
+                        Lote {venta.numeroLote} ({venta.nombreProyecto})
+                      </Link>
+                    ))}
+                  </div>
                 </td>
               </tr>
             ))}

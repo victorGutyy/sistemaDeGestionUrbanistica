@@ -197,12 +197,19 @@ export function urlComprobante(abonoId: string) {
 
 export type Semaforo = 'VERDE' | 'AMARILLO' | 'ROJO'
 
+export interface VentaDeCartera {
+  id: string
+  numeroLote: string
+  nombreProyecto: string
+}
+
 export interface FilaCartera {
   cliente: Cliente
   semaforo: Semaforo
   saldoVencido: string
   interesMora: string
   proximaCuota: Cuota | null
+  ventas: VentaDeCartera[]
 }
 
 export function listarCartera() {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { actualizarEstadoProyecto, obtenerProyecto, type ProyectoConLotes } from '../lib/api'
+import { calcularAreaDisponible, formatearArea } from '../lib/area'
 
 export function ProyectoDetallePage() {
   const { id } = useParams<{ id: string }>()
@@ -46,6 +47,8 @@ export function ProyectoDetallePage() {
   }
 
   const finalizado = proyecto.estado === 'FINALIZADO'
+  const areaDisponible = calcularAreaDisponible(proyecto.areaTotal, proyecto.lotes)
+  const areaSubdividida = Number(proyecto.areaTotal) - areaDisponible
 
   return (
     <div className="max-w-2xl">
@@ -62,7 +65,7 @@ export function ProyectoDetallePage() {
             </span>
           </div>
           <p className="text-sm text-slate-500">
-            {proyecto.ubicacion ?? 'Sin ubicación registrada'} · Área total: {proyecto.areaTotal} m²
+            {proyecto.ubicacion ?? 'Sin ubicación registrada'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -88,6 +91,29 @@ export function ProyectoDetallePage() {
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
+
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-xs text-slate-500">Área total</p>
+          <p className="mt-1 text-lg font-semibold text-slate-900">{formatearArea(Number(proyecto.areaTotal))} m²</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-xs text-slate-500">Ya subdividida ({proyecto.lotes.length} lote(s))</p>
+          <p className="mt-1 text-lg font-semibold text-slate-900">{formatearArea(areaSubdividida)} m²</p>
+        </div>
+        <div
+          className={`rounded-lg border p-4 ${
+            areaDisponible < 0 ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50'
+          }`}
+        >
+          <p className={`text-xs ${areaDisponible < 0 ? 'text-red-700' : 'text-blue-700'}`}>
+            {areaDisponible < 0 ? 'Área excedida' : 'Área disponible'}
+          </p>
+          <p className={`mt-1 text-lg font-semibold ${areaDisponible < 0 ? 'text-red-900' : 'text-blue-900'}`}>
+            {formatearArea(areaDisponible)} m²
+          </p>
+        </div>
+      </div>
 
       <h2 className="mt-8 text-sm font-semibold text-slate-900">Lotes</h2>
       <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
