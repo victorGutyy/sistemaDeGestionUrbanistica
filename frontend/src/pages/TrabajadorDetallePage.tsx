@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { obtenerTrabajador, type TrabajadorConPagos } from '../lib/api'
 
 const ETIQUETA_NOVEDAD: Record<string, string> = {
@@ -9,6 +10,7 @@ const ETIQUETA_NOVEDAD: Record<string, string> = {
 }
 
 export function TrabajadorDetallePage() {
+  const { puedeEditar } = useAuth()
   const { id } = useParams<{ id: string }>()
   const [trabajador, setTrabajador] = useState<TrabajadorConPagos | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -37,12 +39,14 @@ export function TrabajadorDetallePage() {
             {trabajador.cargo} — {trabajador.documento} · Salario base: ${trabajador.salarioBase}
           </p>
         </div>
-        <Link
-          to={`/trabajadores/${trabajador.id}/pagos/nuevo`}
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Registrar pago
-        </Link>
+        {puedeEditar && (
+          <Link
+            to={`/trabajadores/${trabajador.id}/pagos/nuevo`}
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Registrar pago
+          </Link>
+        )}
       </div>
 
       <h2 className="mt-8 text-sm font-semibold text-slate-900">Pagos de nómina</h2>

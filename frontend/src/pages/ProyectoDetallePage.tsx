@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { actualizarEstadoProyecto, obtenerProyecto, type ProyectoConLotes } from '../lib/api'
 import { calcularAreaDisponible, formatearArea } from '../lib/area'
 
 export function ProyectoDetallePage() {
+  const { usuario, puedeEditar } = useAuth()
   const { id } = useParams<{ id: string }>()
   const [proyecto, setProyecto] = useState<ProyectoConLotes | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -69,15 +71,17 @@ export function ProyectoDetallePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleCambiarEstado}
-            disabled={actualizandoEstado}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            {finalizado ? 'Reactivar proyecto' : 'Marcar como finalizado'}
-          </button>
-          {!finalizado && (
+          {usuario?.rol === 'PROPIETARIO' && (
+            <button
+              type="button"
+              onClick={handleCambiarEstado}
+              disabled={actualizandoEstado}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {finalizado ? 'Reactivar proyecto' : 'Marcar como finalizado'}
+            </button>
+          )}
+          {!finalizado && puedeEditar && (
             <Link
               to={`/proyectos/${proyecto.id}/lotes/nuevo`}
               className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -142,7 +146,7 @@ export function ProyectoDetallePage() {
                 <td className="px-4 py-2">${lote.valorVenta}</td>
                 <td className="px-4 py-2">{lote.estado}</td>
                 <td className="px-4 py-2 text-right">
-                  {lote.estado === 'DISPONIBLE' && (
+                  {lote.estado === 'DISPONIBLE' && puedeEditar && (
                     <Link
                       to={`/ventas/nueva?loteId=${lote.id}`}
                       className="text-sm font-medium text-blue-600 hover:underline"

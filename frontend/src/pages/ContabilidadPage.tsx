@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import {
   listarMovimientos,
   obtenerConsolidadoCaja,
@@ -18,6 +19,7 @@ const ESTILO_TIPO: Record<Movimiento['tipo'], string> = {
 }
 
 export function ContabilidadPage() {
+  const { puedeEditar } = useAuth()
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [consolidado, setConsolidado] = useState<ConsolidadoCaja | null>(null)
@@ -43,12 +45,14 @@ export function ContabilidadPage() {
           <h1 className="text-lg font-semibold text-slate-900">Finanzas generales</h1>
           <p className="text-sm text-slate-500">Gastos e ingresos de la empresa, y consolidado de caja.</p>
         </div>
-        <Link
-          to="/contabilidad/nuevo"
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Registrar movimiento
-        </Link>
+        {puedeEditar && (
+          <Link
+            to="/contabilidad/nuevo"
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Registrar movimiento
+          </Link>
+        )}
       </div>
 
       <div className="mt-4 flex items-end gap-3">

@@ -64,6 +64,30 @@ enum TipoNovedad {
   INCAPACIDAD
 }
 
+enum Rol {
+  PROPIETARIO
+  ADMINISTRADOR
+  CONSULTA
+}
+
+enum EstadoUsuario {
+  ACTIVO
+  INACTIVO
+}
+
+// Cuenta de acceso a la app. No hay registro público: las crea el
+// propietario o un administrador desde la sección de Usuarios.
+model Usuario {
+  id           String        @id @default(uuid())
+  nombre       String
+  email        String        @unique
+  passwordHash String
+  rol          Rol
+  estado       EstadoUsuario @default(ACTIVO)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
 // Predio de mayor extensión que la empresa compra y subdivide en lotes.
 model Proyecto {
   id          String                 @id @default(uuid())

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { listarTrabajadores, type Trabajador } from '../lib/api'
 
 export function NominaPage() {
+  const { puedeEditar } = useAuth()
   const [trabajadores, setTrabajadores] = useState<Trabajador[]>([])
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -21,12 +23,14 @@ export function NominaPage() {
           <h1 className="text-lg font-semibold text-slate-900">Nómina y talento humano</h1>
           <p className="text-sm text-slate-500">Trabajadores de la empresa y sus pagos de nómina.</p>
         </div>
-        <Link
-          to="/trabajadores/nuevo"
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Nuevo trabajador
-        </Link>
+        {puedeEditar && (
+          <Link
+            to="/trabajadores/nuevo"
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Nuevo trabajador
+          </Link>
+        )}
       </div>
 
       {error && (

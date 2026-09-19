@@ -1,17 +1,38 @@
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+const CLAVE_TOKEN = 'sistemaUrbanismo.token'
+
+export function obtenerToken() {
+  return localStorage.getItem(CLAVE_TOKEN)
+}
+
+export function guardarToken(token: string) {
+  localStorage.setItem(CLAVE_TOKEN, token)
+}
+
+export function borrarToken() {
+  localStorage.removeItem(CLAVE_TOKEN)
+}
 
 async function solicitar<T>(path: string, options?: RequestInit): Promise<T> {
   // Si el body es FormData (subida de archivos), no fijamos Content-Type:
   // el navegador debe poner el boundary del multipart él mismo.
   const esFormData = options?.body instanceof FormData
+  const token = obtenerToken()
   const respuesta = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: esFormData ? options?.headers : { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      ...(esFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
   })
 
   if (!respuesta.ok) {
     const cuerpo = await respuesta.json().catch(() => null)
     const mensaje = Array.isArray(cuerpo?.message) ? cuerpo.message.join(', ') : cuerpo?.message
+    if (respuesta.status === 401) {
+      borrarToken()
+    }
     throw new Error(mensaje ?? `Error ${respuesta.status} al llamar ${path}`)
   }
 
@@ -430,4 +451,64 @@ export interface ResultadoRecordatorios {
 
 export function ejecutarRecordatorios() {
   return solicitar<ResultadoRecordatorios>('/recordatorios/ejecutar', { method: 'POST' })
+}
+
+export type Rol = 'PROPIETARIO' | 'ADMINISTRADOR' | 'CONSULTA'
+export type EstadoUsuario = 'ACTIVO' | 'INACTIVO'
+
+export interface UsuarioSesion {
+  id: string
+  nombre: string
+  email: string
+  rol: Rol
+}
+
+export interface RespuestaLogin {
+  accessToken: string
+  usuario: UsuarioSesion
+}
+
+export function login(email: string, password: string) {
+  return solicitar<RespuestaLogin>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+}
+
+export function obtenerPerfil() {
+  return solicitar<UsuarioSesion>('/auth/me')
+}
+
+export interface Usuario {
+  id: string
+  nombre: string
+  email: string
+  rol: Rol
+  estado: EstadoUsuario
+  createdAt: string
+}
+
+export interface CrearUsuarioPayload {
+  nombre: string
+  email: string
+  password: string
+  rol: Rol
+}
+
+export function listarUsuarios() {
+  return solicitar<Usuario[]>('/usuarios')
+}
+
+export function crearUsuario(payload: CrearUsuarioPayload) {
+  return solicitar<Usuario>('/usuarios', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function actualizarEstadoUsuario(id: string, estado: EstadoUsuario) {
+  return solicitar<Usuario>(`/usuarios/${id}/estado`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado }),
+  })
 }

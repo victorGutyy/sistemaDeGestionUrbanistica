@@ -7,6 +7,10 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
+    // El cliente generado de Prisma usa imports "nodenext" (.js que resuelven
+    // a .ts): node por sí solo no sabe resolver eso, así que compilamos con
+    // tsc antes de correr (ver el script "db:seed" en package.json).
+    seed: "npm run db:seed --silent",
   },
   datasource: {
     url: process.env["DATABASE_URL"],
