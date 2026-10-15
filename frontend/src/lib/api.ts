@@ -202,7 +202,7 @@ export interface CrearVentaPayload {
 }
 
 export type EstadoCuota = 'PENDIENTE' | 'PARCIAL' | 'PAGADA'
-export type MedioPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'CHEQUE' | 'TARJETA'
+export type MedioPago = 'EFECTIVO' | 'CONSIGNACION' | 'TRANSFERENCIA' | 'NEQUI' | 'DAVIPLATA' | 'CHEQUE' | 'TARJETA'
 
 export interface Cuota {
   id: string
@@ -296,6 +296,8 @@ export interface FilaReporteCartera {
 }
 
 export interface ReporteCartera {
+  // false = el gerente aún no define la tasa de mora: el interés mostrado es $0 por falta de dato.
+  moraConfigurada: boolean
   porProyecto: FilaReporteCartera[]
   consolidado: { saldoVencido: string; interesMora: string }
 }
@@ -563,4 +565,166 @@ export function actualizarEstadoUsuario(id: string, estado: EstadoUsuario) {
     method: 'PATCH',
     body: JSON.stringify({ estado }),
   })
+}
+
+// ---------- Configuración de la empresa ----------
+
+export interface MarcaPublica {
+  nombreComercial: string
+  nombreProducto: string
+  colorPrimario: string
+  tieneLogo: boolean
+  version: number
+}
+
+// Sin sesión: se pide antes de iniciar sesión para pintar la marca en el ingreso.
+export function obtenerMarcaPublica() {
+  return solicitar<MarcaPublica>('/configuracion/publica')
+}
+
+export function urlLogo(version: number) {
+  return `${API_URL}/configuracion/logo?v=${version}`
+}
+
+export interface EmpresaConfig {
+  razonSocial: string
+  nombreComercial: string
+  nit: string
+  direccion: string | null
+  telefonos: string | null
+  correo: string | null
+  logoRuta: string | null
+  colorPrimario: string
+  textoLegalRecibo: string | null
+  nombreProducto: string
+  // Los porcentajes llegan como texto decimal ("30", "2.5").
+  porcentajeCuotaInicial: string
+  plazoMaximoMeses: number
+  tasaFinanciacionMensual: string
+  tasaMoraMensual: string | null
+  diasGraciaMora: number
+  diasSemaforoAmarillo: number
+  diasAntesRecordatorio: number
+}
+
+export type TipoCuenta = 'AHORROS' | 'CORRIENTE' | 'BILLETERA_DIGITAL'
+export type TipoVendedor = 'ASESOR_INMOBILIARIO' | 'REFERIDO'
+
+export interface CuentaBancaria {
+  id: string
+  banco: string
+  tipo: TipoCuenta
+  numero: string
+  alias: string
+  activa: boolean
+}
+
+export interface MedioPagoConfig {
+  medio: MedioPago
+  etiqueta: string
+  activo: boolean
+}
+
+export interface CategoriaGasto {
+  id: string
+  nombre: string
+  activa: boolean
+  esSistema: boolean
+}
+
+export interface ComisionConfig {
+  tipo: TipoVendedor
+  valor: string
+}
+
+export interface ConfiguracionCompleta {
+  empresa: EmpresaConfig
+  cuentas: CuentaBancaria[]
+  mediosPago: MedioPagoConfig[]
+  categoriasGasto: CategoriaGasto[]
+  comisiones: ComisionConfig[]
+}
+
+export function obtenerConfiguracion() {
+  return solicitar<ConfiguracionCompleta>('/configuracion')
+}
+
+export function listarMediosPago() {
+  return solicitar<MedioPagoConfig[]>('/configuracion/medios-pago')
+}
+
+export interface ActualizarEmpresaPayload {
+  razonSocial: string
+  nombreComercial: string
+  nit: string
+  direccion?: string
+  telefonos?: string
+  correo?: string
+  colorPrimario: string
+  textoLegalRecibo?: string
+}
+
+export function actualizarEmpresa(payload: ActualizarEmpresaPayload) {
+  return solicitar<EmpresaConfig>('/configuracion/empresa', { method: 'PUT', body: JSON.stringify(payload) })
+}
+
+export interface ActualizarParametrosPayload {
+  porcentajeCuotaInicial: number
+  plazoMaximoMeses: number
+  tasaFinanciacionMensual: number
+  tasaMoraMensual: number | null
+  diasGraciaMora: number
+  diasSemaforoAmarillo: number
+  diasAntesRecordatorio: number
+}
+
+export function actualizarParametros(payload: ActualizarParametrosPayload) {
+  return solicitar<EmpresaConfig>('/configuracion/parametros', { method: 'PUT', body: JSON.stringify(payload) })
+}
+
+export function subirLogo(archivo: File) {
+  const formData = new FormData()
+  formData.append('logo', archivo)
+  return solicitar<MarcaPublica>('/configuracion/logo', { method: 'POST', body: formData })
+}
+
+export function quitarLogo() {
+  return solicitar<MarcaPublica>('/configuracion/logo', { method: 'DELETE' })
+}
+
+export interface CuentaPayload {
+  banco: string
+  tipo: TipoCuenta
+  numero: string
+  alias: string
+}
+
+export function crearCuenta(payload: CuentaPayload) {
+  return solicitar<CuentaBancaria>('/configuracion/cuentas', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function actualizarCuenta(id: string, payload: Partial<CuentaPayload> & { activa?: boolean }) {
+  return solicitar<CuentaBancaria>(`/configuracion/cuentas/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export function actualizarMedioPago(medio: MedioPago, activo: boolean) {
+  return solicitar<MedioPagoConfig[]>(`/configuracion/medios-pago/${medio}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ activo }),
+  })
+}
+
+export function crearCategoriaGasto(nombre: string) {
+  return solicitar<CategoriaGasto>('/configuracion/categorias-gasto', { method: 'POST', body: JSON.stringify({ nombre }) })
+}
+
+export function actualizarCategoriaGasto(id: string, payload: { nombre?: string; activa?: boolean }) {
+  return solicitar<CategoriaGasto>(`/configuracion/categorias-gasto/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function actualizarComision(tipo: TipoVendedor, valor: string) {
+  return solicitar<ComisionConfig>(`/configuracion/comisiones/${tipo}`, { method: 'PUT', body: JSON.stringify({ valor }) })
 }

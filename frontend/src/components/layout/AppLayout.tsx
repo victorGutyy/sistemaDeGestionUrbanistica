@@ -1,8 +1,10 @@
-import { Building2, Calculator, LayoutDashboard, LogOut, Menu, Shield, Users, Wallet, X } from 'lucide-react'
+import { Building2, Calculator, LayoutDashboard, LogOut, Menu, Settings, Shield, Users, Wallet, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useEmpresa } from '../../contexts/EmpresaContext'
 import { cn } from '../../lib/utils'
+import { LogoEmpresa } from '../LogoEmpresa'
 
 const navItems = [
   { to: '/dashboard', label: 'Panel general', icon: LayoutDashboard },
@@ -20,8 +22,14 @@ const ETIQUETA_ROL: Record<string, string> = {
 
 export function AppLayout() {
   const { usuario, logout } = useAuth()
+  const { marca } = useEmpresa()
   const [menuAbierto, setMenuAbierto] = useState(false)
-  const items = usuario?.rol === 'PROPIETARIO' ? [...navItems, { to: '/usuarios', label: 'Usuarios', icon: Shield }] : navItems
+  const items =
+    usuario?.rol === 'PROPIETARIO'
+      ? [...navItems, { to: '/usuarios', label: 'Usuarios', icon: Shield }, { to: '/configuracion', label: 'Configuración', icon: Settings }]
+      : navItems
+  // Nombre que se muestra en pantalla: el de la empresa; si aún no hay, el del producto.
+  const nombreMarca = marca.nombreComercial || marca.nombreProducto
 
   return (
     <div className="min-h-screen bg-slate-50 md:flex">
@@ -35,7 +43,8 @@ export function AppLayout() {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <p className="text-sm font-semibold text-slate-900">Urbanix</p>
+        <LogoEmpresa className="h-7 w-7 shrink-0" />
+        <p className="truncate text-sm font-semibold text-slate-900">{nombreMarca}</p>
       </header>
 
       {/* Fondo oscuro detrás del menú en celular */}
@@ -50,7 +59,13 @@ export function AppLayout() {
         )}
       >
         <div className="flex items-center justify-between px-5 py-5">
-          <p className="text-sm font-semibold text-slate-900">Urbanix</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <LogoEmpresa className="h-8 w-8 shrink-0" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">{nombreMarca}</p>
+              {marca.nombreComercial && <p className="truncate text-xs text-slate-400">{marca.nombreProducto}</p>}
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => setMenuAbierto(false)}

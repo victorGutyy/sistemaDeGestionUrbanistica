@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { LogoEmpresa } from '../components/LogoEmpresa'
 import { useAuth } from '../contexts/AuthContext'
+import { useEmpresa } from '../contexts/EmpresaContext'
 
 export function LoginPage() {
   const { usuario, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { marca } = useEmpresa()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,7 +38,9 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-semibold text-slate-900">Urbanix</h1>
+        <LogoEmpresa className="h-14 w-14" />
+        <h1 className="mt-4 text-xl font-semibold text-slate-900">{marca.nombreComercial || marca.nombreProducto}</h1>
+        {marca.nombreComercial && <p className="text-xs text-slate-400">{marca.nombreProducto}</p>}
         <p className="mt-1 text-sm text-slate-500">Ingresa con tu cuenta para continuar.</p>
 
         {error && (

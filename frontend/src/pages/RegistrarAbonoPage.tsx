@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { crearAbono, obtenerVenta, type MedioPago, type Venta } from '../lib/api'
+import { crearAbono, listarMediosPago, obtenerVenta, type MedioPago, type MedioPagoConfig, type Venta } from '../lib/api'
 import { formatearCOP, formatearFecha, hoyEnBogota } from '../lib/formato'
 
 export function RegistrarAbonoPage() {
@@ -16,13 +16,18 @@ export function RegistrarAbonoPage() {
   const [cuotaId, setCuotaId] = useState(searchParams.get('cuotaId') ?? '')
   const [fecha, setFecha] = useState(() => hoyEnBogota())
   const [valor, setValor] = useState('')
-  const [medioPago, setMedioPago] = useState<MedioPago>('EFECTIVO')
+  const [mediosPago, setMediosPago] = useState<MedioPagoConfig[]>([])
+  const [medioPago, setMedioPago] = useState<MedioPago | ''>('')
   const [comprobante, setComprobante] = useState<File | null>(null)
 
   useEffect(() => {
     if (!ventaId) return
-    obtenerVenta(ventaId)
-      .then((data) => {
+    Promise.all([obtenerVenta(ventaId), listarMediosPago()])
+      .then(([data, medios]) => {
+        // Solo los medios que el gerente tiene habilitados.
+        const activos = medios.filter((m) => m.activo)
+        setMediosPago(activos)
+        setMedioPago((actual) => actual || (activos[0]?.medio ?? ''))
         setVenta(data)
         const cuotaPreseleccionada = data.cuotas.find((c) => c.id === cuotaId)
         if (cuotaPreseleccionada) {
@@ -53,6 +58,7 @@ export function RegistrarAbonoPage() {
       if (cuotaId) formData.append('cuotaId', cuotaId)
       formData.append('fecha', fecha)
       formData.append('valor', valor)
+      if (!medioPago) throw new Error('No hay medios de pago habilitados')
       formData.append('medioPago', medioPago)
       if (comprobante) formData.append('comprobante', comprobante)
 
@@ -145,10 +151,11 @@ export function RegistrarAbonoPage() {
             onChange={(event) => setMedioPago(event.target.value as MedioPago)}
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           >
-            <option value="EFECTIVO">Efectivo</option>
-            <option value="TRANSFERENCIA">Transferencia</option>
-            <option value="CHEQUE">Cheque</option>
-            <option value="TARJETA">Tarjeta</option>
+            {mediosPago.map((m) => (
+              <option key={m.medio} value={m.medio}>
+                {m.etiqueta}
+              </option>
+            ))}
           </select>
         </div>
 

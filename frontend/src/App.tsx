@@ -2,7 +2,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './contexts/AuthContext'
+import { EmpresaProvider } from './contexts/EmpresaContext'
 import { CarteraPage } from './pages/CarteraPage'
+import { ConfiguracionPage } from './pages/ConfiguracionPage'
 import { ContabilidadPage } from './pages/ContabilidadPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
@@ -23,6 +25,7 @@ import { VentaDetallePage } from './pages/VentaDetallePage'
 
 function App() {
   return (
+    <EmpresaProvider>
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -47,10 +50,12 @@ function App() {
             <Route path="/trabajadores/:id" element={<TrabajadorDetallePage />} />
             <Route path="/usuarios" element={<UsuariosPage />} />
             <Route path="/usuarios/nuevo" element={<RegistrarUsuarioPage />} />
+            <Route path="/configuracion" element={<ConfiguracionPage />} />
           </Route>
         </Route>
       </Routes>
     </AuthProvider>
+    </EmpresaProvider>
   )
 }
 

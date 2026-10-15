@@ -46,6 +46,12 @@ export function CarteraPage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
+      {reporte && !reporte.moraConfigurada && (
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          La tasa de mora aún no está definida: el interés de mora se muestra en $0 por falta de dato, no porque nadie esté en mora. El gerente puede definirla en Configuración.
+        </div>
+      )}
+
       {reporte && (
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-slate-200 bg-white p-4">

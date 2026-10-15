@@ -19,7 +19,10 @@ const ESTILO_ESTADO_CUOTA: Record<EstadoCuota, string> = {
 
 const ETIQUETA_MEDIO_PAGO: Record<Abono['medioPago'], string> = {
   EFECTIVO: 'Efectivo',
+  CONSIGNACION: 'Consignación',
   TRANSFERENCIA: 'Transferencia',
+  NEQUI: 'Nequi',
+  DAVIPLATA: 'Daviplata',
   CHEQUE: 'Cheque',
   TARJETA: 'Tarjeta',
 }
