@@ -1,12 +1,19 @@
 import ExcelJS from 'exceljs';
+import { formatearFechaISO } from '../common/formato.util.js';
+import type { EmpresaParaReporte } from './generar-pdf.js';
 import type { ResumenDashboard } from './resumen-dashboard.js';
 
-export async function generarExcelResumen(resumen: ResumenDashboard): Promise<Buffer> {
+export async function generarExcelResumen(resumen: ResumenDashboard, empresa: EmpresaParaReporte): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const hoja = workbook.addWorksheet('Resumen general');
 
-  hoja.addRow(['Reporte general']);
-  hoja.addRow([`Período: ${resumen.periodo.desde ?? 'inicio'} a ${resumen.periodo.hasta ?? 'hoy'}`]);
+  hoja.addRow([empresa.nombreComercial]).font = { bold: true, size: 14 };
+  hoja.addRow([`${empresa.razonSocial} · NIT ${empresa.nit}`]);
+  hoja.addRow([]);
+  hoja.addRow(['Reporte general']).font = { bold: true };
+  hoja.addRow([
+    `Período: ${resumen.periodo.desde ? formatearFechaISO(resumen.periodo.desde) : 'inicio'} a ${resumen.periodo.hasta ? formatearFechaISO(resumen.periodo.hasta) : 'hoy'}`,
+  ]);
   hoja.addRow([]);
 
   hoja.addRow(['Finanzas']).font = { bold: true };

@@ -1,26 +1,36 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota, EstadoVenta } from '../generated/prisma/enums.js';
+import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   calcularDiasHastaVencer,
   calcularSemaforo,
   evaluarCuotaPendiente,
+  type ParametrosMora,
   type Semaforo,
 } from './mora.js';
 
-// Configuración de negocio, no un secreto: por eso vive en el mismo .env
-// que el resto, pero se lee aparte de ConfigService porque estas dos
-// constantes se necesitan también en cálculos que no pasan por Nest DI
-// (los tests unitarios de mora.ts, por ejemplo).
-const TASA_MORA_MENSUAL = new Prisma.Decimal(process.env.MORA_TASA_MENSUAL ?? '3');
-const DIAS_ALERTA_AMARILLA = Number(process.env.MORA_DIAS_ALERTA_AMARILLA ?? 5);
-
 @Injectable()
 export class CarteraService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configuracion: ConfiguracionService,
+  ) {}
+
+  // La tasa de mora, los días de gracia y los días del semáforo los define el
+  // gerente en Configuración: se leen en cada cálculo, no al arrancar.
+  private async leerParametros() {
+    const empresa = await this.configuracion.obtenerEmpresa();
+    const mora: ParametrosMora = {
+      tasaMoraMensual: empresa.tasaMoraMensual,
+      diasGracia: empresa.diasGraciaMora,
+    };
+    return { mora, diasAlertaAmarilla: empresa.diasSemaforoAmarillo };
+  }
 
   async listarPorCliente() {
+    const { mora, diasAlertaAmarilla } = await this.leerParametros();
     const clientes = await this.prisma.cliente.findMany({
       include: {
         ventas: {
@@ -44,7 +54,7 @@ export class CarteraService {
         let interesMora = new Prisma.Decimal(0);
 
         for (const cuota of cuotasPendientes) {
-          const evaluacion = evaluarCuotaPendiente(cuota, cuota.abonos, hoy, TASA_MORA_MENSUAL);
+          const evaluacion = evaluarCuotaPendiente(cuota, cuota.abonos, hoy, mora);
           if (evaluacion?.vencida) {
             saldoVencido = saldoVencido.plus(evaluacion.saldo);
             interesMora = interesMora.plus(evaluacion.interesMora);
@@ -56,7 +66,7 @@ export class CarteraService {
             fechaVencimiento: cuota.fechaVencimiento,
             diasHastaVencer: calcularDiasHastaVencer(cuota.fechaVencimiento, hoy),
           })),
-          DIAS_ALERTA_AMARILLA,
+          diasAlertaAmarilla,
         );
 
         const proximaCuota =
@@ -82,6 +92,7 @@ export class CarteraService {
   }
 
   async reportePorProyecto() {
+    const { mora } = await this.leerParametros();
     const proyectos = await this.prisma.proyecto.findMany({
       include: {
         lotes: {
@@ -109,7 +120,7 @@ export class CarteraService {
       for (const lote of proyecto.lotes) {
         for (const venta of lote.ventas) {
           for (const cuota of venta.cuotas) {
-            const evaluacion = evaluarCuotaPendiente(cuota, cuota.abonos, hoy, TASA_MORA_MENSUAL);
+            const evaluacion = evaluarCuotaPendiente(cuota, cuota.abonos, hoy, mora);
             if (!evaluacion) continue;
 
             if (evaluacion.vencida) {
@@ -130,6 +141,9 @@ export class CarteraService {
     });
 
     return {
+      // false = el gerente todavía no define la tasa de mora: el interés
+      // mostrado es $0 por falta de dato, no porque nadie deba nada.
+      moraConfigurada: mora.tasaMoraMensual !== null,
       porProyecto,
       consolidado: {
         saldoVencido: saldoVencidoConsolidado,

@@ -1,7 +1,14 @@
 import PDFDocument from 'pdfkit';
+import { formatearCOP, formatearFechaISO } from '../common/formato.util.js';
 import type { ResumenDashboard } from './resumen-dashboard.js';
 
-export function generarPdfResumen(resumen: ResumenDashboard): Promise<Buffer> {
+export interface EmpresaParaReporte {
+  nombreComercial: string;
+  razonSocial: string;
+  nit: string;
+}
+
+export function generarPdfResumen(resumen: ResumenDashboard, empresa: EmpresaParaReporte): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const documento = new PDFDocument({ margin: 40 });
     const trozos: Buffer[] = [];
@@ -9,31 +16,39 @@ export function generarPdfResumen(resumen: ResumenDashboard): Promise<Buffer> {
     documento.on('end', () => resolve(Buffer.concat(trozos)));
     documento.on('error', reject);
 
+    documento.fontSize(14).font('Helvetica-Bold').text(empresa.nombreComercial, { align: 'center' });
+    documento
+      .fontSize(9)
+      .font('Helvetica')
+      .text(`${empresa.razonSocial} · NIT ${empresa.nit}`, { align: 'center' });
+    documento.moveDown();
+
     documento.fontSize(18).text('Reporte general', { align: 'center' });
     documento.moveDown(0.5);
     documento
       .fontSize(10)
-      .text(`Período: ${resumen.periodo.desde ?? 'inicio'} a ${resumen.periodo.hasta ?? 'hoy'}`, {
-        align: 'center',
-      });
+      .text(
+        `Período: ${resumen.periodo.desde ? formatearFechaISO(resumen.periodo.desde) : 'inicio'} a ${resumen.periodo.hasta ? formatearFechaISO(resumen.periodo.hasta) : 'hoy'}`,
+        { align: 'center' },
+      );
     documento.moveDown();
 
     documento.fontSize(14).text('Finanzas');
     documento
       .fontSize(10)
-      .text(`Ingresos por ventas: $${resumen.finanzas.ingresosPorVentas.toString()}`)
-      .text(`Ingresos generales: $${resumen.finanzas.ingresosGenerales.toString()}`)
-      .text(`Gastos: $${resumen.finanzas.gastos.toString()}`)
-      .text(`Total ingresos: $${resumen.finanzas.totalIngresos.toString()}`)
-      .text(`Caja neta: $${resumen.finanzas.cajaNeta.toString()}`);
+      .text(`Ingresos por ventas: ${formatearCOP(resumen.finanzas.ingresosPorVentas)}`)
+      .text(`Ingresos generales: ${formatearCOP(resumen.finanzas.ingresosGenerales)}`)
+      .text(`Gastos: ${formatearCOP(resumen.finanzas.gastos)}`)
+      .text(`Total ingresos: ${formatearCOP(resumen.finanzas.totalIngresos)}`)
+      .text(`Caja neta: ${formatearCOP(resumen.finanzas.cajaNeta)}`);
     documento.moveDown();
 
     documento.fontSize(14).text('Cartera');
     documento
       .fontSize(10)
-      .text(`Cartera vencida: $${resumen.cartera.saldoVencido.toString()}`)
-      .text(`Cartera por vencer: $${resumen.cartera.saldoPorVencer.toString()}`)
-      .text(`Interés de mora: $${resumen.cartera.interesMora.toString()}`);
+      .text(`Cartera vencida: ${formatearCOP(resumen.cartera.saldoVencido)}`)
+      .text(`Cartera por vencer: ${formatearCOP(resumen.cartera.saldoPorVencer)}`)
+      .text(`Interés de mora: ${formatearCOP(resumen.cartera.interesMora)}`);
     documento.moveDown();
 
     documento.fontSize(14).text('Por proyecto');
@@ -48,7 +63,7 @@ export function generarPdfResumen(resumen: ResumenDashboard): Promise<Buffer> {
         .text(fila.nombre)
         .font('Helvetica')
         .text(
-          `Caja neta: $${fila.cajaNeta.toString()}  ·  Cartera vencida: $${fila.saldoVencido.toString()}  ·  Por vencer: $${fila.saldoPorVencer.toString()}`,
+          `Caja neta: ${formatearCOP(fila.cajaNeta)}  ·  Cartera vencida: ${formatearCOP(fila.saldoVencido)}  ·  Por vencer: ${formatearCOP(fila.saldoPorVencer)}`,
         );
     }
 

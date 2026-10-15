@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota } from '../generated/prisma/enums.js';
+import type { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import type { EmailService } from '../email/email.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { RecordatoriosService } from './recordatorios.service.js';
@@ -13,6 +14,14 @@ function crearPrismaFalso() {
 }
 
 const HOY = new Date();
+
+const EMPRESA = {
+  nombreComercial: 'Empresa de Prueba',
+  colorPrimario: '#2563eb',
+  telefonos: null,
+  correo: null,
+  diasAntesRecordatorio: 3,
+};
 
 function cuotaQueVenceEn(dias: number, overrides: Partial<{ estado: EstadoCuota; recordatorioEnviadoEn: Date | null }> = {}) {
   const fecha = new Date(HOY);
@@ -30,12 +39,18 @@ function cuotaQueVenceEn(dias: number, overrides: Partial<{ estado: EstadoCuota;
 describe('RecordatoriosService.enviarRecordatoriosPendientes', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>;
   let email: { enviar: ReturnType<typeof vi.fn> };
+  let configuracion: { obtenerEmpresa: ReturnType<typeof vi.fn> };
   let service: RecordatoriosService;
 
   beforeEach(() => {
     prisma = crearPrismaFalso();
     email = { enviar: vi.fn() };
-    service = new RecordatoriosService(prisma as unknown as PrismaService, email as unknown as EmailService);
+    configuracion = { obtenerEmpresa: vi.fn().mockResolvedValue(EMPRESA) };
+    service = new RecordatoriosService(
+      prisma as unknown as PrismaService,
+      email as unknown as EmailService,
+      configuracion as unknown as ConfiguracionService,
+    );
   });
 
   it('envía el correo y marca la cuota cuando el cliente tiene email y la cuota está en la ventana de aviso', async () => {
@@ -91,5 +106,49 @@ describe('RecordatoriosService.enviarRecordatoriosPendientes', () => {
 
     expect(email.enviar).not.toHaveBeenCalled();
     expect(resultado.enviados).toBe(0);
+  });
+
+  it('usa los días de aviso que el gerente configuró (7 días: avisa una cuota que vence en 6)', async () => {
+    configuracion.obtenerEmpresa.mockResolvedValue({ ...EMPRESA, diasAntesRecordatorio: 7 });
+    prisma.venta.findMany.mockResolvedValue([
+      {
+        cliente: { email: 'cliente@test.com', nombre: 'Ana' },
+        lote: { numero: 'L-1', proyecto: { nombre: 'Proyecto Test' } },
+        cuotas: [cuotaQueVenceEn(6)],
+      },
+    ]);
+
+    const resultado = await service.enviarRecordatoriosPendientes();
+
+    expect(resultado.enviados).toBe(1);
+  });
+
+  it('con 3 días configurados no avisa una cuota que vence en 6', async () => {
+    prisma.venta.findMany.mockResolvedValue([
+      {
+        cliente: { email: 'cliente@test.com', nombre: 'Ana' },
+        lote: { numero: 'L-1', proyecto: { nombre: 'Proyecto Test' } },
+        cuotas: [cuotaQueVenceEn(6)],
+      },
+    ]);
+
+    const resultado = await service.enviarRecordatoriosPendientes();
+
+    expect(resultado.enviados).toBe(0);
+  });
+
+  it('pone el nombre y el color de la empresa configurada en el correo', async () => {
+    prisma.venta.findMany.mockResolvedValue([
+      {
+        cliente: { email: 'cliente@test.com', nombre: 'Ana' },
+        lote: { numero: 'L-1', proyecto: { nombre: 'Proyecto Test' } },
+        cuotas: [cuotaQueVenceEn(2)],
+      },
+    ]);
+
+    await service.enviarRecordatoriosPendientes();
+
+    const { html } = email.enviar.mock.calls[0][0] as { html: string };
+    expect(html).toContain('Empresa de Prueba');
   });
 });

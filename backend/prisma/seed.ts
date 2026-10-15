@@ -1,40 +1,98 @@
-// Siembra la primera cuenta PROPIETARIO. No hay registro público: esta es
-// la única forma de crear el primer usuario; el resto se crean desde la
-// sección "Usuarios" de la app (solo visible para el propietario).
+// Siembra los datos iniciales. Es seguro correrlo varias veces: nunca pisa lo
+// que el gerente ya editó en la app (solo crea lo que falta).
 //
-// Uso: completa SEED_ADMIN_NOMBRE/EMAIL/PASSWORD en .env y corre
-// `npx prisma db seed`. Después borra esas tres variables del .env: ya
-// quedó la cuenta creada en la base de datos, no hace falta dejarlas.
+// 1) Configuración inicial de la empresa (prisma/semillas/empresa-balder.ts):
+//    datos de la empresa, parámetros, cuentas, categorías, medios de pago y
+//    comisiones.
+// 2) Primera cuenta de mayor nivel (PROPIETARIO, luego GERENTE), solo si
+//    están SEED_ADMIN_NOMBRE/EMAIL/PASSWORD en .env. No hay registro público:
+//    esta es la única forma de crear el primer usuario; el resto se crean
+//    desde la sección "Usuarios" de la app. Después de correrlo borra esas
+//    tres variables del .env.
+//
+// Uso: `npx prisma db seed`
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
-import { PrismaClient } from '../src/generated/prisma/client.js';
-
-const nombre = process.env.SEED_ADMIN_NOMBRE;
-const email = process.env.SEED_ADMIN_EMAIL;
-const password = process.env.SEED_ADMIN_PASSWORD;
-
-if (!nombre || !email || !password) {
-  console.error('Faltan SEED_ADMIN_NOMBRE, SEED_ADMIN_EMAIL o SEED_ADMIN_PASSWORD en .env');
-  process.exit(1);
-}
-
-if (password.length < 8) {
-  console.error('SEED_ADMIN_PASSWORD debe tener al menos 8 caracteres');
-  process.exit(1);
-}
+import { MEDIOS_ACTIVOS_POR_DEFECTO } from '../src/configuracion/configuracion.service.js';
+import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
+import { MedioPago } from '../src/generated/prisma/enums.js';
+import { CATEGORIAS_GASTO, COMISIONES, CUENTAS, EMPRESA, PARAMETROS } from './semillas/empresa-balder.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
-const passwordHash = await bcrypt.hash(password, 12);
+async function sembrarConfiguracion() {
+  // update vacío: si la fila ya existe (el gerente la editó) no se toca.
+  await prisma.configuracionEmpresa.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      ...EMPRESA,
+      ...PARAMETROS,
+      porcentajeCuotaInicial: new Prisma.Decimal(PARAMETROS.porcentajeCuotaInicial),
+      tasaFinanciacionMensual: new Prisma.Decimal(PARAMETROS.tasaFinanciacionMensual),
+      tasaMoraMensual: PARAMETROS.tasaMoraMensual === null ? null : new Prisma.Decimal(PARAMETROS.tasaMoraMensual),
+    },
+  });
 
-const usuario = await prisma.usuario.upsert({
-  where: { email },
-  update: { nombre, passwordHash, rol: 'PROPIETARIO', estado: 'ACTIVO' },
-  create: { nombre, email, passwordHash, rol: 'PROPIETARIO' },
-  select: { id: true, nombre: true, email: true, rol: true },
-});
+  for (const cuenta of CUENTAS) {
+    await prisma.cuentaBancaria.upsert({
+      where: { banco_numero: { banco: cuenta.banco, numero: cuenta.numero } },
+      update: {},
+      create: { ...cuenta, activa: false },
+    });
+  }
 
-console.log('Usuario propietario listo:', usuario);
+  for (const categoria of CATEGORIAS_GASTO) {
+    await prisma.categoriaGasto.upsert({ where: { nombre: categoria.nombre }, update: {}, create: categoria });
+  }
 
-await prisma.$disconnect();
+  await prisma.medioPagoConfig.createMany({
+    data: Object.values(MedioPago).map((medio) => ({ medio, activo: MEDIOS_ACTIVOS_POR_DEFECTO[medio] })),
+    skipDuplicates: true,
+  });
+
+  await prisma.comisionTipoVendedor.createMany({
+    data: COMISIONES.map((c) => ({ tipo: c.tipo, valor: new Prisma.Decimal(c.valor) })),
+    skipDuplicates: true,
+  });
+
+  console.log('Configuración inicial lista (empresa, parámetros, cuentas, categorías, medios de pago, comisiones).');
+}
+
+async function sembrarUsuarioInicial() {
+  const nombre = process.env.SEED_ADMIN_NOMBRE;
+  const email = process.env.SEED_ADMIN_EMAIL;
+  const password = process.env.SEED_ADMIN_PASSWORD;
+
+  if (!nombre && !email && !password) {
+    console.log('Sin SEED_ADMIN_*: no se crea ni se modifica ningún usuario.');
+    return;
+  }
+  if (!nombre || !email || !password) {
+    throw new Error('Faltan SEED_ADMIN_NOMBRE, SEED_ADMIN_EMAIL o SEED_ADMIN_PASSWORD en .env');
+  }
+  if (password.length < 8) {
+    throw new Error('SEED_ADMIN_PASSWORD debe tener al menos 8 caracteres');
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const usuario = await prisma.usuario.upsert({
+    where: { email },
+    update: { nombre, passwordHash, rol: 'PROPIETARIO', estado: 'ACTIVO' },
+    create: { nombre, email, passwordHash, rol: 'PROPIETARIO' },
+    select: { id: true, nombre: true, email: true, rol: true },
+  });
+  console.log('Usuario de mayor nivel listo:', usuario);
+}
+
+try {
+  await sembrarConfiguracion();
+  await sembrarUsuarioInicial();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+} finally {
+  await prisma.$disconnect();
+}

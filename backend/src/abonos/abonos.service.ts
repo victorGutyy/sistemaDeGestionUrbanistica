@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota } from '../generated/prisma/enums.js';
+import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CrearAbonoDto } from './dto/crear-abono.dto.js';
@@ -18,6 +19,7 @@ export class AbonosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly configuracion: ConfiguracionService,
   ) {}
 
   async crear(dto: CrearAbonoDto, comprobante?: Express.Multer.File) {
@@ -25,6 +27,8 @@ export class AbonosService {
     if (!venta) {
       throw new NotFoundException(`No existe la venta ${dto.ventaId}`);
     }
+
+    await this.configuracion.exigirMedioPagoActivo(dto.medioPago);
 
     if (dto.cuotaId) {
       const cuota = await this.prisma.cuota.findUnique({ where: { id: dto.cuotaId } });

@@ -10,7 +10,7 @@ import { AppModule } from '../src/app.module.js';
 
 const ID = '00000000-0000-0000-0000-000000000000';
 
-const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'patch', ruta: string][] = [
+const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch', ruta: string][] = [
   ['get', '/'],
   ['get', '/auth/me'],
   ['get', '/usuarios'],
@@ -45,6 +45,16 @@ const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'patch', ruta: string][] = [
   ['get', '/dashboard'],
   ['get', '/dashboard/exportar?formato=pdf'],
   ['post', '/recordatorios/ejecutar'],
+  ['get', '/configuracion'],
+  ['put', '/configuracion/empresa'],
+  ['put', '/configuracion/parametros'],
+  ['post', '/configuracion/logo'],
+  ['post', '/configuracion/cuentas'],
+  ['patch', `/configuracion/cuentas/${ID}`],
+  ['get', '/configuracion/medios-pago'],
+  ['patch', '/configuracion/medios-pago/EFECTIVO'],
+  ['post', '/configuracion/categorias-gasto'],
+  ['put', '/configuracion/comisiones/REFERIDO'],
 ];
 
 describe('Seguridad básica (e2e)', () => {
@@ -63,6 +73,13 @@ describe('Seguridad básica (e2e)', () => {
 
   it.each(RUTAS_PROTEGIDAS)('%s %s rechaza una petición sin sesión con 401', async (metodo, ruta) => {
     await request(app.getHttpServer())[metodo](ruta).expect(401);
+  });
+
+  it('la marca pública (nombre, color) es accesible sin sesión y no expone datos sensibles', async () => {
+    const respuesta = await request(app.getHttpServer()).get('/configuracion/publica').expect(200);
+    expect(respuesta.body).toHaveProperty('nombreComercial');
+    expect(respuesta.body).toHaveProperty('colorPrimario');
+    expect(respuesta.body).not.toHaveProperty('nit');
   });
 
   it('rechaza un token inventado con 401', async () => {

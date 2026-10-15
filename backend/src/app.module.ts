@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { RolesGuard } from './auth/roles.guard.js';
 import { CarteraModule } from './cartera/cartera.module.js';
 import { ClientesModule } from './clientes/clientes.module.js';
+import { ConfiguracionModule } from './configuracion/configuracion.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { FinanzasModule } from './finanzas/finanzas.module.js';
 import { LotesModule } from './lotes/lotes.module.js';
@@ -30,6 +31,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     PrismaModule,
     AuthModule,
     UsuariosModule,
+    ConfiguracionModule,
     ProyectosModule,
     LotesModule,
     ClientesModule,

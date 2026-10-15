@@ -1,13 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ZONA_HORARIA } from '../common/zona-horaria.js';
+import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { EmailService } from '../email/email.service.js';
 import { EstadoVenta } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { generarHtmlRecordatorio } from './plantilla-correo.js';
 import { necesitaRecordatorio } from './recordatorio.js';
-
-const DIAS_ANTES = Number(process.env.RECORDATORIO_DIAS_ANTES ?? 3);
 
 export interface ResultadoRecordatorios {
   enviados: number;
@@ -21,6 +20,7 @@ export class RecordatoriosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly configuracion: ConfiguracionService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM, { timeZone: ZONA_HORARIA })
@@ -33,6 +33,8 @@ export class RecordatoriosService {
 
   async enviarRecordatoriosPendientes(): Promise<ResultadoRecordatorios> {
     const hoy = new Date();
+    const empresa = await this.configuracion.obtenerEmpresa();
+    const diasAntes = empresa.diasAntesRecordatorio;
 
     const ventas = await this.prisma.venta.findMany({
       where: { estado: EstadoVenta.ACTIVA },
@@ -48,7 +50,7 @@ export class RecordatoriosService {
 
     for (const venta of ventas) {
       for (const cuota of venta.cuotas) {
-        if (!necesitaRecordatorio(cuota, DIAS_ANTES, hoy)) {
+        if (!necesitaRecordatorio(cuota, diasAntes, hoy)) {
           continue;
         }
 
@@ -67,6 +69,12 @@ export class RecordatoriosService {
             numeroCuota: cuota.numero,
             fechaVencimiento: cuota.fechaVencimiento,
             valor: cuota.valor,
+            empresa: {
+              nombreComercial: empresa.nombreComercial,
+              colorPrimario: empresa.colorPrimario,
+              telefonos: empresa.telefonos,
+              correo: empresa.correo,
+            },
           }),
         });
 

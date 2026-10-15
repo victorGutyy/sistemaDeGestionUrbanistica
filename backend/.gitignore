@@ -10,3 +10,6 @@ dist
 # Comprobantes subidos por los usuarios: son datos, no código.
 /uploads/*
 !/uploads/.gitkeep
+
+# Respaldos de la base (pg_dump): contienen datos de clientes, nunca van a Git.
+/respaldos/

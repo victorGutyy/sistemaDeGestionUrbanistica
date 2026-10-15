@@ -34,6 +34,8 @@ npm run start:dev
 
 La API queda escuchando en `http://localhost:3000` (puerto configurable con `PORT` en `.env`).
 
+**Datos iniciales.** `npx prisma db seed` (desde `backend/`) carga la configuración inicial de la empresa desde `backend/prisma/semillas/empresa-balder.ts` (datos de la empresa, parámetros, categorías de gasto, medios de pago, comisiones y cuentas inactivas "POR CONFIGURAR"); es seguro repetirlo porque nunca pisa lo que el gerente ya editó en la app. Para cambiar de cliente se edita ese archivo y el gerente ajusta el resto desde Configuración.
+
 **Primer usuario.** No hay registro público, así que la primera cuenta se siembra: completa `SEED_ADMIN_NOMBRE`, `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` (mínimo 8 caracteres) en `backend/.env`, corre `npx prisma db seed` y luego borra esas tres líneas del `.env`. Esa cuenta queda con el rol de mayor nivel; las demás se crean desde la sección Usuarios.
 
 **Comprobar que todo está sano:**

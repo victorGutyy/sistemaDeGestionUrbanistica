@@ -42,14 +42,24 @@ export interface ResultadoCuotaPendiente {
   interesMora: Prisma.Decimal;
 }
 
+export interface ParametrosMora {
+  /** Tasa mensual en porcentaje, o null si el gerente todavía no la define (no se cobra interés). */
+  tasaMoraMensual: Prisma.Decimal | null;
+  /** Días después del vencimiento en los que todavía no se causa interés. */
+  diasGracia: number;
+}
+
 // Clasifica una cuota no pagada como "vencida" o "por vencer" y trae su
 // saldo pendiente (con interés de mora si aplica). Devuelve null solo
 // cuando la cuota ya está PAGADA — ahí no hay nada que reportar.
+//
+// "Vencida" depende solo de la fecha de vencimiento. Los días de gracia
+// únicamente retrasan el interés: solo se cobran los días que pasan de la gracia.
 export function evaluarCuotaPendiente(
   cuota: { estado: EstadoCuota; fechaVencimiento: Date; valor: Prisma.Decimal },
   abonos: { valor: Prisma.Decimal }[],
   hoy: Date,
-  tasaMoraMensual: Prisma.Decimal,
+  { tasaMoraMensual, diasGracia }: ParametrosMora,
 ): ResultadoCuotaPendiente | null {
   if (cuota.estado === EstadoCuota.PAGADA) {
     return null;
@@ -59,12 +69,11 @@ export function evaluarCuotaPendiente(
   const vencida = diasAtraso > 0;
   const saldo = calcularSaldoCuota(cuota.valor, abonos);
 
-  return {
-    vencida,
-    diasAtraso,
-    saldo,
-    interesMora: vencida ? calcularInteresMora(saldo, diasAtraso, tasaMoraMensual) : new Prisma.Decimal(0),
-  };
+  const diasConInteres = Math.max(0, diasAtraso - diasGracia);
+  const interesMora =
+    vencida && tasaMoraMensual ? calcularInteresMora(saldo, diasConInteres, tasaMoraMensual) : new Prisma.Decimal(0);
+
+  return { vencida, diasAtraso, saldo, interesMora };
 }
 
 export interface CuotaParaSemaforo {

@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota, MedioPago } from '../generated/prisma/enums.js';
+import type { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
 import { AbonosService } from './abonos.service.js';
@@ -30,12 +31,30 @@ describe('AbonosService.crear', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>['prisma'];
   let tx: ReturnType<typeof crearPrismaFalso>['tx'];
   let storage: { guardar: ReturnType<typeof vi.fn>; leer: ReturnType<typeof vi.fn> };
+  let configuracion: { exigirMedioPagoActivo: ReturnType<typeof vi.fn> };
   let service: AbonosService;
 
   beforeEach(() => {
     ({ prisma, tx } = crearPrismaFalso());
     storage = { guardar: vi.fn(), leer: vi.fn() };
-    service = new AbonosService(prisma as unknown as PrismaService, storage as unknown as StorageService);
+    configuracion = { exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined) };
+    service = new AbonosService(
+      prisma as unknown as PrismaService,
+      storage as unknown as StorageService,
+      configuracion as unknown as ConfiguracionService,
+    );
+  });
+
+  it('rechaza un medio de pago que el gerente tiene deshabilitado, sin guardar nada', async () => {
+    prisma.venta.findUnique.mockResolvedValue(VENTA);
+    configuracion.exigirMedioPagoActivo.mockRejectedValue(new BadRequestException('Medio no habilitado'));
+
+    await expect(
+      service.crear({ ventaId: 'venta-1', fecha: '2026-02-01', valor: '100', medioPago: MedioPago.CHEQUE }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(configuracion.exigirMedioPagoActivo).toHaveBeenCalledWith(MedioPago.CHEQUE);
+    expect(tx.abono.create).not.toHaveBeenCalled();
+    expect(storage.guardar).not.toHaveBeenCalled();
   });
 
   it('rechaza si la venta no existe', async () => {

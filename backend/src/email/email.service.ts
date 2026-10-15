@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer, { type Transporter } from 'nodemailer';
+import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 
 export interface EnviarCorreoParams {
   to: string;
@@ -15,7 +16,7 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly transportador: Transporter;
 
-  constructor() {
+  constructor(private readonly configuracion: ConfiguracionService) {
     this.transportador = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT ?? 587),
@@ -27,9 +28,17 @@ export class EmailService {
     });
   }
 
+  // De SMTP_FROM solo se usa la dirección: el nombre que ve el cliente es
+  // siempre el nombre comercial configurado, no un texto fijo del .env.
+  private direccionRemitente(): string {
+    const remitente = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? '';
+    return /<([^>]+)>/.exec(remitente)?.[1] ?? remitente;
+  }
+
   async enviar(params: EnviarCorreoParams): Promise<void> {
+    const empresa = await this.configuracion.obtenerEmpresa();
     await this.transportador.sendMail({
-      from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+      from: { name: empresa.nombreComercial, address: this.direccionRemitente() },
       to: params.to,
       subject: params.subject,
       html: params.html,

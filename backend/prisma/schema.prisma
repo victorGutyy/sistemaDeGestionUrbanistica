@@ -41,11 +41,28 @@ enum EstadoCuota {
   PAGADA
 }
 
+// CHEQUE y TARJETA se conservan solo para no invalidar abonos ya
+// registrados; el gerente decide cuáles medios están activos en
+// MedioPagoConfig.
 enum MedioPago {
   EFECTIVO
   TRANSFERENCIA
   CHEQUE
   TARJETA
+  CONSIGNACION
+  NEQUI
+  DAVIPLATA
+}
+
+enum TipoCuenta {
+  AHORROS
+  CORRIENTE
+  BILLETERA_DIGITAL
+}
+
+enum TipoVendedor {
+  ASESOR_INMOBILIARIO
+  REFERIDO
 }
 
 enum TipoMovimiento {
@@ -256,4 +273,79 @@ model NovedadNomina {
   descripcion String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+}
+
+// Datos de la empresa y parámetros de negocio. Es una sola fila (id = 1,
+// reforzado con un CHECK en la migración): la instalación pertenece a una
+// única empresa. Nada de esto debe estar escrito en el código.
+model ConfiguracionEmpresa {
+  id               Int     @id @default(1)
+  razonSocial      String
+  nombreComercial  String
+  nit              String
+  direccion        String?
+  telefonos        String?
+  correo           String?
+  // Ruta relativa en StorageService; null = se muestra el logo genérico.
+  logoRuta         String?
+  colorPrimario    String  @default("#2563eb")
+  textoLegalRecibo String?
+  // Nombre de la plataforma (el producto), distinto del nombre comercial de
+  // la empresa cliente. Es el único lugar donde vive ese texto.
+  nombreProducto   String  @default("Urbanix")
+
+  // Parámetros de negocio (RF-CFG-03 a RF-CFG-05). Los porcentajes y tasas
+  // se guardan como porcentaje (30 = 30 %).
+  porcentajeCuotaInicial  Decimal  @default(30) @db.Decimal(5, 2)
+  plazoMaximoMeses        Int      @default(12)
+  tasaFinanciacionMensual Decimal  @default(0) @db.Decimal(5, 2)
+  // null = el gerente todavía no la define: no se calcula interés de mora.
+  tasaMoraMensual         Decimal? @db.Decimal(5, 2)
+  diasGraciaMora          Int      @default(0)
+  diasSemaforoAmarillo    Int      @default(5)
+  diasAntesRecordatorio   Int      @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Cuenta de recaudo. Se desactiva, no se borra: un recibo viejo puede
+// haberse pagado a esta cuenta.
+model CuentaBancaria {
+  id        String     @id @default(uuid())
+  banco     String
+  tipo      TipoCuenta
+  numero    String
+  alias     String
+  activa    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([banco, numero])
+}
+
+// Categoría de gasto. Las marcadas esSistema (Nómina, Comisiones) las usan
+// procesos automáticos de etapas posteriores y no se pueden desactivar.
+model CategoriaGasto {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
+  activa    Boolean  @default(true)
+  esSistema Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Una fila por valor de MedioPago: dice si está habilitado para registrar
+// abonos y egresos.
+model MedioPagoConfig {
+  medio     MedioPago @id
+  activo    Boolean   @default(true)
+  updatedAt DateTime  @updatedAt
+}
+
+// Valor fijo de comisión por tipo de vendedor.
+model ComisionTipoVendedor {
+  tipo      TipoVendedor @id
+  valor     Decimal      @db.Decimal(14, 2)
+  updatedAt DateTime     @updatedAt
 }

@@ -75,13 +75,14 @@ describe('calcularSemaforo', () => {
 
 describe('evaluarCuotaPendiente', () => {
   const hoy = new Date(2026, 2, 20);
+  const PARAMETROS = { tasaMoraMensual: new Prisma.Decimal('3'), diasGracia: 0 };
 
   it('devuelve null si la cuota ya está PAGADA, aunque la fecha haya pasado', () => {
     const resultado = evaluarCuotaPendiente(
       { estado: EstadoCuota.PAGADA, fechaVencimiento: new Date(2026, 2, 1), valor: new Prisma.Decimal('100') },
       [],
       hoy,
-      new Prisma.Decimal('3'),
+      PARAMETROS,
     );
     expect(resultado).toBeNull();
   });
@@ -91,7 +92,7 @@ describe('evaluarCuotaPendiente', () => {
       { estado: EstadoCuota.PENDIENTE, fechaVencimiento: new Date(2026, 2, 25), valor: new Prisma.Decimal('100') },
       [],
       hoy,
-      new Prisma.Decimal('3'),
+      PARAMETROS,
     );
     expect(resultado?.vencida).toBe(false);
     expect(resultado?.saldo.toString()).toBe('100');
@@ -103,7 +104,7 @@ describe('evaluarCuotaPendiente', () => {
       { estado: EstadoCuota.PARCIAL, fechaVencimiento: new Date(2026, 2, 5), valor: new Prisma.Decimal('1000000') },
       [{ valor: new Prisma.Decimal('400000') }],
       hoy,
-      new Prisma.Decimal('3'),
+      PARAMETROS,
     );
 
     expect(resultado?.vencida).toBe(true);
@@ -111,5 +112,44 @@ describe('evaluarCuotaPendiente', () => {
     expect(resultado?.saldo.toString()).toBe('600000');
     // 600,000 * 3% * (15/30) = 9,000
     expect(resultado?.interesMora.toString()).toBe('9000');
+  });
+
+  const CUOTA_VENCIDA_HACE_15_DIAS = {
+    estado: EstadoCuota.PENDIENTE,
+    fechaVencimiento: new Date(2026, 2, 5),
+    valor: new Prisma.Decimal('1000000'),
+  };
+
+  it('los días de gracia retrasan el interés: solo se cobran los días que pasan de la gracia', () => {
+    const resultado = evaluarCuotaPendiente(CUOTA_VENCIDA_HACE_15_DIAS, [], hoy, {
+      tasaMoraMensual: new Prisma.Decimal('3'),
+      diasGracia: 5,
+    });
+
+    // Sigue vencida (15 días), pero el interés es sobre 10 días: 1,000,000 * 3% * (10/30) = 10,000
+    expect(resultado?.vencida).toBe(true);
+    expect(resultado?.diasAtraso).toBe(15);
+    expect(resultado?.interesMora.toString()).toBe('10000');
+  });
+
+  it('no cobra interés mientras el atraso no supere los días de gracia', () => {
+    const resultado = evaluarCuotaPendiente(CUOTA_VENCIDA_HACE_15_DIAS, [], hoy, {
+      tasaMoraMensual: new Prisma.Decimal('3'),
+      diasGracia: 15,
+    });
+
+    expect(resultado?.vencida).toBe(true);
+    expect(resultado?.interesMora.toString()).toBe('0');
+  });
+
+  it('sin tasa de mora definida (null) la cuota vencida no genera interés', () => {
+    const resultado = evaluarCuotaPendiente(CUOTA_VENCIDA_HACE_15_DIAS, [], hoy, {
+      tasaMoraMensual: null,
+      diasGracia: 0,
+    });
+
+    expect(resultado?.vencida).toBe(true);
+    expect(resultado?.saldo.toString()).toBe('1000000');
+    expect(resultado?.interesMora.toString()).toBe('0');
   });
 });
