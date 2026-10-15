@@ -17,6 +17,11 @@ Es una aplicación web (no de escritorio): el backend corre como servicio y el f
 - Node.js 20 o superior
 - PostgreSQL 15 o superior (local o en un contenedor)
 
+## Requerimientos y reglas del proyecto
+
+- Alcance completo (112 requerimientos funcionales y 32 no funcionales, por etapa): [`docs/requerimientos.md`](docs/requerimientos.md).
+- Reglas de trabajo, convenciones y lo que está fuera del alcance: [`CLAUDE.md`](CLAUDE.md).
+
 ## Levantar el backend
 
 ```bash
@@ -28,6 +33,15 @@ npm run start:dev
 ```
 
 La API queda escuchando en `http://localhost:3000` (puerto configurable con `PORT` en `.env`).
+
+**Primer usuario.** No hay registro público, así que la primera cuenta se siembra: completa `SEED_ADMIN_NOMBRE`, `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` (mínimo 8 caracteres) en `backend/.env`, corre `npx prisma db seed` y luego borra esas tres líneas del `.env`. Esa cuenta queda con el rol de mayor nivel; las demás se crean desde la sección Usuarios.
+
+**Comprobar que todo está sano:**
+
+```bash
+cd backend && npm test && npm run lint && npx tsc --noEmit -p tsconfig.json
+cd ../frontend && npm run lint && npx tsc -b --noEmit
+```
 
 ## Levantar el frontend
 
@@ -59,9 +73,21 @@ npx prisma migrate dev
 
 ## Estado actual
 
-- ✅ Estructura del monorepo, backend NestJS + Prisma, frontend React + Vite + Tailwind.
-- ✅ Módulo de Proyectos y Lotes (CRUD básico).
-- ✅ Módulo de Ventas y Financiación (plan de pagos con interés simple sobre saldo inicial).
-- ✅ Layout base (login + navegación lateral: Proyectos, Cartera, Contabilidad, Nómina) y pantalla de Registrar venta.
-- ✅ PostgreSQL real conectado (Docker) y probado de punta a punta: crear proyecto → lote → venta → plan de cuotas.
-- ⏳ Pagos y Abonos, Cartera y Mora, Finanzas generales, Nómina, Dashboard — pendientes.
+La base genérica Urbanix (v1.0) está completa y funcionando; ahora se adapta al primer cliente real según `docs/requerimientos.md`.
+
+Ya existe en la base:
+- ✅ Login con JWT y tres roles (PROPIETARIO, ADMINISTRADOR, CONSULTA) y gestión de usuarios.
+- ✅ Proyectos y lotes con área disponible, y finalizar/reactivar proyectos.
+- ✅ Ventas de contado y financiadas con plan de cuotas.
+- ✅ Abonos con comprobante adjunto y estado de las cuotas.
+- ✅ Cartera con semáforo e interés de mora (informativo).
+- ✅ Ingresos y gastos manuales con consolidado de caja.
+- ✅ Nómina básica.
+- ✅ Panel general con exportación a PDF y Excel, y recordatorios de pago por correo.
+
+En adaptación (ver `docs/requerimientos.md`):
+- ⏳ Etapa 1: configuración de empresa, roles (GERENTE) con alcance por proyecto, manzanas y estados de lote, ventas con excepciones, recibo de caja con consecutivo y anulación, cierre de caja, egresos por categoría, auditoría e importador de Excel.
+- ⏳ Etapa 2: notificaciones (correo y WhatsApp), verificación de consignaciones, comisiones, panel y reportes ampliados, recuperación de contraseña.
+- ⏳ Etapa 3: módulo de personal.
+
+La interfaz ya es responsive desde 360 px, usa formato colombiano ($1.234.567, dd/mm/aaaa) y las descargas (exportaciones y comprobantes) envían la sesión. Otros pendientes conocidos están en la sección "Deuda técnica conocida" de `CLAUDE.md`.
