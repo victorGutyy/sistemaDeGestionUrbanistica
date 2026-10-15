@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { crearTrabajador } from '../lib/api'
+import { hoyEnBogota } from '../lib/formato'
 
 export function RegistrarTrabajadorPage() {
   const navigate = useNavigate()
@@ -11,7 +12,7 @@ export function RegistrarTrabajadorPage() {
   const [documento, setDocumento] = useState('')
   const [cargo, setCargo] = useState('')
   const [salarioBase, setSalarioBase] = useState('')
-  const [fechaIngreso, setFechaIngreso] = useState(() => new Date().toISOString().slice(0, 10))
+  const [fechaIngreso, setFechaIngreso] = useState(() => hoyEnBogota())
   const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
 
@@ -48,7 +49,7 @@ export function RegistrarTrabajadorPage() {
       )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="nombre" className="block text-sm font-medium text-slate-700">
               Nombre completo
@@ -91,7 +92,7 @@ export function RegistrarTrabajadorPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="salarioBase" className="block text-sm font-medium text-slate-700">
               Salario base
@@ -120,7 +121,7 @@ export function RegistrarTrabajadorPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="telefono" className="block text-sm font-medium text-slate-700">
               Teléfono (opcional)

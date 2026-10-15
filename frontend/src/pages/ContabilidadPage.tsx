@@ -7,6 +7,7 @@ import {
   type ConsolidadoCaja,
   type Movimiento,
 } from '../lib/api'
+import { formatearCOP, formatearFecha } from '../lib/formato'
 
 const ETIQUETA_TIPO: Record<Movimiento['tipo'], string> = {
   INGRESO: 'Ingreso',
@@ -40,7 +41,7 @@ export function ContabilidadPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Finanzas generales</h1>
           <p className="text-sm text-slate-500">Gastos e ingresos de la empresa, y consolidado de caja.</p>
@@ -99,26 +100,26 @@ export function ContabilidadPage() {
       )}
 
       {consolidado && (
-        <div className="mt-6 grid grid-cols-3 gap-3">
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Ingresos por ventas</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">${consolidado.ingresosPorVentas}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(consolidado.ingresosPorVentas)}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Ingresos generales</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">${consolidado.ingresosGenerales}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(consolidado.ingresosGenerales)}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Gastos</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">${consolidado.gastos}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(consolidado.gastos)}</p>
           </div>
-          <div className="col-span-2 rounded-lg border border-slate-200 bg-white p-4">
+          <div className="rounded-lg sm:col-span-2 border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Total ingresos</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">${consolidado.totalIngresos}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(consolidado.totalIngresos)}</p>
           </div>
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <p className="text-xs text-blue-700">Caja neta</p>
-            <p className="mt-1 text-lg font-semibold text-blue-900">${consolidado.cajaNeta}</p>
+            <p className="mt-1 text-lg font-semibold text-blue-900">{formatearCOP(consolidado.cajaNeta)}</p>
           </div>
         </div>
       )}
@@ -126,8 +127,8 @@ export function ContabilidadPage() {
       {consolidado && consolidado.porProyecto.length > 0 && (
         <>
           <h2 className="mt-8 text-sm font-semibold text-slate-900">Caja por proyecto</h2>
-          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
+          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table className="w-full min-w-[30rem] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">Proyecto</th>
@@ -141,10 +142,10 @@ export function ContabilidadPage() {
                 {consolidado.porProyecto.map((fila) => (
                   <tr key={fila.proyectoId} className="border-b border-slate-100 last:border-0">
                     <td className="px-4 py-2">{fila.nombre}</td>
-                    <td className="px-4 py-2">${fila.ingresosPorVentas}</td>
-                    <td className="px-4 py-2">${fila.ingresosGenerales}</td>
-                    <td className="px-4 py-2">${fila.gastos}</td>
-                    <td className="px-4 py-2">${fila.cajaNeta}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.ingresosPorVentas)}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.ingresosGenerales)}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.gastos)}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.cajaNeta)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -154,8 +155,8 @@ export function ContabilidadPage() {
       )}
 
       <h2 className="mt-8 text-sm font-semibold text-slate-900">Movimientos registrados</h2>
-      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-[30rem] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Fecha</th>
@@ -175,13 +176,13 @@ export function ContabilidadPage() {
             )}
             {movimientos.map((movimiento) => (
               <tr key={movimiento.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2">{movimiento.fecha.slice(0, 10)}</td>
+                <td className="px-4 py-2">{formatearFecha(movimiento.fecha)}</td>
                 <td className={`px-4 py-2 font-medium ${ESTILO_TIPO[movimiento.tipo]}`}>
                   {ETIQUETA_TIPO[movimiento.tipo]}
                 </td>
                 <td className="px-4 py-2">{movimiento.concepto}</td>
                 <td className="px-4 py-2">{movimiento.proyecto?.nombre ?? '—'}</td>
-                <td className="px-4 py-2">${movimiento.valor}</td>
+                <td className="px-4 py-2">{formatearCOP(movimiento.valor)}</td>
               </tr>
             ))}
           </tbody>

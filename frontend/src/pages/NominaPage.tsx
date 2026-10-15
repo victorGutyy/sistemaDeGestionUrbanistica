@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { listarTrabajadores, type Trabajador } from '../lib/api'
+import { formatearCOP } from '../lib/formato'
 
 export function NominaPage() {
   const { puedeEditar } = useAuth()
@@ -18,7 +19,7 @@ export function NominaPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Nómina y talento humano</h1>
           <p className="text-sm text-slate-500">Trabajadores de la empresa y sus pagos de nómina.</p>
@@ -37,8 +38,8 @@ export function NominaPage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-[30rem] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Nombre</th>
@@ -64,7 +65,7 @@ export function NominaPage() {
                   <span className="ml-1 text-xs text-slate-400">— {trabajador.documento}</span>
                 </td>
                 <td className="px-4 py-3">{trabajador.cargo}</td>
-                <td className="px-4 py-3">${trabajador.salarioBase}</td>
+                <td className="px-4 py-3">{formatearCOP(trabajador.salarioBase)}</td>
                 <td className="px-4 py-3">{trabajador.estado}</td>
               </tr>
             ))}

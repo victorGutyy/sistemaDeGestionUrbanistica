@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { crearAbono, obtenerVenta, type MedioPago, type Venta } from '../lib/api'
+import { formatearCOP, formatearFecha, hoyEnBogota } from '../lib/formato'
 
 export function RegistrarAbonoPage() {
   const { ventaId } = useParams<{ ventaId: string }>()
@@ -13,7 +14,7 @@ export function RegistrarAbonoPage() {
   const [enviando, setEnviando] = useState(false)
 
   const [cuotaId, setCuotaId] = useState(searchParams.get('cuotaId') ?? '')
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha] = useState(() => hoyEnBogota())
   const [valor, setValor] = useState('')
   const [medioPago, setMedioPago] = useState<MedioPago>('EFECTIVO')
   const [comprobante, setComprobante] = useState<File | null>(null)
@@ -99,13 +100,13 @@ export function RegistrarAbonoPage() {
             <option value="">Sin asignar a una cuota específica</option>
             {cuotasSeleccionables.map((c) => (
               <option key={c.id} value={c.id}>
-                Cuota {c.numero} — vence {c.fechaVencimiento.slice(0, 10)} — ${c.valor} ({c.estado})
+                Cuota {c.numero} — vence {formatearFecha(c.fechaVencimiento)} — {formatearCOP(c.valor)} ({c.estado})
               </option>
             ))}
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="valor" className="block text-sm font-medium text-slate-700">
               Valor

@@ -4,11 +4,12 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   listarAbonosPorVenta,
   obtenerVenta,
-  urlComprobante,
+  abrirComprobante,
   type Abono,
   type EstadoCuota,
   type Venta,
 } from '../lib/api'
+import { formatearCOP, formatearFecha } from '../lib/formato'
 
 const ESTILO_ESTADO_CUOTA: Record<EstadoCuota, string> = {
   PENDIENTE: 'bg-slate-100 text-slate-600',
@@ -29,6 +30,16 @@ export function VentaDetallePage() {
   const [venta, setVenta] = useState<Venta | null>(null)
   const [abonos, setAbonos] = useState<Abono[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
+
+  async function handleVerComprobante(abonoId: string) {
+    setErrorComprobante(null)
+    try {
+      await abrirComprobante(abonoId)
+    } catch (err) {
+      setErrorComprobante(err instanceof Error ? err.message : 'No se pudo abrir el comprobante')
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -52,13 +63,13 @@ export function VentaDetallePage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">
             Lote {venta.lote.numero} — {venta.cliente.nombre}
           </h1>
           <p className="text-sm text-slate-500">
-            Valor total: ${venta.valorTotal} · Cuota inicial: ${venta.cuotaInicial} ·{' '}
+            Valor total: {formatearCOP(venta.valorTotal)} · Cuota inicial: {formatearCOP(venta.cuotaInicial)} ·{' '}
             {venta.formaPago === 'CONTADO' ? 'Contado' : 'Financiado'}
           </p>
         </div>
@@ -73,20 +84,20 @@ export function VentaDetallePage() {
       </div>
 
       {estadoCuenta && (
-        <div className="mt-6 grid grid-cols-3 gap-3">
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Total pagado</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">${estadoCuenta.totalPagado}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(estadoCuenta.totalPagado)}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Saldo pendiente</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">${estadoCuenta.saldoPendiente}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(estadoCuenta.saldoPendiente)}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Próxima cuota</p>
             <p className="mt-1 text-lg font-semibold text-slate-900">
               {estadoCuenta.proximaCuota
-                ? `#${estadoCuenta.proximaCuota.numero} · ${estadoCuenta.proximaCuota.fechaVencimiento.slice(0, 10)}`
+                ? `#${estadoCuenta.proximaCuota.numero} · ${formatearFecha(estadoCuenta.proximaCuota.fechaVencimiento)}`
                 : '—'}
             </p>
           </div>
@@ -94,8 +105,8 @@ export function VentaDetallePage() {
       )}
 
       {venta.cuotas.length > 0 && (
-        <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="w-full min-w-[30rem] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-2 font-medium">Cuota</th>
@@ -109,10 +120,10 @@ export function VentaDetallePage() {
               {venta.cuotas.map((cuota) => (
                 <tr key={cuota.id} className="border-b border-slate-100 last:border-0">
                   <td className="px-4 py-2">{cuota.numero}</td>
-                  <td className="px-4 py-2">{cuota.fechaVencimiento.slice(0, 10)}</td>
-                  <td className="px-4 py-2">${cuota.valor}</td>
+                  <td className="px-4 py-2">{formatearFecha(cuota.fechaVencimiento)}</td>
+                  <td className="px-4 py-2">{formatearCOP(cuota.valor)}</td>
                   <td className="px-4 py-2">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTILO_ESTADO_CUOTA[cuota.estado]}`}>
+                    <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${ESTILO_ESTADO_CUOTA[cuota.estado]}`}>
                       {cuota.estado}
                     </span>
                   </td>
@@ -134,8 +145,13 @@ export function VentaDetallePage() {
       )}
 
       <h2 className="mt-8 text-sm font-semibold text-slate-900">Abonos registrados</h2>
-      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      {errorComprobante && (
+        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorComprobante}
+        </div>
+      )}
+      <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-[30rem] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Fecha</th>
@@ -154,19 +170,18 @@ export function VentaDetallePage() {
             )}
             {abonos.map((abono) => (
               <tr key={abono.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2">{abono.fecha.slice(0, 10)}</td>
-                <td className="px-4 py-2">${abono.valor}</td>
+                <td className="px-4 py-2">{formatearFecha(abono.fecha)}</td>
+                <td className="px-4 py-2">{formatearCOP(abono.valor)}</td>
                 <td className="px-4 py-2">{ETIQUETA_MEDIO_PAGO[abono.medioPago]}</td>
                 <td className="px-4 py-2">
                   {abono.comprobanteUrl ? (
-                    <a
-                      href={urlComprobante(abono.id)}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => handleVerComprobante(abono.id)}
                       className="text-blue-600 hover:underline"
                     >
                       Ver
-                    </a>
+                    </button>
                   ) : (
                     <span className="text-slate-400">—</span>
                   )}

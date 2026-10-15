@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { crearMovimiento, listarProyectos, type Proyecto, type TipoMovimiento } from '../lib/api'
+import { hoyEnBogota } from '../lib/formato'
 
 export function RegistrarMovimientoPage() {
   const navigate = useNavigate()
@@ -10,7 +11,7 @@ export function RegistrarMovimientoPage() {
   const [enviando, setEnviando] = useState(false)
 
   const [tipo, setTipo] = useState<TipoMovimiento>('GASTO')
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha] = useState(() => hoyEnBogota())
   const [valor, setValor] = useState('')
   const [concepto, setConcepto] = useState('')
   const [proyectoId, setProyectoId] = useState('')
@@ -81,7 +82,7 @@ export function RegistrarMovimientoPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="valor" className="block text-sm font-medium text-slate-700">
               Valor

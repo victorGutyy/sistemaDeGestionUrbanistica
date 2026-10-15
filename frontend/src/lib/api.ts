@@ -13,6 +13,15 @@ export function borrarToken() {
   localStorage.removeItem(CLAVE_TOKEN)
 }
 
+async function lanzarErrorHttp(respuesta: Response, path: string): Promise<never> {
+  const cuerpo = await respuesta.json().catch(() => null)
+  const mensaje = Array.isArray(cuerpo?.message) ? cuerpo.message.join(', ') : cuerpo?.message
+  if (respuesta.status === 401) {
+    borrarToken()
+  }
+  throw new Error(mensaje ?? `Error ${respuesta.status} al llamar ${path}`)
+}
+
 async function solicitar<T>(path: string, options?: RequestInit): Promise<T> {
   // Si el body es FormData (subida de archivos), no fijamos Content-Type:
   // el navegador debe poner el boundary del multipart él mismo.
@@ -28,15 +37,57 @@ async function solicitar<T>(path: string, options?: RequestInit): Promise<T> {
   })
 
   if (!respuesta.ok) {
-    const cuerpo = await respuesta.json().catch(() => null)
-    const mensaje = Array.isArray(cuerpo?.message) ? cuerpo.message.join(', ') : cuerpo?.message
-    if (respuesta.status === 401) {
-      borrarToken()
-    }
-    throw new Error(mensaje ?? `Error ${respuesta.status} al llamar ${path}`)
+    await lanzarErrorHttp(respuesta, path)
   }
 
   return respuesta.json()
+}
+
+// Un enlace <a href="…/api/…"> no puede mandar el token de sesión, así que los
+// archivos protegidos (reportes, comprobantes) se piden con fetch y luego se
+// entregan al navegador como un archivo local (blob).
+async function pedirArchivo(path: string): Promise<Blob> {
+  const token = obtenerToken()
+  const respuesta = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!respuesta.ok) {
+    await lanzarErrorHttp(respuesta, path)
+  }
+  return respuesta.blob()
+}
+
+// Descarga el archivo con el nombre indicado.
+async function descargarArchivo(path: string, nombreArchivo: string) {
+  const blob = await pedirArchivo(path)
+  const url = URL.createObjectURL(blob)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = nombreArchivo
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+// Abre el archivo en una pestaña nueva. La pestaña se abre en el mismo
+// instante del clic (antes del fetch) para que el bloqueador de ventanas
+// emergentes del navegador no la rechace.
+async function abrirArchivo(path: string) {
+  const ventana = window.open('', '_blank')
+  try {
+    const blob = await pedirArchivo(path)
+    const url = URL.createObjectURL(blob)
+    if (ventana) {
+      ventana.location.href = url
+    } else {
+      window.location.href = url
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (error) {
+    ventana?.close()
+    throw error
+  }
 }
 
 export type EstadoLote = 'DISPONIBLE' | 'RESERVADO' | 'VENDIDO'
@@ -212,8 +263,8 @@ export function crearAbono(formData: FormData) {
   })
 }
 
-export function urlComprobante(abonoId: string) {
-  return `${API_URL}/abonos/${abonoId}/comprobante`
+export function abrirComprobante(abonoId: string) {
+  return abrirArchivo(`/abonos/${abonoId}/comprobante`)
 }
 
 export type Semaforo = 'VERDE' | 'AMARILLO' | 'ROJO'
@@ -438,10 +489,11 @@ export function obtenerDashboard(filtro?: { desde?: string; hasta?: string }) {
   return solicitar<ResumenDashboard>(`/dashboard${query ? `?${query}` : ''}`)
 }
 
-export function urlExportarDashboard(formato: 'pdf' | 'excel', filtro?: { desde?: string; hasta?: string }) {
+export function exportarDashboard(formato: 'pdf' | 'excel', filtro?: { desde?: string; hasta?: string }) {
   const params = construirQueryPeriodo(filtro)
   params.set('formato', formato)
-  return `${API_URL}/dashboard/exportar?${params.toString()}`
+  const extension = formato === 'pdf' ? 'pdf' : 'xlsx'
+  return descargarArchivo(`/dashboard/exportar?${params.toString()}`, `reporte-general.${extension}`)
 }
 
 export interface ResultadoRecordatorios {

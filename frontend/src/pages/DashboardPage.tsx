@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { ejecutarRecordatorios, obtenerDashboard, urlExportarDashboard, type ResumenDashboard } from '../lib/api'
+import { ejecutarRecordatorios, exportarDashboard, obtenerDashboard, type ResumenDashboard } from '../lib/api'
+import { formatearCOP } from '../lib/formato'
 
 export function DashboardPage() {
   const { puedeEditar } = useAuth()
@@ -10,6 +11,19 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false)
   const [resultadoRecordatorios, setResultadoRecordatorios] = useState<string | null>(null)
+  const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null)
+
+  async function handleExportar(formato: 'pdf' | 'excel') {
+    setExportando(formato)
+    setError(null)
+    try {
+      await exportarDashboard(formato, { desde: desde || undefined, hasta: hasta || undefined })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo exportar el reporte')
+    } finally {
+      setExportando(null)
+    }
+  }
 
   async function handleEnviarRecordatorios() {
     setEnviandoRecordatorios(true)
@@ -37,16 +51,14 @@ export function DashboardPage() {
       .catch((err: Error) => setError(err.message))
   }, [desde, hasta])
 
-  const filtroActual = { desde: desde || undefined, hasta: hasta || undefined }
-
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Panel general</h1>
           <p className="text-sm text-slate-500">Ingresos, egresos y cartera, consolidado y por proyecto.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {puedeEditar && (
             <button
               type="button"
@@ -57,26 +69,26 @@ export function DashboardPage() {
               {enviandoRecordatorios ? 'Enviando...' : 'Enviar recordatorios de pago'}
             </button>
           )}
-          <a
-            href={urlExportarDashboard('pdf', filtroActual)}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          <button
+            type="button"
+            onClick={() => handleExportar('pdf')}
+            disabled={exportando !== null}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            Exportar PDF
-          </a>
-          <a
-            href={urlExportarDashboard('excel', filtroActual)}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            {exportando === 'pdf' ? 'Generando...' : 'Exportar PDF'}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExportar('excel')}
+            disabled={exportando !== null}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            Exportar Excel
-          </a>
+            {exportando === 'excel' ? 'Generando...' : 'Exportar Excel'}
+          </button>
         </div>
       </div>
 
-      <div className="mt-4 flex items-end gap-3">
+      <div className="mt-4 flex flex-wrap items-end gap-3">
         <div>
           <label htmlFor="desde" className="block text-xs font-medium text-slate-700">
             Desde
@@ -128,48 +140,48 @@ export function DashboardPage() {
       {resumen && (
         <>
           <h2 className="mt-6 text-sm font-semibold text-slate-900">Finanzas</h2>
-          <div className="mt-2 grid grid-cols-3 gap-3">
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">Ingresos por ventas</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">${resumen.finanzas.ingresosPorVentas}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(resumen.finanzas.ingresosPorVentas)}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">Ingresos generales</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">${resumen.finanzas.ingresosGenerales}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(resumen.finanzas.ingresosGenerales)}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">Gastos</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">${resumen.finanzas.gastos}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(resumen.finanzas.gastos)}</p>
             </div>
-            <div className="col-span-2 rounded-lg border border-slate-200 bg-white p-4">
+            <div className="rounded-lg sm:col-span-2 border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">Total ingresos</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">${resumen.finanzas.totalIngresos}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(resumen.finanzas.totalIngresos)}</p>
             </div>
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
               <p className="text-xs text-blue-700">Caja neta</p>
-              <p className="mt-1 text-lg font-semibold text-blue-900">${resumen.finanzas.cajaNeta}</p>
+              <p className="mt-1 text-lg font-semibold text-blue-900">{formatearCOP(resumen.finanzas.cajaNeta)}</p>
             </div>
           </div>
 
           <h2 className="mt-6 text-sm font-semibold text-slate-900">Cartera</h2>
-          <div className="mt-2 grid grid-cols-3 gap-3">
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-red-200 bg-red-50 p-4">
               <p className="text-xs text-red-700">Cartera vencida</p>
-              <p className="mt-1 text-lg font-semibold text-red-900">${resumen.cartera.saldoVencido}</p>
+              <p className="mt-1 text-lg font-semibold text-red-900">{formatearCOP(resumen.cartera.saldoVencido)}</p>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
               <p className="text-xs text-amber-700">Cartera por vencer</p>
-              <p className="mt-1 text-lg font-semibold text-amber-900">${resumen.cartera.saldoPorVencer}</p>
+              <p className="mt-1 text-lg font-semibold text-amber-900">{formatearCOP(resumen.cartera.saldoPorVencer)}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">Interés de mora</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">${resumen.cartera.interesMora}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(resumen.cartera.interesMora)}</p>
             </div>
           </div>
 
           <h2 className="mt-8 text-sm font-semibold text-slate-900">Por proyecto</h2>
-          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
+          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table className="w-full min-w-[30rem] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">Proyecto</th>
@@ -190,10 +202,10 @@ export function DashboardPage() {
                 {resumen.porProyecto.map((fila) => (
                   <tr key={fila.proyectoId} className="border-b border-slate-100 last:border-0">
                     <td className="px-4 py-2">{fila.nombre}</td>
-                    <td className="px-4 py-2">${fila.cajaNeta}</td>
-                    <td className="px-4 py-2">${fila.saldoVencido}</td>
-                    <td className="px-4 py-2">${fila.saldoPorVencer}</td>
-                    <td className="px-4 py-2">${fila.interesMora}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.cajaNeta)}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.saldoVencido)}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.saldoPorVencer)}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.interesMora)}</td>
                   </tr>
                 ))}
               </tbody>

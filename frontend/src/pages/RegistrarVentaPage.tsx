@@ -8,6 +8,7 @@ import {
   type FormaPago,
   type Lote,
 } from '../lib/api'
+import { formatearCOP, hoyEnBogota } from '../lib/formato'
 
 type OrigenCliente = 'existente' | 'nuevo'
 
@@ -33,7 +34,7 @@ export function RegistrarVentaPage() {
   const [cuotaInicial, setCuotaInicial] = useState('')
   const [numeroCuotas, setNumeroCuotas] = useState('')
   const [tasaInteres, setTasaInteres] = useState('')
-  const [fechaVenta, setFechaVenta] = useState(() => new Date().toISOString().slice(0, 10))
+  const [fechaVenta, setFechaVenta] = useState(() => hoyEnBogota())
 
   useEffect(() => {
     Promise.all([listarLotesDisponibles(), listarClientes()])
@@ -140,7 +141,7 @@ export function RegistrarVentaPage() {
             </option>
             {lotes.map((lote) => (
               <option key={lote.id} value={lote.id}>
-                {lote.proyecto.nombre} — Lote {lote.numero} ({lote.area} m², ${lote.valorVenta})
+                {lote.proyecto.nombre} — Lote {lote.numero} ({lote.area} m², {formatearCOP(lote.valorVenta)})
               </option>
             ))}
           </select>
@@ -187,7 +188,7 @@ export function RegistrarVentaPage() {
               ))}
             </select>
           ) : (
-            <div className="mt-2 grid grid-cols-2 gap-3">
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 required
                 placeholder="Nombre completo"
@@ -241,7 +242,7 @@ export function RegistrarVentaPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="valorTotal" className="block text-sm font-medium text-slate-700">
               Valor total
@@ -272,7 +273,7 @@ export function RegistrarVentaPage() {
         </div>
 
         {formaPago === 'FINANCIADO' && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="numeroCuotas" className="block text-sm font-medium text-slate-700">
                 Número de cuotas

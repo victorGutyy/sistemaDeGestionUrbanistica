@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { crearPagoNomina, type CrearNovedadPayload, type TipoNovedad } from '../lib/api'
+import { hoyEnBogota } from '../lib/formato'
 
 type NovedadFormulario = CrearNovedadPayload & { id: number }
 
@@ -15,7 +16,7 @@ export function RegistrarPagoNominaPage() {
 
   const [periodoInicio, setPeriodoInicio] = useState('')
   const [periodoFin, setPeriodoFin] = useState('')
-  const [fechaPago, setFechaPago] = useState(() => new Date().toISOString().slice(0, 10))
+  const [fechaPago, setFechaPago] = useState(() => hoyEnBogota())
   const [novedades, setNovedades] = useState<NovedadFormulario[]>([])
 
   function agregarNovedad() {
@@ -66,7 +67,7 @@ export function RegistrarPagoNominaPage() {
       )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label htmlFor="periodoInicio" className="block text-sm font-medium text-slate-700">
               Período desde
@@ -109,7 +110,7 @@ export function RegistrarPagoNominaPage() {
         </div>
 
         <div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <span className="block text-sm font-medium text-slate-700">Novedades (opcional)</span>
             <button type="button" onClick={agregarNovedad} className="text-sm font-medium text-blue-600 hover:underline">
               + Agregar novedad

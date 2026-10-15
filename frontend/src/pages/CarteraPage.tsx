@@ -7,6 +7,7 @@ import {
   type ReporteCartera,
   type Semaforo,
 } from '../lib/api'
+import { formatearCOP, formatearFecha } from '../lib/formato'
 
 const ESTILO_SEMAFORO: Record<Semaforo, string> = {
   VERDE: 'bg-green-100 text-green-700',
@@ -46,20 +47,20 @@ export function CarteraPage() {
       )}
 
       {reporte && (
-        <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Cartera vencida (consolidado)</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">${reporte.consolidado.saldoVencido}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(reporte.consolidado.saldoVencido)}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Interés de mora acumulado</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">${reporte.consolidado.interesMora}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{formatearCOP(reporte.consolidado.interesMora)}</p>
           </div>
         </div>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-[30rem] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Cliente</th>
@@ -85,15 +86,15 @@ export function CarteraPage() {
                   <span className="ml-1 text-xs text-slate-400">— {fila.cliente.documento}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTILO_SEMAFORO[fila.semaforo]}`}>
+                  <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${ESTILO_SEMAFORO[fila.semaforo]}`}>
                     {ETIQUETA_SEMAFORO[fila.semaforo]}
                   </span>
                 </td>
-                <td className="px-4 py-3">${fila.saldoVencido}</td>
-                <td className="px-4 py-3">${fila.interesMora}</td>
+                <td className="px-4 py-3">{formatearCOP(fila.saldoVencido)}</td>
+                <td className="px-4 py-3">{formatearCOP(fila.interesMora)}</td>
                 <td className="px-4 py-3">
                   {fila.proximaCuota
-                    ? `#${fila.proximaCuota.numero} · ${fila.proximaCuota.fechaVencimiento.slice(0, 10)}`
+                    ? `#${fila.proximaCuota.numero} · ${formatearFecha(fila.proximaCuota.fechaVencimiento)}`
                     : '—'}
                 </td>
                 <td className="px-4 py-3">
@@ -118,8 +119,8 @@ export function CarteraPage() {
       {reporte && reporte.porProyecto.length > 0 && (
         <>
           <h2 className="mt-8 text-sm font-semibold text-slate-900">Cartera vencida por proyecto</h2>
-          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
+          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table className="w-full min-w-[30rem] text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">Proyecto</th>
@@ -131,8 +132,8 @@ export function CarteraPage() {
                 {reporte.porProyecto.map((fila) => (
                   <tr key={fila.proyectoId} className="border-b border-slate-100 last:border-0">
                     <td className="px-4 py-2">{fila.nombre}</td>
-                    <td className="px-4 py-2">${fila.saldoVencido}</td>
-                    <td className="px-4 py-2">${fila.interesMora}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.saldoVencido)}</td>
+                    <td className="px-4 py-2">{formatearCOP(fila.interesMora)}</td>
                   </tr>
                 ))}
               </tbody>

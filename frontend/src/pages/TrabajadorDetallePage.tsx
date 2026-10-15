@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { obtenerTrabajador, type TrabajadorConPagos } from '../lib/api'
+import { formatearCOP, formatearFecha } from '../lib/formato'
 
 const ETIQUETA_NOVEDAD: Record<string, string> = {
   HORAS_EXTRA: 'Horas extra',
@@ -32,11 +33,11 @@ export function TrabajadorDetallePage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">{trabajador.nombre}</h1>
           <p className="text-sm text-slate-500">
-            {trabajador.cargo} — {trabajador.documento} · Salario base: ${trabajador.salarioBase}
+            {trabajador.cargo} — {trabajador.documento} · Salario base: {formatearCOP(trabajador.salarioBase)}
           </p>
         </div>
         {puedeEditar && (
@@ -50,8 +51,8 @@ export function TrabajadorDetallePage() {
       </div>
 
       <h2 className="mt-8 text-sm font-semibold text-slate-900">Pagos de nómina</h2>
-      <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-[30rem] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Período</th>
@@ -71,9 +72,9 @@ export function TrabajadorDetallePage() {
             {trabajador.pagos.map((pago) => (
               <tr key={pago.id} className="border-b border-slate-100 last:border-0">
                 <td className="px-4 py-2">
-                  {pago.periodoInicio.slice(0, 10)} a {pago.periodoFin.slice(0, 10)}
+                  {formatearFecha(pago.periodoInicio)} a {formatearFecha(pago.periodoFin)}
                 </td>
-                <td className="px-4 py-2">{pago.fechaPago.slice(0, 10)}</td>
+                <td className="px-4 py-2">{formatearFecha(pago.fechaPago)}</td>
                 <td className="px-4 py-2">
                   {pago.novedades.length === 0 ? (
                     <span className="text-slate-400">—</span>
@@ -81,13 +82,13 @@ export function TrabajadorDetallePage() {
                     <ul className="space-y-0.5">
                       {pago.novedades.map((novedad) => (
                         <li key={novedad.id} className="text-xs text-slate-600">
-                          {ETIQUETA_NOVEDAD[novedad.tipo]}: ${novedad.valor}
+                          {ETIQUETA_NOVEDAD[novedad.tipo]}: {formatearCOP(novedad.valor)}
                         </li>
                       ))}
                     </ul>
                   )}
                 </td>
-                <td className="px-4 py-2 font-medium">${pago.valorPagado}</td>
+                <td className="px-4 py-2 font-medium">{formatearCOP(pago.valorPagado)}</td>
               </tr>
             ))}
           </tbody>

@@ -86,7 +86,7 @@ export function RegistrarLotePage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="area" className="block text-sm font-medium text-slate-700">
               Área (m²)

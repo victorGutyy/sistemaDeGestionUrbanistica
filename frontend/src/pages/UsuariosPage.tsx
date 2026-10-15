@@ -39,7 +39,7 @@ export function UsuariosPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Usuarios</h1>
           <p className="text-sm text-slate-500">Cuentas con acceso a la app y su rol.</p>
@@ -56,8 +56,8 @@ export function UsuariosPage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full min-w-[30rem] text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Nombre</th>
@@ -82,7 +82,7 @@ export function UsuariosPage() {
                 <td className="px-4 py-3">{ETIQUETA_ROL[u.rol]}</td>
                 <td className="px-4 py-3">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
                       u.estado === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
                     }`}
                   >
