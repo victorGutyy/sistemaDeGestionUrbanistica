@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ZONA_HORARIA } from '../common/zona-horaria.js';
 import { EmailService } from '../email/email.service.js';
 import { EstadoVenta } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -22,7 +23,7 @@ export class RecordatoriosService {
     private readonly emailService: EmailService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_8AM)
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, { timeZone: ZONA_HORARIA })
   async ejecutarProgramado() {
     const resultado = await this.enviarRecordatoriosPendientes();
     this.logger.log(

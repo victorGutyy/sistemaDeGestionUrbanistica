@@ -1,6 +1,7 @@
-// Debe ser el primer import: app.module.js (y todo lo que importa
-// transitivamente) lee variables de entorno en el nivel superior del
-// archivo, lo que se evalúa antes de que ConfigModule.forRoot() exista.
+// La zona horaria y dotenv deben ser los primeros imports: app.module.js
+// (y todo lo que importa transitivamente) lee variables de entorno y crea
+// fechas en el nivel superior del archivo, antes de que Nest arranque.
+import './common/zona-horaria.js';
 import 'dotenv/config';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
