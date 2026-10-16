@@ -7,7 +7,7 @@ Urbanix es la base genérica de un sistema web para empresas que compran predios
 El alcance está en `docs/requerimientos.md` (112 requerimientos funcionales RF-XXX-00 y 32 no funcionales RNF-XXX-00, con prioridad Debe/Debería/Podría y etapa 1, 2 o 3). Reglas:
 - Lee ese documento antes de planear cualquier paso, y cita los IDs que cada cambio cubre.
 - Si algo del código, de un prompt o de una conversación contradice el documento, gana el documento y me avisas. Los cambios de alcance se registran ahí (control de cambios), no solo en el chat.
-- Control de cambios: al final del documento. CC-01 (16 oct 2026) agrega 11 RF: proyectos de remodelación con ingresos y egresos propios, finanzas detalladas por proyecto, flujo de caja diario/semanal/quincenal/mensual, y préstamos a trabajadores con alerta previa a la nómina y carta de descuento (PDF, firma en papel, enlace de WhatsApp). Pendiente la confirmación comercial con el cliente.
+- Control de cambios: al final del documento. CC-02 (16 oct 2026) agrega 8 RF: proyectos tipo Maquinaria con catálogo de equipos y utilidad por equipo (no incluye contratos de alquiler, horómetro, cartera de alquileres ni alertas de mantenimiento). CC-01 (16 oct 2026) agrega 11 RF: proyectos de remodelación con ingresos y egresos propios, finanzas detalladas por proyecto, flujo de caja diario/semanal/quincenal/mensual, y préstamos a trabajadores con alerta previa a la nómina y carta de descuento (PDF, firma en papel, enlace de WhatsApp). Pendiente la confirmación comercial con el cliente.
 - Reparto original: Etapa 1 = 77 RF (68 "Debe"), Etapa 2 = 24, Etapa 3 = 11. Una etapa se acepta cuando están todos sus "Debe"; los "Debería" y "Podría" se mueven primero si hay atraso.
 - Restricciones: aplicación web en la nube, PostgreSQL, construida sobre la base Urbanix (el desarrollador conserva sus derechos), servicios en la nube y dominio a nombre de la empresa y pagados por ella, presupuesto $10.000.000 COP en tres etapas, unas 11 semanas.
 
@@ -75,7 +75,7 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 - Cómo se cobra el interés de mora: junto con la cuota o por separado (RF-CAR-06).
 - Software contable del contador y formato de reportes que necesita.
 - Logo de la empresa en buena calidad.
-- Si CC-01 entra en el presupuesto o se cotiza adicional; si una remodelación guarda cliente de la obra y valor del contrato; si el préstamo se descuenta en una nómina o en cuotas y quién lo aprueba; definición de la quincena; concepto de la abogada sobre la carta de descuento.
+- Si CC-01 y CC-02 entran en el presupuesto o se cotiza adicional; si una remodelación guarda cliente de la obra y valor del contrato; si el préstamo se descuenta en una nómina o en cuotas y quién lo aprueba; definición de la quincena; concepto de la abogada sobre la carta de descuento; si el alquiler de maquinaria es siempre de contado y si se cobra el uso interno a proyectos propios.
 
 ## Deuda técnica conocida (quitar de aquí cuando se resuelva)
 - Hoy no hay auditoría, anulaciones, edición de datos ni búsqueda de clientes; el abono se aplica a una sola cuota elegida a mano.

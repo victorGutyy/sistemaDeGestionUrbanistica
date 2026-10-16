@@ -10,7 +10,7 @@ Fuentes: formulario de levantamiento (14 de octubre de 2026), entrevista y acta 
 
 Reparto por etapa (verificado): Etapa 1 = 77 requerimientos funcionales (68 "Debe"), Etapa 2 = 24, Etapa 3 = 11.
 
-Los cambios de alcance posteriores a esta versión se registran en la sección **Control de cambios** (al final). El cambio CC-01 agrega 11 requerimientos funcionales sin alterar los 112 originales.
+Los cambios de alcance posteriores a esta versión se registran en la sección **Control de cambios** (al final). Los cambios CC-01 (11 requerimientos) y CC-02 (8 requerimientos) agregan 19 requerimientos funcionales sin alterar los 112 originales.
 
 ## Convenciones
 
@@ -342,6 +342,7 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 - Pagos en línea (PSE y tarjetas).
 - Firma electrónica dentro de la plataforma. Para la carta de descuento de préstamos (CC-01) se genera el PDF y se adjunta firmado en papel; la firma electrónica queda como adicional.
 - Portal del cliente, PQRS y app móvil nativa.
+- Contratos de alquiler de maquinaria con tarifas, horómetro, cartera de cobros y alertas de mantenimiento (CC-02 incluye solo el registro de equipos y su utilidad).
 - Integración de la página web y registro de la línea de reformas de casas (se cotizan aparte). Excepción registrada en CC-01: solo se incluye el seguimiento de ingresos y egresos de los proyectos de remodelación; cotizaciones, avance y presupuesto de obra siguen fuera.
 
 ### Puntos por confirmar con la empresa
@@ -399,3 +400,35 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 | Definición de la quincena (propuesta: del 1 al 15 y del 16 al fin de mes) | RF-CFG-12, RF-REP-11 |
 | Si el cliente necesita más campos en cada ingreso o egreso (por ejemplo, centro de costo) | RF-EGR-08, RF-EGR-09 |
 | Concepto de la abogada sobre la carta de autorización y el descuento en la liquidación final | RF-PER-14, RF-PER-15 |
+
+### CC-02 · 16 de octubre de 2026 · Maquinaria amarilla y su alquiler
+
+**Origen:** dato que la empresa había omitido: tiene maquinaria amarilla que también alquila. Sus ingresos y egresos deben quedar soportados en el sistema.
+
+**Estado:** aprobado por el desarrollador para el diseño; **pendiente la confirmación comercial con el cliente**, junto con CC-01.
+
+**Resumen:** los equipos de maquinaria se registran uno por uno (sin límite de cantidad ni de tipos; se espera del orden de diez) y cada ingreso o egreso se asigna a un equipo, para ver la utilidad de cada máquina por separado.
+
+| ID | Requerimiento | Prioridad | Etapa |
+|---|---|---|---|
+| RF-PRY-08 | Existe el tipo de proyecto Maquinaria, que agrupa el alquiler de equipos; no tiene manzanas ni lotes | Debe | 1 |
+| RF-MAQ-01 | Registrar los equipos de maquinaria, sin límite de cantidad ni de tipos, con nombre, tipo, marca, modelo, año, placa o serie y estado (activo, en mantenimiento, fuera de servicio) | Debe | 1 |
+| RF-MAQ-02 | El gerente administra la lista de tipos de equipo (por ejemplo: excavadora, retroexcavadora, volqueta) | Debería | 1 |
+| RF-MAQ-03 | Cada ingreso o egreso de un proyecto de maquinaria se asigna a un equipo, o se marca como gasto general de la flota, y lleva soporte adjunto o motivo | Debe | 1 |
+| RF-MAQ-04 | El ingreso por alquiler registra el cliente (nombre y documento), el período alquilado y el valor | Debería | 1 |
+| RF-MAQ-05 | Mostrar por equipo los ingresos, egresos y utilidad por rango de fechas, y comparar todos los equipos en un solo listado; exportable a PDF y Excel | Debe | 2 |
+| RF-MAQ-06 | Categorías de gasto propias de la maquinaria (combustible, mantenimiento, repuestos, operario, transporte del equipo), administrables por el gerente | Debería | 1 |
+| RF-MAQ-07 | Un equipo no se borra: se da de baja conservando todos sus movimientos | Debe | 1 |
+
+**Decisiones del desarrollador sobre el alcance:**
+- Se incluye el registro de equipos y la utilidad por equipo. **No se incluyen** contratos de alquiler con tarifas por hora, día o mes, horómetro de salida y regreso, cartera de cobros de alquileres ni alertas de mantenimiento; se cotizan aparte cuando la empresa ya use el sistema.
+- La cantidad de equipos del ejemplo (diez) es solo una referencia: el sistema no limita su número.
+
+**Puntos por confirmar derivados de este cambio:**
+
+| Punto | Requerimientos afectados |
+|---|---|
+| Si el alquiler se cobra siempre de contado; si hay cobros a crédito, se necesitaría cartera de alquileres (fuera de este cambio) | RF-MAQ-04 |
+| Si se usan las máquinas en proyectos propios y se quiere cobrar internamente ese uso al proyecto | RF-MAQ-03 |
+| Categorías de gasto que la empresa maneja para la maquinaria | RF-MAQ-06 |
+| Cantidad y tipos de equipos actuales, para la carga inicial | RF-MAQ-01, RF-MAQ-02 |
