@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
+import type { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { StorageService } from '../storage/storage.service.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 import { CierresCajaService } from './cierres-caja.service.js';
 
@@ -62,7 +64,7 @@ describe('CierresCajaService', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(HOY);
     ({ prisma, tx } = crearPrismaFalso());
-    service = new CierresCajaService(prisma as unknown as PrismaService);
+    service = new CierresCajaService(prisma as unknown as PrismaService, {} as ConfiguracionService, {} as StorageService);
     // obtener() al final de cada operación
     prisma.cierreCaja.findUnique.mockResolvedValue({ ...cierreBase(), historial: [], creadoPor: { nombre: 'A' }, cerradoPor: null, resueltoPor: null });
   });

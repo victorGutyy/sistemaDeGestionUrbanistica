@@ -56,6 +56,7 @@ const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch' | 'delete', ru
   ['get', '/cierres-caja'],
   ['get', '/cierres-caja/proximo'],
   ['get', `/cierres-caja/${ID}`],
+  ['get', `/cierres-caja/${ID}/pdf`],
   ['post', '/cierres-caja'],
   ['post', `/cierres-caja/${ID}/cerrar`],
   ['post', `/cierres-caja/${ID}/aprobar`],

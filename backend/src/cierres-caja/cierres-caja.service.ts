@@ -1,15 +1,19 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
+import { detectarTipoDocumento } from '../common/tipo-archivo.js';
+import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { formatearNumeroRecibo, siguienteConsecutivo, PREFIJO_CIERRE_CAJA, SERIE_CIERRE_CAJA } from '../consecutivos/consecutivo.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoCierre, EstadoMovimiento, TipoCierre } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { calcularCierre, type DatosCierre, type ResultadoCierre } from './calcular-cierre.js';
 import { AprobarCierreDto, DevolverCierreDto } from './dto/resolver-cierre.dto.js';
 import { CerrarCierreDto } from './dto/cerrar-cierre.dto.js';
 import { CrearCierreDto } from './dto/crear-cierre.dto.js';
 import { bloquearRegistrosParaCierreEnTx } from './fecha-abierta.js';
+import { generarPdfCierre } from './generar-pdf-cierre.js';
 import { diaDeColumnaDate, esFechaISOValida, finDelPeriodo, formatearDiaDDMMAAAA, hoyISO, sumarDias } from './periodo.js';
 
 const INCLUIR_USUARIOS = {
@@ -30,7 +34,11 @@ type ClienteBd = Prisma.TransactionClient;
 
 @Injectable()
 export class CierresCajaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configuracion: ConfiguracionService,
+    private readonly storage: StorageService,
+  ) {}
 
   // ---------- Consulta ----------
 
@@ -68,6 +76,47 @@ export class CierresCajaService {
         fecha: paso.createdAt,
       })),
     };
+  }
+
+  // PDF del cierre (RF-CAJ-06). Un cierre cerrado o aprobado se dibuja desde su fotografía; un borrador o un devuelto,
+  // desde el cálculo en vivo, y el documento lo dice para que nadie lo tome por definitivo.
+  async obtenerPdf(id: string) {
+    const cierre = await this.obtener(id);
+    const empresa = await this.configuracion.obtenerEmpresa();
+
+    // El logo se lee del almacenamiento; pdfkit solo dibuja PNG y JPG (un WebP se omite sin impedir el PDF).
+    let logo: Buffer | undefined;
+    if (empresa.logoRuta) {
+      try {
+        const buffer = await this.storage.leer(empresa.logoRuta);
+        const tipo = detectarTipoDocumento(buffer);
+        logo = tipo === 'png' || tipo === 'jpg' ? buffer : undefined;
+      } catch {
+        logo = undefined;
+      }
+    }
+
+    const buffer = await generarPdfCierre(
+      {
+        numeroTexto: cierre.numeroTexto,
+        tipo: cierre.tipo,
+        desde: cierre.desde,
+        hasta: cierre.hasta,
+        estado: cierre.estado,
+        creadoPor: cierre.creadoPor.nombre,
+        cerradoPor: cierre.cerradoPor?.nombre ?? null,
+        cerradoEn: cierre.cerradoEn,
+        resueltoPor: cierre.resueltoPor?.nombre ?? null,
+        resueltoEn: cierre.resueltoEn,
+        observacionGerente: cierre.observacionGerente,
+        efectivoContado: cierre.efectivoContado?.toString() ?? null,
+        diferencia: cierre.diferencia?.toString() ?? null,
+        explicacionDiferencia: cierre.explicacionDiferencia,
+        resumen: cierre.resumen,
+      },
+      { empresa, logo },
+    );
+    return { buffer, nombreArchivo: `cierre-de-caja-${cierre.numeroTexto ?? 'borrador'}.pdf` };
   }
 
   // Lo que necesita la pantalla de "nuevo cierre": desde cuándo empieza el siguiente y con cuánto efectivo.

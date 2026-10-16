@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { CurrentUsuario } from '../auth/current-usuario.decorator.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
@@ -25,6 +26,14 @@ export class CierresCajaController {
   @Get('proximo')
   proximo(@Query() query: ProximoCierreQueryDto) {
     return this.cierresCajaService.proximo(query.tipo);
+  }
+
+  @Permiso(PERMISOS.CAJA_VER)
+  @Get(':id/pdf')
+  async descargarPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { buffer, nombreArchivo } = await this.cierresCajaService.obtenerPdf(id);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${nombreArchivo}"` });
+    res.send(buffer);
   }
 
   @Permiso(PERMISOS.CAJA_VER)
