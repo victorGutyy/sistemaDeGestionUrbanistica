@@ -1,33 +1,18 @@
-import { Building2, Calculator, LayoutDashboard, LogOut, Menu, Settings, Shield, Users, Wallet, X } from 'lucide-react'
+import { LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useEmpresa } from '../../contexts/EmpresaContext'
+import { ITEMS_MENU } from '../../lib/menu'
 import { cn } from '../../lib/utils'
 import { LogoEmpresa } from '../LogoEmpresa'
 
-const navItems = [
-  { to: '/dashboard', label: 'Panel general', icon: LayoutDashboard },
-  { to: '/proyectos', label: 'Proyectos', icon: Building2 },
-  { to: '/cartera', label: 'Cartera', icon: Wallet },
-  { to: '/contabilidad', label: 'Contabilidad', icon: Calculator },
-  { to: '/nomina', label: 'Nómina', icon: Users },
-]
-
-const ETIQUETA_ROL: Record<string, string> = {
-  PROPIETARIO: 'Propietario',
-  ADMINISTRADOR: 'Administrador',
-  CONSULTA: 'Consulta',
-}
-
 export function AppLayout() {
-  const { usuario, logout } = useAuth()
+  const { usuario, logout, tiene } = useAuth()
   const { marca } = useEmpresa()
   const [menuAbierto, setMenuAbierto] = useState(false)
-  const items =
-    usuario?.rol === 'PROPIETARIO'
-      ? [...navItems, { to: '/usuarios', label: 'Usuarios', icon: Shield }, { to: '/configuracion', label: 'Configuración', icon: Settings }]
-      : navItems
+  // Solo se muestran las secciones que el rol del usuario puede usar.
+  const items = ITEMS_MENU.filter((item) => tiene(item.permiso))
   // Nombre que se muestra en pantalla: el de la empresa; si aún no hay, el del producto.
   const nombreMarca = marca.nombreComercial || marca.nombreProducto
 
@@ -98,7 +83,7 @@ export function AppLayout() {
         {usuario && (
           <div className="border-t border-slate-200 px-3 py-3">
             <p className="truncate px-2 text-sm font-medium text-slate-900">{usuario.nombre}</p>
-            <p className="px-2 text-xs text-slate-400">{ETIQUETA_ROL[usuario.rol]}</p>
+            <p className="px-2 text-xs text-slate-400">{usuario.rol.nombre}</p>
             <button
               type="button"
               onClick={logout}

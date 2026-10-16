@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { actualizarEstadoUsuario, listarUsuarios, type Usuario } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
+import { actualizarEstadoUsuario, desbloquearUsuario, listarUsuarios, type Usuario } from '../lib/api'
+import { formatearFecha } from '../lib/formato'
 
-const ETIQUETA_ROL: Record<Usuario['rol'], string> = {
-  PROPIETARIO: 'Propietario',
-  ADMINISTRADOR: 'Administrador',
-  CONSULTA: 'Consulta',
+const CLASE_ACCION = 'text-sm font-medium text-blue-600 hover:underline disabled:opacity-50'
+
+function estaBloqueado(usuario: Usuario) {
+  return usuario.bloqueadoHasta !== null && new Date(usuario.bloqueadoHasta).getTime() > Date.now()
 }
 
 export function UsuariosPage() {
@@ -23,15 +24,14 @@ export function UsuariosPage() {
       .finally(() => setCargando(false))
   }, [])
 
-  async function handleCambiarEstado(usuario: Usuario) {
-    const nuevoEstado = usuario.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'
+  async function ejecutar(usuario: Usuario, accion: () => Promise<Usuario>, mensajeError: string) {
     setActualizandoId(usuario.id)
     setError(null)
     try {
-      const actualizado = await actualizarEstadoUsuario(usuario.id, nuevoEstado)
+      const actualizado = await accion()
       setUsuarios((previos) => previos.map((u) => (u.id === usuario.id ? actualizado : u)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo actualizar el usuario')
+      setError(err instanceof Error ? err.message : mensajeError)
     } finally {
       setActualizandoId(null)
     }
@@ -56,56 +56,74 @@ export function UsuariosPage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full min-w-[30rem] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-            <tr>
-              <th className="px-4 py-3 font-medium">Nombre</th>
-              <th className="px-4 py-3 font-medium">Correo</th>
-              <th className="px-4 py-3 font-medium">Rol</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {!cargando && usuarios.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
-                  Todavía no hay usuarios registrados.
-                </td>
-              </tr>
-            )}
-            {usuarios.map((u) => (
-              <tr key={u.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-3">{u.nombre}</td>
-                <td className="px-4 py-3">{u.email}</td>
-                <td className="px-4 py-3">{ETIQUETA_ROL[u.rol]}</td>
-                <td className="px-4 py-3">
+      <ul className="mt-6 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
+        {!cargando && usuarios.length === 0 && (
+          <li className="px-4 py-10 text-center text-sm text-slate-400">Todavía no hay usuarios registrados.</li>
+        )}
+        {usuarios.map((u) => {
+          const bloqueado = estaBloqueado(u)
+          const esUnoMismo = u.id === usuarioActual?.id
+          return (
+            <li key={u.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-900">
+                  {u.nombre}
+                  {esUnoMismo && <span className="ml-2 text-xs font-normal text-slate-400">(tú)</span>}
+                </p>
+                <p className="truncate text-sm text-slate-500">{u.email}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{u.rol.nombre}</span>
                   <span
-                    className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                    className={`rounded-full px-2 py-0.5 font-medium ${
                       u.estado === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
                     }`}
                   >
                     {u.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'}
                   </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {u.id !== usuarioActual?.id && (
-                    <button
-                      type="button"
-                      onClick={() => handleCambiarEstado(u)}
-                      disabled={actualizandoId === u.id}
-                      className="text-sm font-medium text-blue-600 hover:underline disabled:opacity-50"
-                    >
-                      {u.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
-                    </button>
+                  {bloqueado && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">Bloqueado</span>
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <span className="text-slate-400">
+                    {u.ultimoIngreso ? `Último ingreso: ${formatearFecha(u.ultimoIngreso)}` : 'Aún no ha ingresado'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link to={`/usuarios/${u.id}/editar`} className={CLASE_ACCION}>
+                  Editar
+                </Link>
+                {bloqueado && (
+                  <button
+                    type="button"
+                    disabled={actualizandoId === u.id}
+                    onClick={() => void ejecutar(u, () => desbloquearUsuario(u.id), 'No se pudo desbloquear')}
+                    className={CLASE_ACCION}
+                  >
+                    Desbloquear
+                  </button>
+                )}
+                {!esUnoMismo && (
+                  <button
+                    type="button"
+                    disabled={actualizandoId === u.id}
+                    onClick={() =>
+                      void ejecutar(
+                        u,
+                        () => actualizarEstadoUsuario(u.id, u.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'),
+                        'No se pudo actualizar el usuario',
+                      )
+                    }
+                    className={CLASE_ACCION}
+                  >
+                    {u.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
+                  </button>
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

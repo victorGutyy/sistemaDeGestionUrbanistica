@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useEmpresa } from '../contexts/EmpresaContext'
 
 export function LoginPage() {
-  const { usuario, login } = useAuth()
+  const { usuario, login, avisoSesion } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { marca } = useEmpresa()
@@ -16,7 +16,7 @@ export function LoginPage() {
   const [enviando, setEnviando] = useState(false)
 
   if (usuario) {
-    const destino = (location.state as { from?: string } | null)?.from ?? '/dashboard'
+    const destino = (location.state as { from?: string } | null)?.from ?? '/'
     return <Navigate to={destino} replace />
   }
 
@@ -27,7 +27,7 @@ export function LoginPage() {
 
     try {
       await login(email, password)
-      navigate('/dashboard', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión')
     } finally {
@@ -42,6 +42,12 @@ export function LoginPage() {
         <h1 className="mt-4 text-xl font-semibold text-slate-900">{marca.nombreComercial || marca.nombreProducto}</h1>
         {marca.nombreComercial && <p className="text-xs text-slate-400">{marca.nombreProducto}</p>}
         <p className="mt-1 text-sm text-slate-500">Ingresa con tu cuenta para continuar.</p>
+
+        {avisoSesion && !error && (
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {avisoSesion}
+          </div>
+        )}
 
         {error && (
           <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

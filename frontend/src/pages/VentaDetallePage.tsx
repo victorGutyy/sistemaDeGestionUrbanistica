@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { PERMISOS } from '../lib/permisos'
 import {
   listarAbonosPorVenta,
   obtenerVenta,
@@ -28,7 +29,7 @@ const ETIQUETA_MEDIO_PAGO: Record<Abono['medioPago'], string> = {
 }
 
 export function VentaDetallePage() {
-  const { puedeEditar } = useAuth()
+  const { tiene } = useAuth()
   const { id } = useParams<{ id: string }>()
   const [venta, setVenta] = useState<Venta | null>(null)
   const [abonos, setAbonos] = useState<Abono[]>([])
@@ -76,7 +77,7 @@ export function VentaDetallePage() {
             {venta.formaPago === 'CONTADO' ? 'Contado' : 'Financiado'}
           </p>
         </div>
-        {puedeEditar && (
+        {tiene(PERMISOS.ABONOS_REGISTRAR) && (
           <Link
             to={`/ventas/${venta.id}/abonos/nuevo`}
             className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -131,7 +132,7 @@ export function VentaDetallePage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right">
-                    {cuota.estado !== 'PAGADA' && puedeEditar && (
+                    {cuota.estado !== 'PAGADA' && tiene(PERMISOS.ABONOS_REGISTRAR) && (
                       <Link
                         to={`/ventas/${venta.id}/abonos/nuevo?cuotaId=${cuota.id}`}
                         className="text-sm font-medium text-blue-600 hover:underline"

@@ -8,6 +8,7 @@ const MARCA_INICIAL: MarcaPublica = {
   nombreComercial: '',
   nombreProducto: 'Urbanix',
   colorPrimario: COLOR_PRIMARIO_POR_DEFECTO,
+  minutosInactividad: 30,
   tieneLogo: false,
   version: 0,
 }

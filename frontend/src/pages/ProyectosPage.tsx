@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { PERMISOS } from '../lib/permisos'
 import { listarProyectos, type Proyecto } from '../lib/api'
 
 export function ProyectosPage() {
-  const { puedeEditar } = useAuth()
+  const { tiene } = useAuth()
   const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -23,7 +24,7 @@ export function ProyectosPage() {
           <h1 className="text-lg font-semibold text-slate-900">Proyectos</h1>
           <p className="text-sm text-slate-500">Predios y su subdivisión en lotes.</p>
         </div>
-        {puedeEditar && (
+        {tiene(PERMISOS.PROYECTOS_GESTIONAR) && (
           <div className="flex gap-2">
             <Link
               to="/proyectos/nuevo"

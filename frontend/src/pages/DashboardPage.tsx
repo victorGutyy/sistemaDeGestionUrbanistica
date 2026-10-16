@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { PERMISOS } from '../lib/permisos'
 import { ejecutarRecordatorios, exportarDashboard, obtenerDashboard, type ResumenDashboard } from '../lib/api'
 import { formatearCOP } from '../lib/formato'
 
 export function DashboardPage() {
-  const { puedeEditar } = useAuth()
+  const { tiene } = useAuth()
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [resumen, setResumen] = useState<ResumenDashboard | null>(null)
@@ -59,7 +60,7 @@ export function DashboardPage() {
           <p className="text-sm text-slate-500">Ingresos, egresos y cartera, consolidado y por proyecto.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {puedeEditar && (
+          {tiene(PERMISOS.RECORDATORIOS_EJECUTAR) && (
             <button
               type="button"
               onClick={handleEnviarRecordatorios}

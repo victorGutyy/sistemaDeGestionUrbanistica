@@ -258,6 +258,9 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
   const [diasGracia, setDiasGracia] = useState(String(empresa.diasGraciaMora))
   const [diasAmarillo, setDiasAmarillo] = useState(String(empresa.diasSemaforoAmarillo))
   const [diasRecordatorio, setDiasRecordatorio] = useState(String(empresa.diasAntesRecordatorio))
+  const [intentosLogin, setIntentosLogin] = useState(String(empresa.intentosMaximosLogin))
+  const [minutosBloqueo, setMinutosBloqueo] = useState(String(empresa.minutosBloqueoLogin))
+  const [minutosInactividad, setMinutosInactividad] = useState(String(empresa.minutosInactividad))
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -276,6 +279,9 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
         diasGraciaMora: aNumero(diasGracia),
         diasSemaforoAmarillo: aNumero(diasAmarillo),
         diasAntesRecordatorio: aNumero(diasRecordatorio),
+        intentosMaximosLogin: aNumero(intentosLogin),
+        minutosBloqueoLogin: aNumero(minutosBloqueo),
+        minutosInactividad: aNumero(minutosInactividad),
       })
       onGuardada(guardada)
       setOk('Parámetros guardados. Se aplican desde ahora en cartera, mora y recordatorios.')
@@ -311,6 +317,22 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
           </Campo>
           <Campo id="diasRecordatorio" etiqueta="Días antes del vencimiento para el recordatorio por correo">
             <input id="diasRecordatorio" required inputMode="numeric" value={diasRecordatorio} onChange={(e) => setDiasRecordatorio(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-800">Seguridad de la sesión</p>
+          <p className="text-xs text-slate-500">Protegen las cuentas frente a claves adivinadas y equipos desatendidos.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo id="intentosLogin" etiqueta="Intentos fallidos antes de bloquear la cuenta">
+            <input id="intentosLogin" required inputMode="numeric" value={intentosLogin} onChange={(e) => setIntentosLogin(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+          <Campo id="minutosBloqueo" etiqueta="Minutos que dura el bloqueo">
+            <input id="minutosBloqueo" required inputMode="numeric" value={minutosBloqueo} onChange={(e) => setMinutosBloqueo(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+          <Campo id="minutosInactividad" etiqueta="Minutos de inactividad para cerrar la sesión" ayuda="Aplica desde el próximo ingreso de cada persona.">
+            <input id="minutosInactividad" required inputMode="numeric" value={minutosInactividad} onChange={(e) => setMinutosInactividad(e.target.value)} className={CLASE_INPUT} />
           </Campo>
         </div>
         <button type="submit" disabled={enviando} className={CLASE_BOTON}>

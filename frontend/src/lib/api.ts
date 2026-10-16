@@ -13,11 +13,18 @@ export function borrarToken() {
   localStorage.removeItem(CLAVE_TOKEN)
 }
 
+// Evento que avisa a la app de que el servidor ya no acepta la sesión (usuario
+// desactivado, contraseña restablecida, sesión vencida): AuthContext lo escucha.
+export const EVENTO_SESION_INVALIDA = 'sesion-invalida'
+
 async function lanzarErrorHttp(respuesta: Response, path: string): Promise<never> {
   const cuerpo = await respuesta.json().catch(() => null)
   const mensaje = Array.isArray(cuerpo?.message) ? cuerpo.message.join(', ') : cuerpo?.message
   if (respuesta.status === 401) {
+    const habiaSesion = obtenerToken() !== null
     borrarToken()
+    // Un 401 sin sesión previa es un intento de ingreso fallido, no una sesión caída.
+    if (habiaSesion) window.dispatchEvent(new Event(EVENTO_SESION_INVALIDA))
   }
   throw new Error(mensaje ?? `Error ${respuesta.status} al llamar ${path}`)
 }
@@ -507,14 +514,32 @@ export function ejecutarRecordatorios() {
   return solicitar<ResultadoRecordatorios>('/recordatorios/ejecutar', { method: 'POST' })
 }
 
-export type Rol = 'PROPIETARIO' | 'ADMINISTRADOR' | 'CONSULTA'
 export type EstadoUsuario = 'ACTIVO' | 'INACTIVO'
+
+export interface RolResumen {
+  id: string
+  clave: string
+  nombre: string
+}
 
 export interface UsuarioSesion {
   id: string
   nombre: string
   email: string
-  rol: Rol
+  rol: RolResumen
+  // Permisos del rol (ver lib/permisos.ts). Solo sirven para mostrar u ocultar opciones.
+  permisos: string[]
+}
+
+export interface RolConPermisos extends RolResumen {
+  descripcion: string | null
+  permisos: string[]
+  esSistema: boolean
+  limitablePorProyecto: boolean
+}
+
+export function listarRoles() {
+  return solicitar<{ roles: RolConPermisos[]; catalogoDePermisos: string[] }>('/roles')
 }
 
 export interface RespuestaLogin {
@@ -537,8 +562,11 @@ export interface Usuario {
   id: string
   nombre: string
   email: string
-  rol: Rol
+  rol: RolResumen
   estado: EstadoUsuario
+  ultimoIngreso: string | null
+  // Si es una fecha futura, la cuenta está bloqueada por intentos fallidos.
+  bloqueadoHasta: string | null
   createdAt: string
 }
 
@@ -546,7 +574,13 @@ export interface CrearUsuarioPayload {
   nombre: string
   email: string
   password: string
-  rol: Rol
+  rolId: string
+}
+
+export interface ActualizarUsuarioPayload {
+  nombre?: string
+  email?: string
+  rolId?: string
 }
 
 export function listarUsuarios() {
@@ -567,12 +601,26 @@ export function actualizarEstadoUsuario(id: string, estado: EstadoUsuario) {
   })
 }
 
+export function actualizarUsuario(id: string, payload: ActualizarUsuarioPayload) {
+  return solicitar<Usuario>(`/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export function restablecerPasswordUsuario(id: string, password: string) {
+  return solicitar<Usuario>(`/usuarios/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) })
+}
+
+export function desbloquearUsuario(id: string) {
+  return solicitar<Usuario>(`/usuarios/${id}/desbloquear`, { method: 'POST' })
+}
+
 // ---------- Configuración de la empresa ----------
 
 export interface MarcaPublica {
   nombreComercial: string
   nombreProducto: string
   colorPrimario: string
+  // Minutos sin actividad tras los cuales se cierra la sesión.
+  minutosInactividad: number
   tieneLogo: boolean
   version: number
 }
@@ -605,6 +653,9 @@ export interface EmpresaConfig {
   diasGraciaMora: number
   diasSemaforoAmarillo: number
   diasAntesRecordatorio: number
+  intentosMaximosLogin: number
+  minutosBloqueoLogin: number
+  minutosInactividad: number
 }
 
 export type TipoCuenta = 'AHORROS' | 'CORRIENTE' | 'BILLETERA_DIGITAL'
@@ -676,6 +727,9 @@ export interface ActualizarParametrosPayload {
   diasGraciaMora: number
   diasSemaforoAmarillo: number
   diasAntesRecordatorio: number
+  intentosMaximosLogin: number
+  minutosBloqueoLogin: number
+  minutosInactividad: number
 }
 
 export function actualizarParametros(payload: ActualizarParametrosPayload) {

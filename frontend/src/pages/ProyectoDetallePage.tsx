@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { PERMISOS } from '../lib/permisos'
 import { actualizarEstadoProyecto, obtenerProyecto, type ProyectoConLotes } from '../lib/api'
 import { calcularAreaDisponible, formatearArea } from '../lib/area'
 import { formatearCOP } from '../lib/formato'
 
 export function ProyectoDetallePage() {
-  const { usuario, puedeEditar } = useAuth()
+  const { tiene } = useAuth()
   const { id } = useParams<{ id: string }>()
   const [proyecto, setProyecto] = useState<ProyectoConLotes | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -72,7 +73,7 @@ export function ProyectoDetallePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {usuario?.rol === 'PROPIETARIO' && (
+          {tiene(PERMISOS.PROYECTOS_CAMBIAR_ESTADO) && (
             <button
               type="button"
               onClick={handleCambiarEstado}
@@ -82,7 +83,7 @@ export function ProyectoDetallePage() {
               {finalizado ? 'Reactivar proyecto' : 'Marcar como finalizado'}
             </button>
           )}
-          {!finalizado && puedeEditar && (
+          {!finalizado && tiene(PERMISOS.PROYECTOS_GESTIONAR) && (
             <Link
               to={`/proyectos/${proyecto.id}/lotes/nuevo`}
               className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -147,7 +148,7 @@ export function ProyectoDetallePage() {
                 <td className="px-4 py-2">{formatearCOP(lote.valorVenta)}</td>
                 <td className="px-4 py-2">{lote.estado}</td>
                 <td className="px-4 py-2 text-right">
-                  {lote.estado === 'DISPONIBLE' && puedeEditar && (
+                  {lote.estado === 'DISPONIBLE' && tiene(PERMISOS.VENTAS_CREAR) && (
                     <Link
                       to={`/ventas/nueva?loteId=${lote.id}`}
                       className="text-sm font-medium text-blue-600 hover:underline"

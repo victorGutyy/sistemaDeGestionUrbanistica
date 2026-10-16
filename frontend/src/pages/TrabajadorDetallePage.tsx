@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { PERMISOS } from '../lib/permisos'
 import { obtenerTrabajador, type TrabajadorConPagos } from '../lib/api'
 import { formatearCOP, formatearFecha } from '../lib/formato'
 
@@ -11,7 +12,7 @@ const ETIQUETA_NOVEDAD: Record<string, string> = {
 }
 
 export function TrabajadorDetallePage() {
-  const { puedeEditar } = useAuth()
+  const { tiene } = useAuth()
   const { id } = useParams<{ id: string }>()
   const [trabajador, setTrabajador] = useState<TrabajadorConPagos | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +41,7 @@ export function TrabajadorDetallePage() {
             {trabajador.cargo} — {trabajador.documento} · Salario base: {formatearCOP(trabajador.salarioBase)}
           </p>
         </div>
-        {puedeEditar && (
+        {tiene(PERMISOS.NOMINA_GESTIONAR) && (
           <Link
             to={`/trabajadores/${trabajador.id}/pagos/nuevo`}
             className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"

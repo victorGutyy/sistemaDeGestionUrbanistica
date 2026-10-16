@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { PERMISOS } from '../lib/permisos'
 import { listarTrabajadores, type Trabajador } from '../lib/api'
 import { formatearCOP } from '../lib/formato'
 
 export function NominaPage() {
-  const { puedeEditar } = useAuth()
+  const { tiene } = useAuth()
   const [trabajadores, setTrabajadores] = useState<Trabajador[]>([])
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -24,7 +25,7 @@ export function NominaPage() {
           <h1 className="text-lg font-semibold text-slate-900">Nómina y talento humano</h1>
           <p className="text-sm text-slate-500">Trabajadores de la empresa y sus pagos de nómina.</p>
         </div>
-        {puedeEditar && (
+        {tiene(PERMISOS.NOMINA_GESTIONAR) && (
           <Link
             to="/trabajadores/nuevo"
             className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
