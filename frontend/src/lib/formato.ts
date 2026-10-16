@@ -41,6 +41,14 @@ export function formatearFecha(fecha: string | Date | null | undefined): string 
   return FORMATO_FECHA.format(instante)
 }
 
+// Una fecha límite (día calendario) ya pasó si es anterior a hoy en Colombia.
+export function estaVencida(fecha: string | Date | null | undefined): boolean {
+  if (!fecha) return false
+  const instante = fecha instanceof Date ? fecha : new Date(fecha)
+  if (Number.isNaN(instante.getTime())) return false
+  return FORMATO_FECHA_ISO.format(instante) < FORMATO_FECHA_ISO.format(new Date())
+}
+
 // Fecha de hoy en Colombia como aaaa-mm-dd (lo que espera un <input type="date">).
 // No usar new Date().toISOString(): da la fecha en UTC y, después de las 7 p. m.
 // en Bogotá, ya sería "mañana".

@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
 import {
+  abrirDocumentoVenta,
   aprobarVenta,
+  desistirVenta,
+  subirDocumentosVenta,
   listarAbonosPorVenta,
   obtenerVenta,
   rechazarVenta,
@@ -12,7 +15,7 @@ import {
   type EstadoCuota,
   type Venta,
 } from '../lib/api'
-import { formatearCOP, formatearFecha } from '../lib/formato'
+import { formatearCOP, formatearFecha, hoyEnBogota } from '../lib/formato'
 import { CLASE_ESTADO_VENTA, ETIQUETA_ESTADO_VENTA, etiquetaCuota } from '../lib/ventas'
 
 const ESTILO_ESTADO_CUOTA: Record<EstadoCuota, string> = {
@@ -39,6 +42,70 @@ export function VentaDetallePage() {
   const [error, setError] = useState<string | null>(null)
   const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
   const [resolviendo, setResolviendo] = useState(false)
+
+  // Documentos firmados
+  const inputArchivos = useRef<HTMLInputElement>(null)
+  const [descripcionDoc, setDescripcionDoc] = useState('')
+  const [subiendo, setSubiendo] = useState(false)
+
+  // Desistimiento
+  const [mostrarDesistir, setMostrarDesistir] = useState(false)
+  const [desistimiento, setDesistimiento] = useState({ fecha: hoyEnBogota(), motivo: '', valorDevolver: '', valorRetener: '' })
+  const [desistiendo, setDesistiendo] = useState(false)
+
+  async function handleSubirDocumentos(event: FormEvent) {
+    event.preventDefault()
+    if (!venta) return
+    const archivos = Array.from(inputArchivos.current?.files ?? [])
+    if (archivos.length === 0) {
+      setError('Elige al menos un archivo (PDF, PNG o JPG).')
+      return
+    }
+    setSubiendo(true)
+    setError(null)
+    try {
+      await subirDocumentosVenta(venta.id, archivos, descripcionDoc.trim() || undefined)
+      setDescripcionDoc('')
+      if (inputArchivos.current) inputArchivos.current.value = ''
+      setRecarga((n) => n + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron subir los documentos')
+    } finally {
+      setSubiendo(false)
+    }
+  }
+
+  async function handleAbrirDocumento(documentoId: string) {
+    if (!venta) return
+    setError(null)
+    try {
+      await abrirDocumentoVenta(venta.id, documentoId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo abrir el documento')
+    }
+  }
+
+  async function handleDesistir(event: FormEvent) {
+    event.preventDefault()
+    if (!venta) return
+    if (!window.confirm('¿Registrar el desistimiento? El lote quedará desistido y la venta saldrá de la cartera. Los abonos y recibos se conservan.')) return
+    setDesistiendo(true)
+    setError(null)
+    try {
+      await desistirVenta(venta.id, {
+        fecha: desistimiento.fecha,
+        motivo: desistimiento.motivo.trim(),
+        valorDevolver: desistimiento.valorDevolver || undefined,
+        valorRetener: desistimiento.valorRetener || undefined,
+      })
+      setMostrarDesistir(false)
+      setRecarga((n) => n + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el desistimiento')
+    } finally {
+      setDesistiendo(false)
+    }
+  }
   const [recarga, setRecarga] = useState(0)
 
   async function resolver(accion: 'aprobar' | 'rechazar') {
@@ -127,6 +194,18 @@ export function VentaDetallePage() {
       </div>
 
       {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      {venta.estado === 'DESISTIDA' && venta.desistimiento && (
+        <div className="mt-4 space-y-1 rounded-md border border-slate-300 bg-slate-100 px-4 py-3 text-sm text-slate-800">
+          <p className="font-medium">Venta desistida el {formatearFecha(venta.desistimiento.fecha)}</p>
+          <p>Motivo: {venta.desistimiento.motivo}</p>
+          <p>
+            A devolver: {venta.desistimiento.valorDevolver ? formatearCOP(venta.desistimiento.valorDevolver) : '—'} · A retener:{' '}
+            {venta.desistimiento.valorRetener ? formatearCOP(venta.desistimiento.valorRetener) : '—'}
+          </p>
+          {venta.desistimiento.registradoPor && <p className="text-xs text-slate-500">Registrado por {venta.desistimiento.registradoPor.nombre}. Los abonos y recibos se conservan.</p>}
+        </div>
+      )}
 
       {venta.esExcepcion && (
         <div className="mt-4 space-y-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -231,6 +310,86 @@ export function VentaDetallePage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold text-slate-900">Documentos firmados</h2>
+        <ul className="mt-2 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          {(venta.documentos ?? []).length === 0 && <li className="px-4 py-4 text-sm text-slate-400">Todavía no hay documentos adjuntos.</li>}
+          {(venta.documentos ?? []).map((documento) => (
+            <li key={documento.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+              <div className="min-w-0">
+                <button type="button" onClick={() => void handleAbrirDocumento(documento.id)} className="truncate text-left font-medium text-blue-600 hover:underline">
+                  {documento.nombreOriginal}
+                </button>
+                <p className="text-xs text-slate-500">
+                  {documento.descripcion ? `${documento.descripcion} · ` : ''}
+                  {formatearFecha(documento.createdAt)}
+                  {documento.subidoPor ? ` · ${documento.subidoPor.nombre}` : ''} · {Math.max(1, Math.round(documento.tamano / 1024))} KB
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {tiene(PERMISOS.VENTAS_CREAR) && (
+          <form onSubmit={handleSubirDocumentos} className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+            <label htmlFor="archivosVenta" className="block text-sm font-medium text-slate-700">
+              Adjuntar documentos (PDF, PNG o JPG; hasta 10 a la vez)
+            </label>
+            <input id="archivosVenta" ref={inputArchivos} type="file" multiple accept="application/pdf,image/png,image/jpeg" className="w-full text-sm text-slate-700" />
+            <input
+              aria-label="Descripción de los documentos"
+              maxLength={300}
+              value={descripcionDoc}
+              onChange={(event) => setDescripcionDoc(event.target.value)}
+              placeholder="Descripción (opcional), p. ej. Contrato firmado"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+            <button type="submit" disabled={subiendo} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              {subiendo ? 'Subiendo...' : 'Subir documentos'}
+            </button>
+          </form>
+        )}
+      </section>
+
+      {activa && tiene(PERMISOS.VENTAS_DESISTIR) && (
+        <section className="mt-8">
+          <button
+            type="button"
+            onClick={() => setMostrarDesistir((v) => !v)}
+            className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+          >
+            Registrar desistimiento
+          </button>
+          {mostrarDesistir && (
+            <form onSubmit={handleDesistir} className="mt-3 space-y-3 rounded-lg border border-red-200 bg-white p-4">
+              <p className="text-sm text-slate-600">
+                El cliente desiste de la compra. No se borra ningún abono ni recibo; los valores a devolver y a retener los escribes tú (el sistema no mueve dinero).
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="desFecha" className="block text-sm text-slate-700">Fecha</label>
+                  <input id="desFecha" type="date" required value={desistimiento.fecha} onChange={(e) => setDesistimiento({ ...desistimiento, fecha: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+                </div>
+                <div>
+                  <label htmlFor="desDevolver" className="block text-sm text-slate-700">A devolver (pesos)</label>
+                  <input id="desDevolver" inputMode="numeric" value={desistimiento.valorDevolver} onChange={(e) => setDesistimiento({ ...desistimiento, valorDevolver: e.target.value.replace(/\D/g, '') })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+                </div>
+                <div>
+                  <label htmlFor="desRetener" className="block text-sm text-slate-700">A retener (pesos)</label>
+                  <input id="desRetener" inputMode="numeric" value={desistimiento.valorRetener} onChange={(e) => setDesistimiento({ ...desistimiento, valorRetener: e.target.value.replace(/\D/g, '') })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="desMotivo" className="block text-sm text-slate-700">Motivo</label>
+                <textarea id="desMotivo" required minLength={5} maxLength={500} rows={2} value={desistimiento.motivo} onChange={(e) => setDesistimiento({ ...desistimiento, motivo: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900" />
+              </div>
+              <button type="submit" disabled={desistiendo} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                {desistiendo ? 'Registrando...' : 'Confirmar desistimiento'}
+              </button>
+            </form>
+          )}
+        </section>
       )}
 
       <h2 className="mt-8 text-sm font-semibold text-slate-900">Abonos registrados</h2>

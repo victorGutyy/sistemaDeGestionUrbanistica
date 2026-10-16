@@ -15,7 +15,7 @@ import {
 } from '../lib/api'
 import { formatearArea } from '../lib/area'
 import { ETIQUETA_ESTADO_LOTE } from '../lib/estadoLote'
-import { formatearCOP, formatearFecha, hoyEnBogota } from '../lib/formato'
+import { estaVencida, formatearCOP, formatearFecha, hoyEnBogota } from '../lib/formato'
 import { PERMISOS } from '../lib/permisos'
 
 const CLASE_INPUT =
@@ -54,7 +54,8 @@ export function LoteDetallePage() {
   const [ocupado, setOcupado] = useState(false)
 
   // Formularios que se abren bajo demanda.
-  const [panel, setPanel] = useState<'escriturar' | 'editar' | 'reponer' | null>(null)
+  const [panel, setPanel] = useState<'separar' | 'escriturar' | 'editar' | 'reponer' | null>(null)
+  const [separacion, setSeparacion] = useState({ nombre: '', telefono: '', valor: '', fechaLimite: '', motivo: '' })
   const [numeroEscritura, setNumeroEscritura] = useState('')
   const [notaria, setNotaria] = useState('')
   const [fechaEscritura, setFechaEscritura] = useState(() => hoyEnBogota())
@@ -176,6 +177,27 @@ export function LoteDetallePage() {
         </dl>
       </section>
 
+      {lote.separacionActiva && (
+        <section
+          className={`rounded-lg border p-4 text-sm sm:p-6 ${estaVencida(lote.separacionActiva.fechaLimite) ? 'border-red-200 bg-red-50 text-red-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}
+        >
+          <h2 className="text-base font-semibold">Separación vigente</h2>
+          <p>
+            Interesado: {lote.separacionActiva.cliente?.nombre ?? lote.separacionActiva.nombreInteresado ?? 'sin nombre registrado'}
+            {lote.separacionActiva.telefonoInteresado ? ` · ${lote.separacionActiva.telefonoInteresado}` : ''}
+          </p>
+          {lote.separacionActiva.valor && <p>Dejó: {formatearCOP(lote.separacionActiva.valor)}</p>}
+          {lote.separacionActiva.fechaLimite && (
+            <p className="font-medium">
+              {estaVencida(lote.separacionActiva.fechaLimite) ? 'Venció el ' : 'Vence el '}
+              {formatearFecha(lote.separacionActiva.fechaLimite)}
+              {estaVencida(lote.separacionActiva.fechaLimite) ? ' — libérala o formaliza la venta.' : ''}
+            </p>
+          )}
+          <p className="text-xs opacity-80">Registrada por {lote.separacionActiva.registradaPor.nombre}.</p>
+        </section>
+      )}
+
       <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
         <h2 className="text-base font-semibold text-slate-900">Acciones</h2>
         <p className="text-xs text-slate-500">El estado del lote solo cambia con estas acciones; cada una queda en el historial.</p>
@@ -186,7 +208,7 @@ export function LoteDetallePage() {
             </Link>
           )}
           {puedeGestionar && lote.acciones.includes('SEPARAR') && (
-            <button type="button" disabled={ocupado} className={CLASE_BOTON_SECUNDARIO} onClick={() => void ejecutar(() => separarLote(lote.id), 'No se pudo separar')}>
+            <button type="button" className={CLASE_BOTON_SECUNDARIO} onClick={() => setPanel(panel === 'separar' ? null : 'separar')}>
               Separar
             </button>
           )}
@@ -212,6 +234,61 @@ export function LoteDetallePage() {
           )}
           {!puedeVender && !puedeGestionar && !puedeReponer && <span className="text-sm text-slate-400">Sin acciones disponibles para tu rol.</span>}
         </div>
+
+        {panel === 'separar' && (
+          <form
+            className="mt-4 space-y-3 border-t border-slate-100 pt-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void ejecutar(
+                () =>
+                  separarLote(lote.id, {
+                    nombreInteresado: separacion.nombre.trim() || undefined,
+                    telefonoInteresado: separacion.telefono.trim() || undefined,
+                    valor: separacion.valor || undefined,
+                    fechaLimite: separacion.fechaLimite || undefined,
+                    motivo: separacion.motivo.trim() || undefined,
+                  }),
+                'No se pudo separar',
+              )
+            }}
+          >
+            <p className="text-sm font-medium text-slate-700">Separar el lote (todo es opcional)</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="sepNombre" className="block text-sm text-slate-700">Interesado</label>
+                <input id="sepNombre" maxLength={120} value={separacion.nombre} onChange={(e) => setSeparacion({ ...separacion, nombre: e.target.value })} className={CLASE_INPUT} />
+              </div>
+              <div>
+                <label htmlFor="sepTelefono" className="block text-sm text-slate-700">Teléfono</label>
+                <input id="sepTelefono" maxLength={30} value={separacion.telefono} onChange={(e) => setSeparacion({ ...separacion, telefono: e.target.value })} className={CLASE_INPUT} />
+              </div>
+              <div>
+                <label htmlFor="sepValor" className="block text-sm text-slate-700">Valor que dejó (pesos)</label>
+                <input
+                  id="sepValor"
+                  inputMode="numeric"
+                  value={separacion.valor}
+                  onChange={(e) => setSeparacion({ ...separacion, valor: e.target.value.replace(/\D/g, '') })}
+                  required={false}
+                  className={CLASE_INPUT}
+                />
+                <p className="mt-1 text-xs text-slate-400">Si dejó un valor, escribe también quién es. Es solo informativo: el dinero se recibe como abono a la cuota inicial.</p>
+              </div>
+              <div>
+                <label htmlFor="sepFecha" className="block text-sm text-slate-700">Fecha límite para formalizar la venta</label>
+                <input id="sepFecha" type="date" min={hoyEnBogota()} value={separacion.fechaLimite} onChange={(e) => setSeparacion({ ...separacion, fechaLimite: e.target.value })} className={CLASE_INPUT} />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="sepMotivo" className="block text-sm text-slate-700">Nota (opcional)</label>
+              <input id="sepMotivo" maxLength={500} value={separacion.motivo} onChange={(e) => setSeparacion({ ...separacion, motivo: e.target.value })} className={CLASE_INPUT} />
+            </div>
+            <button type="submit" disabled={ocupado} className={CLASE_BOTON}>
+              Separar el lote
+            </button>
+          </form>
+        )}
 
         {panel === 'escriturar' && (
           <form

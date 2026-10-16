@@ -114,6 +114,19 @@ export type TipoProyecto = 'LOTES' | 'REMODELACION' | 'MAQUINARIA'
 export type AccionLote = 'SEPARAR' | 'LIBERAR' | 'VENDER' | 'ESCRITURAR' | 'DESISTIR' | 'REPONER'
 export type FormaPago = 'CONTADO' | 'FINANCIADO'
 
+// Apartado de un lote antes de formalizar la venta.
+export interface Separacion {
+  id: string
+  estado: 'ACTIVA' | 'CONVERTIDA' | 'LIBERADA'
+  nombreInteresado: string | null
+  telefonoInteresado: string | null
+  // Valor que dejó el interesado (informativo), en pesos.
+  valor: string | null
+  fechaLimite: string | null
+  cliente: { id: string; nombre: string } | null
+  registradaPor: { nombre: string }
+}
+
 export interface Lote {
   id: string
   numero: string
@@ -123,6 +136,8 @@ export interface Lote {
   linderos: string | null
   proyecto: { id: string; nombre: string }
   manzana: Manzana | null
+  // Solo viene en la lista de lotes: la separación activa, si la hay.
+  separaciones?: Separacion[]
 }
 
 export interface Manzana {
@@ -275,6 +290,7 @@ export interface FichaLote {
   escrituraFecha: string | null
   proyecto: Proyecto
   manzana: Manzana | null
+  separacionActiva: Separacion | null
   historial: EventoLote[]
   // Acciones manuales que aplican al estado actual.
   acciones: AccionLote[]
@@ -297,8 +313,17 @@ export function actualizarLote(id: string, payload: ActualizarLotePayload) {
   return solicitar<Lote>(`/lotes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
-export function separarLote(id: string, motivo?: string) {
-  return solicitar<Lote>(`/lotes/${id}/separar`, { method: 'POST', body: JSON.stringify({ motivo }) })
+export interface SepararLotePayload {
+  clienteId?: string
+  nombreInteresado?: string
+  telefonoInteresado?: string
+  valor?: string
+  fechaLimite?: string
+  motivo?: string
+}
+
+export function separarLote(id: string, datos: SepararLotePayload = {}) {
+  return solicitar<Lote>(`/lotes/${id}/separar`, { method: 'POST', body: JSON.stringify(datos) })
 }
 
 export function liberarLote(id: string, motivo?: string) {
@@ -396,6 +421,24 @@ export interface EstadoCuenta {
   proximaCuota: Cuota | null
 }
 
+export interface DocumentoVenta {
+  id: string
+  nombreOriginal: string
+  tipoMime: string
+  tamano: number
+  descripcion: string | null
+  createdAt: string
+  subidoPor?: { nombre: string }
+}
+
+export interface Desistimiento {
+  fecha: string
+  motivo: string
+  valorDevolver: string | null
+  valorRetener: string | null
+  registradoPor?: { nombre: string }
+}
+
 export interface Venta {
   id: string
   estado: EstadoVenta
@@ -414,12 +457,37 @@ export interface Venta {
   resueltaEn: string | null
   registradaPor?: { nombre: string } | null
   resueltaPor?: { nombre: string } | null
+  documentos?: DocumentoVenta[]
+  desistimiento?: Desistimiento | null
   // Solo viene en la respuesta de obtenerVenta (GET /ventas/:id), no al crear.
   estadoCuenta?: EstadoCuenta
 }
 
 export function listarVentas(estado?: EstadoVenta) {
   return solicitar<Venta[]>(`/ventas${estado ? `?estado=${estado}` : ''}`)
+}
+
+export function subirDocumentosVenta(ventaId: string, archivos: File[], descripcion?: string) {
+  const formData = new FormData()
+  for (const archivo of archivos) formData.append('documentos', archivo)
+  if (descripcion) formData.append('descripcion', descripcion)
+  return solicitar<DocumentoVenta[]>(`/ventas/${ventaId}/documentos`, { method: 'POST', body: formData })
+}
+
+// Se abre con descarga autenticada: un enlace directo no llevaría el token de sesión.
+export function abrirDocumentoVenta(ventaId: string, documentoId: string) {
+  return abrirArchivo(`/ventas/${ventaId}/documentos/${documentoId}`)
+}
+
+export interface DesistirVentaPayload {
+  fecha: string
+  motivo: string
+  valorDevolver?: string
+  valorRetener?: string
+}
+
+export function desistirVenta(id: string, datos: DesistirVentaPayload) {
+  return solicitar<Venta>(`/ventas/${id}/desistir`, { method: 'POST', body: JSON.stringify(datos) })
 }
 
 export function aprobarVenta(id: string) {

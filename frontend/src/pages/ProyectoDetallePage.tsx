@@ -13,7 +13,7 @@ import {
 } from '../lib/api'
 import { formatearArea } from '../lib/area'
 import { ESTADOS_LOTE, ETIQUETA_ESTADO_LOTE, ETIQUETA_TIPO_PROYECTO } from '../lib/estadoLote'
-import { formatearCOP } from '../lib/formato'
+import { estaVencida, formatearCOP, formatearFecha } from '../lib/formato'
 import { PERMISOS } from '../lib/permisos'
 
 const CLASE_INPUT =
@@ -277,6 +277,14 @@ export function ProyectoDetallePage() {
                     <p className="text-xs text-slate-500">
                       {formatearArea(lote.area)} m² · {formatearCOP(lote.valorVenta)}
                     </p>
+                    {lote.estado === 'SEPARADO' && lote.separaciones?.[0] && (
+                      <p className={`text-xs ${estaVencida(lote.separaciones[0].fechaLimite) ? 'font-medium text-red-600' : 'text-amber-700'}`}>
+                        Separado por {lote.separaciones[0].cliente?.nombre ?? lote.separaciones[0].nombreInteresado ?? 'sin nombre'}
+                        {lote.separaciones[0].fechaLimite
+                          ? ` · ${estaVencida(lote.separaciones[0].fechaLimite) ? 'venció' : 'vence'} el ${formatearFecha(lote.separaciones[0].fechaLimite)}`
+                          : ''}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <EstadoLoteBadge estado={lote.estado} />
