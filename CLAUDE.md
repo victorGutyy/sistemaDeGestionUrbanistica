@@ -7,7 +7,8 @@ Urbanix es la base genérica de un sistema web para empresas que compran predios
 El alcance está en `docs/requerimientos.md` (112 requerimientos funcionales RF-XXX-00 y 32 no funcionales RNF-XXX-00, con prioridad Debe/Debería/Podría y etapa 1, 2 o 3). Reglas:
 - Lee ese documento antes de planear cualquier paso, y cita los IDs que cada cambio cubre.
 - Si algo del código, de un prompt o de una conversación contradice el documento, gana el documento y me avisas. Los cambios de alcance se registran ahí (control de cambios), no solo en el chat.
-- Reparto: Etapa 1 = 77 RF (68 "Debe"), Etapa 2 = 24, Etapa 3 = 11. Una etapa se acepta cuando están todos sus "Debe"; los "Debería" y "Podría" se mueven primero si hay atraso.
+- Control de cambios: al final del documento. CC-01 (16 oct 2026) agrega 11 RF: proyectos de remodelación con ingresos y egresos propios, finanzas detalladas por proyecto, flujo de caja diario/semanal/quincenal/mensual, y préstamos a trabajadores con alerta previa a la nómina y carta de descuento (PDF, firma en papel, enlace de WhatsApp). Pendiente la confirmación comercial con el cliente.
+- Reparto original: Etapa 1 = 77 RF (68 "Debe"), Etapa 2 = 24, Etapa 3 = 11. Una etapa se acepta cuando están todos sus "Debe"; los "Debería" y "Podría" se mueven primero si hay atraso.
 - Restricciones: aplicación web en la nube, PostgreSQL, construida sobre la base Urbanix (el desarrollador conserva sus derechos), servicios en la nube y dominio a nombre de la empresa y pagados por ella, presupuesto $10.000.000 COP en tres etapas, unas 11 semanas.
 
 ## Actores y roles
@@ -16,7 +17,7 @@ El alcance está en `docs/requerimientos.md` (112 requerimientos funcionales RF-
 - **Consulta**: solo lectura; acceso a todos los proyectos o restringido a uno o varios (caso: socio de La Floresta). Solo este rol se limita por proyecto.
 - **Cliente comprador**: no ingresa al sistema; recibe recibos, recordatorios y avisos.
 - **Sistema**: procesos automáticos (mora, recordatorios, consecutivos).
-- Nota de transición: en el código actual el rol de mayor nivel todavía se llama PROPIETARIO; se renombra a GERENTE en el paso 2.2.
+- Los roles son filas de una tabla con permisos tomados de un catálogo fijo (`backend/src/auth/permisos.ts`); cada endpoint declara el permiso que exige y una ruta sin declarar se rechaza para todos. El rol de mayor nivel ya se llama GERENTE (antes PROPIETARIO).
 
 ## Regla de arquitectura más importante
 La base debe seguir siendo genérica y reutilizable con otros clientes (el desarrollador conserva los derechos sobre la base genérica). Por eso:
@@ -60,9 +61,9 @@ La base debe seguir siendo genérica y reutilizable con otros clientes (el desar
 - Contabilidad general (la lleva un contador externo con su propio software).
 - Facturación electrónica.
 - Pagos en línea (PSE, tarjetas).
-- Firma electrónica dentro de la plataforma (solo se adjuntan documentos ya firmados).
+- Firma electrónica dentro de la plataforma (solo se adjuntan documentos ya firmados; también la carta de descuento de préstamos, CC-01). Envío automático por la API de WhatsApp Business.
 - Portal del cliente, PQRS y app móvil nativa.
-- Integración de la página web y registro de la línea de reformas de casas (se cotizan aparte).
+- Integración de la página web y registro de la línea de reformas de casas (se cotizan aparte). Excepción CC-01: solo el seguimiento de ingresos y egresos de los proyectos de remodelación; cotizaciones, avance y presupuesto de obra siguen fuera.
 
 ## Pendiente de confirmar con el cliente (NO inventar en el código)
 Todo esto entra como configuración editable o valor provisional claramente marcado, nunca como constante:
@@ -74,6 +75,7 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 - Cómo se cobra el interés de mora: junto con la cuota o por separado (RF-CAR-06).
 - Software contable del contador y formato de reportes que necesita.
 - Logo de la empresa en buena calidad.
+- Si CC-01 entra en el presupuesto o se cotiza adicional; si una remodelación guarda cliente de la obra y valor del contrato; si el préstamo se descuenta en una nómina o en cuotas y quién lo aprueba; definición de la quincena; concepto de la abogada sobre la carta de descuento.
 
 ## Deuda técnica conocida (quitar de aquí cuando se resuelva)
 - Hoy no hay auditoría, anulaciones, edición de datos ni búsqueda de clientes; el abono se aplica a una sola cuota elegida a mano.

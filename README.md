@@ -36,7 +36,7 @@ La API queda escuchando en `http://localhost:3000` (puerto configurable con `POR
 
 **Datos iniciales.** `npx prisma db seed` (desde `backend/`) carga la configuración inicial de la empresa desde `backend/prisma/semillas/empresa-balder.ts` (datos de la empresa, parámetros, categorías de gasto, medios de pago, comisiones y cuentas inactivas "POR CONFIGURAR"); es seguro repetirlo porque nunca pisa lo que el gerente ya editó en la app. Para cambiar de cliente se edita ese archivo y el gerente ajusta el resto desde Configuración.
 
-**Primer usuario.** No hay registro público, así que la primera cuenta se siembra: completa `SEED_ADMIN_NOMBRE`, `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` (mínimo 8 caracteres) en `backend/.env`, corre `npx prisma db seed` y luego borra esas tres líneas del `.env`. Esa cuenta queda con el rol de mayor nivel; las demás se crean desde la sección Usuarios.
+**Primer usuario.** No hay registro público, así que la primera cuenta se siembra: completa `SEED_ADMIN_NOMBRE`, `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` (mínimo 8 caracteres) en `backend/.env`, corre `npx prisma db seed` y luego borra esas tres líneas del `.env`. Esa cuenta queda con el rol Gerente; las demás se crean desde la sección Usuarios.
 
 **Comprobar que todo está sano:**
 
@@ -78,7 +78,7 @@ npx prisma migrate dev
 La base genérica Urbanix (v1.0) está completa y funcionando; ahora se adapta al primer cliente real según `docs/requerimientos.md`.
 
 Ya existe en la base:
-- ✅ Login con JWT y tres roles (PROPIETARIO, ADMINISTRADOR, CONSULTA) y gestión de usuarios.
+- ✅ Login con JWT, roles con permisos (Gerente, Administrador, Consulta; se pueden agregar más sin tocar el código), bloqueo tras intentos fallidos, cierre de sesión por inactividad y gestión de usuarios.
 - ✅ Proyectos y lotes con área disponible, y finalizar/reactivar proyectos.
 - ✅ Ventas de contado y financiadas con plan de cuotas.
 - ✅ Abonos con comprobante adjunto y estado de las cuotas.

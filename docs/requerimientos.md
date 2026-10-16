@@ -10,6 +10,8 @@ Fuentes: formulario de levantamiento (14 de octubre de 2026), entrevista y acta 
 
 Reparto por etapa (verificado): Etapa 1 = 77 requerimientos funcionales (68 "Debe"), Etapa 2 = 24, Etapa 3 = 11.
 
+Los cambios de alcance posteriores a esta versión se registran en la sección **Control de cambios** (al final). El cambio CC-01 agrega 11 requerimientos funcionales sin alterar los 112 originales.
+
 ## Convenciones
 
 | Elemento | Significado |
@@ -338,9 +340,9 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 - Contabilidad general.
 - Facturación electrónica.
 - Pagos en línea (PSE y tarjetas).
-- Firma electrónica dentro de la plataforma.
+- Firma electrónica dentro de la plataforma. Para la carta de descuento de préstamos (CC-01) se genera el PDF y se adjunta firmado en papel; la firma electrónica queda como adicional.
 - Portal del cliente, PQRS y app móvil nativa.
-- Integración de la página web y registro de la línea de reformas de casas (se cotizan aparte).
+- Integración de la página web y registro de la línea de reformas de casas (se cotizan aparte). Excepción registrada en CC-01: solo se incluye el seguimiento de ingresos y egresos de los proyectos de remodelación; cotizaciones, avance y presupuesto de obra siguen fuera.
 
 ### Puntos por confirmar con la empresa
 
@@ -354,3 +356,46 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 | Cómo se cobra el interés de mora: junto con la cuota o por separado | RF-CAR-06 |
 | Software contable del contador externo y formato de reportes que necesita | RF-REP-10, RF-PER-11 |
 | Logo de la empresa en buena calidad | RF-CFG-01 |
+
+---
+
+## Control de cambios
+
+### CC-01 · 16 de octubre de 2026 · Proyectos de remodelación, préstamos a trabajadores y flujo de caja
+
+**Origen:** solicitud del cliente por llamada con el desarrollador (16 de octubre de 2026).
+
+**Estado:** aprobado por el desarrollador para el diseño; **pendiente la confirmación comercial con el cliente** (si entra en el presupuesto de $10.000.000 o se cotiza como adicional).
+
+**Resumen:** (1) el sistema maneja proyectos de venta de lotes y de remodelación de casas, con el dinero de cada proyecto independiente; (2) los préstamos a trabajadores se controlan con una alerta antes de cada nómina y una carta de autorización de descuento; (3) el flujo de caja se consulta por día, semana, quincena, mes y proyecto.
+
+| ID | Requerimiento | Prioridad | Etapa |
+|---|---|---|---|
+| RF-PRY-07 | Cada proyecto tiene un tipo: venta de lotes o remodelación. Un proyecto de remodelación no tiene manzanas ni lotes; solo ingresos y egresos propios | Debe | 1 |
+| RF-CFG-11 | El gerente administra las categorías de ingreso (por ejemplo: cuota inicial, abono, anticipo de remodelación, otros) | Debe | 1 |
+| RF-CFG-12 | El gerente configura la fecha de pago de la nómina: día de la semana para el pago semanal y fechas del pago quincenal | Debe | 3 |
+| RF-EGR-08 | Cada proyecto tiene una sección de finanzas con sus ingresos y egresos detallados (fecha, tipo, categoría, descripción, valor, medio de pago, cuenta, soporte y usuario), con totales de ingresos, egresos y utilidad filtrables por período | Debe | 1 |
+| RF-EGR-09 | Cada ingreso o egreso registra el tercero (nombre y documento del proveedor o cliente) y el número de factura o recibo | Debería | 1 |
+| RF-REP-11 | Reporte de flujo de caja por día, semana, quincena o mes, para toda la empresa o por proyecto, con ingresos, egresos y saldo acumulado; exportable a PDF y Excel | Debe | 2 |
+| RF-PER-12 | Registrar préstamos a trabajadores: fecha, valor, forma de pago, número de cuotas, saldo y estado | Debe | 3 |
+| RF-PER-13 | Alertar el día antes de cada fecha de nómina sobre los trabajadores con préstamo pendiente de descuento, en el panel y por correo | Debe | 3 |
+| RF-PER-14 | Generar en PDF la carta de autorización de descuento con los datos del trabajador y del préstamo (nombre, documento, cargo, fecha, valor, cuotas y forma de pago) | Debe | 3 |
+| RF-PER-15 | Compartir la carta por WhatsApp con un enlace de mensaje listo y adjuntar la carta firmada en la ficha del trabajador; no se activa el descuento de un préstamo sin la carta firmada adjunta | Debe | 3 |
+| RF-PER-16 | Al registrar el pago de nómina, proponer el descuento de las cuotas de préstamo pendientes como novedad y actualizar el saldo del préstamo | Debería | 3 |
+
+**Decisiones del desarrollador sobre el alcance:**
+- La carta se firma en papel (o con la firma que la empresa ya use) y se adjunta escaneada o fotografiada. **La firma electrónica dentro de la plataforma no se incluye**; queda como adicional pendiente del concepto de la abogada de la empresa sobre su validez para descuentos de nómina.
+- El envío por WhatsApp es un enlace de mensaje preparado (gratis); el envío automático por la API de WhatsApp Business no se incluye.
+- La carta nunca queda en blanco: incluye valor, cuotas y forma de pago del préstamo.
+- Los proyectos de remodelación solo incluyen seguimiento de ingresos y egresos. Cotizaciones, avance de obra y presupuesto de obra siguen fuera del alcance.
+
+**Puntos por confirmar derivados de este cambio:**
+
+| Punto | Requerimientos afectados |
+|---|---|
+| Si el cambio entra en el presupuesto de $10.000.000 o se cotiza como adicional | CC-01 completo |
+| Si en una remodelación se debe registrar también el cliente de la obra y el valor del contrato | RF-PRY-07 |
+| Si el préstamo se descuenta en una sola nómina o en cuotas, y quién lo aprueba | RF-PER-12, RF-PER-16 |
+| Definición de la quincena (propuesta: del 1 al 15 y del 16 al fin de mes) | RF-CFG-12, RF-REP-11 |
+| Si el cliente necesita más campos en cada ingreso o egreso (por ejemplo, centro de costo) | RF-EGR-08, RF-EGR-09 |
+| Concepto de la abogada sobre la carta de autorización y el descuento en la liquidación final | RF-PER-14, RF-PER-15 |
