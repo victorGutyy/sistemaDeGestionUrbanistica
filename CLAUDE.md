@@ -81,5 +81,4 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 - Hoy no hay auditoría, anulaciones, edición de datos ni búsqueda de clientes; el abono se aplica a una sola cuota elegida a mano.
 - "Ver comprobante" ya usa descarga autenticada, pero no se pudo probar con un archivo real (no había abonos con adjunto); probarlo cuando exista uno.
 - La tabla de cuotas en 360 px necesita desplazamiento lateral para ver "Estado" y "Abonar"; se rediseña en el paso 2.5 (el abono se aplicará automáticamente).
-- Las cuotas pueden tener centavos (p. ej. $22.666.666,67) porque el plan divide sin redondear a pesos enteros; revisar en el paso 2.4.
 - El frontend no tiene corredor de pruebas (sin vitest): los formateadores de `lib/formato.ts` se verificaron a mano. Instalarlo requiere mi confirmación.
