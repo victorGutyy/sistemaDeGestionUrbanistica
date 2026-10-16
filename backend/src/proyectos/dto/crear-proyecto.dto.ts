@@ -1,13 +1,24 @@
-import { IsDecimal, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { IsDecimal, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { TipoProyecto } from '../../generated/prisma/enums.js';
 
 export class CrearProyectoDto {
   @IsString()
   @MinLength(3)
   nombre!: string;
 
+  // Omitido = venta de lotes. Remodelación y maquinaria no tienen manzanas ni lotes.
+  @IsOptional()
+  @IsEnum(TipoProyecto)
+  tipo?: TipoProyecto;
+
   @IsOptional()
   @IsString()
   ubicacion?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  municipio?: string;
 
   @IsDecimal({ decimal_digits: '0,2' })
   areaTotal!: string;

@@ -12,7 +12,10 @@ function crearPrismaFalso() {
   const tx = {
     lote: {
       findUnique: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    loteHistorial: {
+      create: vi.fn(),
     },
     cliente: {
       findUnique: vi.fn(),
@@ -142,10 +145,65 @@ describe('VentasService.crear', () => {
     }, USUARIO);
 
     expect(tx.cuota.createMany).not.toHaveBeenCalled();
-    expect(tx.lote.update).toHaveBeenCalledWith({
-      where: { id: 'lote-1' },
+    // El cambio de estado va condicionado al estado leído (evita vender dos veces el mismo lote).
+    expect(tx.lote.updateMany).toHaveBeenCalledWith({
+      where: { id: 'lote-1', estado: EstadoLote.DISPONIBLE },
       data: { estado: EstadoLote.VENDIDO },
     });
+    // Y deja el historial del lote con la venta que lo originó y el usuario.
+    expect(tx.loteHistorial.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        loteId: 'lote-1',
+        estadoAnterior: EstadoLote.DISPONIBLE,
+        estadoNuevo: EstadoLote.VENDIDO,
+        ventaId: 'venta-1',
+        usuarioId: USUARIO.id,
+      }),
+    });
+  });
+
+  it('también se puede vender un lote que estaba SEPARADO', async () => {
+    tx.lote.findUnique.mockResolvedValue({ ...LOTE_DISPONIBLE, estado: EstadoLote.SEPARADO });
+    tx.cliente.findFirst.mockResolvedValue({ id: 'cliente-1' });
+    tx.venta.create.mockResolvedValue({ id: 'venta-1' });
+    tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
+
+    await service.crear(
+      { loteId: 'lote-1', clienteId: 'cliente-1', formaPago: FormaPago.CONTADO, valorTotal: '1000000', cuotaInicial: '1000000' },
+      USUARIO,
+    );
+
+    expect(tx.lote.updateMany).toHaveBeenCalledWith({
+      where: { id: 'lote-1', estado: EstadoLote.SEPARADO },
+      data: { estado: EstadoLote.VENDIDO },
+    });
+  });
+
+  it.each([EstadoLote.ESCRITURADO, EstadoLote.DESISTIDO])('no se puede vender un lote %s', async (estado) => {
+    tx.lote.findUnique.mockResolvedValue({ ...LOTE_DISPONIBLE, estado });
+
+    await expect(
+      service.crear(
+        { loteId: 'lote-1', clienteId: 'cliente-1', formaPago: FormaPago.CONTADO, valorTotal: '1000000', cuotaInicial: '1000000' },
+        USUARIO,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.venta.create).not.toHaveBeenCalled();
+  });
+
+  it('si otra persona vendió el lote en el mismo instante, la segunda venta falla con conflicto', async () => {
+    tx.lote.findUnique.mockResolvedValue(LOTE_DISPONIBLE);
+    tx.cliente.findFirst.mockResolvedValue({ id: 'cliente-1' });
+    tx.venta.create.mockResolvedValue({ id: 'venta-2' });
+    tx.lote.updateMany.mockResolvedValue({ count: 0 }); // otro ya lo había cambiado
+
+    await expect(
+      service.crear(
+        { loteId: 'lote-1', clienteId: 'cliente-1', formaPago: FormaPago.CONTADO, valorTotal: '1000000', cuotaInicial: '1000000' },
+        USUARIO,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.loteHistorial.create).not.toHaveBeenCalled();
   });
 
   it('en una venta financiada genera exactamente numeroCuotas cuotas', async () => {

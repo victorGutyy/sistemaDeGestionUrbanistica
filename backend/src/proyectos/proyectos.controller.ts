@@ -3,6 +3,7 @@ import { CurrentUsuario } from '../auth/current-usuario.decorator.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { Permiso } from '../auth/roles.decorator.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
+import { CrearManzanaDto } from './dto/crear-manzana.dto.js';
 import { ActualizarEstadoProyectoDto } from './dto/actualizar-estado-proyecto.dto.js';
 import { CrearProyectoDto } from './dto/crear-proyecto.dto.js';
 import { ProyectosService } from './proyectos.service.js';
@@ -27,6 +28,12 @@ export class ProyectosController {
   @Get(':id')
   buscarPorId(@Param('id') id: string, @CurrentUsuario() usuario: UsuarioAutenticado) {
     return this.proyectosService.buscarPorId(id, usuario);
+  }
+
+  @Permiso(PERMISOS.PROYECTOS_GESTIONAR)
+  @Post(':id/manzanas')
+  crearManzana(@Param('id') id: string, @Body() dto: CrearManzanaDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.proyectosService.crearManzana(id, dto, usuario);
   }
 
   // Finalizar/reactivar un proyecto es una decisión de negocio, no operativa.

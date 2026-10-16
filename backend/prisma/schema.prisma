@@ -19,10 +19,26 @@ enum EstadoProyecto {
   FINALIZADO
 }
 
+// El estado de un lote solo cambia mediante acciones del sistema (ver lotes/estado-lote.ts).
 enum EstadoLote {
   DISPONIBLE
-  RESERVADO
+  SEPARADO
   VENDIDO
+  ESCRITURADO
+  DESISTIDO
+}
+
+// Qué clase de negocio es un proyecto. Solo los de tipo LOTES tienen manzanas y lotes.
+enum TipoProyecto {
+  LOTES
+  REMODELACION
+  MAQUINARIA
+}
+
+enum TipoEventoLote {
+  CREACION
+  CAMBIO_ESTADO
+  CAMBIO_PRECIO
 }
 
 enum FormaPago {
@@ -127,6 +143,7 @@ model Usuario {
   // los de proyectosPermitidos (solo se permite en roles limitablePorProyecto).
   todosLosProyectos    Boolean           @default(true)
   proyectosPermitidos  UsuarioProyecto[]
+  historialLotes       LoteHistorial[]
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
@@ -154,6 +171,9 @@ model Proyecto {
   valorCompra       Decimal?               @db.Decimal(14, 2)
   fechaCompra       DateTime?
   estado            EstadoProyecto         @default(ACTIVO)
+  tipo              TipoProyecto           @default(LOTES)
+  municipio         String?
+  manzanas          Manzana[]
   lotes             Lote[]
   movimientos       MovimientoFinanciero[]
   usuariosConAcceso UsuarioProyecto[]
@@ -161,20 +181,68 @@ model Proyecto {
   updatedAt         DateTime               @updatedAt
 }
 
+// Agrupación opcional de lotes dentro de un proyecto (p. ej. "Manzana A").
+// Un proyecto sin manzanas funciona igual: sus lotes quedan sin manzana.
+model Manzana {
+  id         String   @id @default(uuid())
+  proyectoId String
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  nombre     String
+  lotes      Lote[]
+  createdAt  DateTime @default(now())
+
+  @@unique([proyectoId, nombre])
+}
+
 // Subdivisión individual de un Proyecto, en venta.
 model Lote {
-  id         String     @id @default(uuid())
-  proyectoId String
-  proyecto   Proyecto   @relation(fields: [proyectoId], references: [id])
-  numero     String
-  area       Decimal    @db.Decimal(10, 2)
-  valorVenta Decimal    @db.Decimal(14, 2)
-  estado     EstadoLote @default(DISPONIBLE)
-  ventas     Venta[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id               String          @id @default(uuid())
+  proyectoId       String
+  proyecto         Proyecto        @relation(fields: [proyectoId], references: [id])
+  manzanaId        String?
+  manzana          Manzana?        @relation(fields: [manzanaId], references: [id])
+  numero           String
+  area             Decimal         @db.Decimal(10, 2)
+  // Medidas y linderos en texto libre.
+  linderos         String?
+  // Informativo: el precio de venta es el que manda.
+  valorPorM2       Decimal?        @db.Decimal(14, 2)
+  valorVenta       Decimal         @db.Decimal(14, 2)
+  estado           EstadoLote      @default(DISPONIBLE)
+  // Datos de la escritura, cuando el lote pasa a ESCRITURADO.
+  escrituraNumero  String?
+  escrituraNotaria String?
+  escrituraFecha   DateTime?
+  ventas           Venta[]
+  historial        LoteHistorial[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  @@unique([proyectoId, numero])
+  // El número es único dentro de su manzana. Para los lotes sin manzana (manzanaId
+  // nulo) la unicidad la garantiza un índice parcial escrito a mano en la migración
+  // (Prisma no puede expresarlo), además de la revisión en LotesService.
+  @@unique([proyectoId, manzanaId, numero])
+  @@index([manzanaId])
+}
+
+// Bitácora de cada lote: creación, cambios de estado y cambios de precio, con quién y cuándo.
+model LoteHistorial {
+  id             String         @id @default(uuid())
+  loteId         String
+  lote           Lote           @relation(fields: [loteId], references: [id])
+  tipo           TipoEventoLote
+  estadoAnterior EstadoLote?
+  estadoNuevo    EstadoLote?
+  valorAnterior  Decimal?       @db.Decimal(14, 2)
+  valorNuevo     Decimal?       @db.Decimal(14, 2)
+  motivo         String?
+  // Venta que originó el cambio, si aplica.
+  ventaId        String?
+  usuarioId      String
+  usuario        Usuario        @relation(fields: [usuarioId], references: [id])
+  createdAt      DateTime       @default(now())
+
+  @@index([loteId, createdAt])
 }
 
 // Comprador de uno o más lotes.

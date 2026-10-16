@@ -1,8 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { exigirAlcanceTotal, exigirProyecto, filtroProyecto } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
+import { EstadoProyecto, TipoProyecto } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { calcularResumenAreas } from './areas.js';
+import { CrearManzanaDto } from './dto/crear-manzana.dto.js';
 import { ActualizarEstadoProyectoDto } from './dto/actualizar-estado-proyecto.dto.js';
 import { CrearProyectoDto } from './dto/crear-proyecto.dto.js';
 
@@ -17,7 +20,9 @@ export class ProyectosService {
     return this.prisma.proyecto.create({
       data: {
         nombre: dto.nombre,
+        tipo: dto.tipo,
         ubicacion: dto.ubicacion,
+        municipio: dto.municipio,
         areaTotal: dto.areaTotal,
         valorCompra: dto.valorCompra,
         fechaCompra: dto.fechaCompra ? parsearFechaLocal(dto.fechaCompra) : undefined,
@@ -36,12 +41,42 @@ export class ProyectosService {
   async buscarPorId(id: string, usuario: UsuarioAutenticado) {
     const proyecto = await this.prisma.proyecto.findFirst({
       where: { id, AND: [filtroProyecto(usuario)] },
-      include: { lotes: { orderBy: { numero: 'asc' } } },
+      include: {
+        manzanas: { orderBy: { nombre: 'asc' } },
+        lotes: { orderBy: { numero: 'asc' }, include: { manzana: true } },
+      },
     });
     if (!proyecto) {
       throw new NotFoundException(`No existe el proyecto ${id}`);
     }
-    return proyecto;
+    // RF-PRY-04: área total, subdividida y disponible.
+    return { ...proyecto, resumenAreas: calcularResumenAreas(proyecto.areaTotal, proyecto.lotes.map((lote) => lote.area)) };
+  }
+
+  // RF-PRY-02: las manzanas son opcionales y solo existen en proyectos de venta de lotes.
+  async crearManzana(proyectoId: string, dto: CrearManzanaDto, usuario: UsuarioAutenticado) {
+    exigirProyecto(usuario, proyectoId, `No existe el proyecto ${proyectoId}`);
+
+    const proyecto = await this.prisma.proyecto.findUnique({ where: { id: proyectoId } });
+    if (!proyecto) {
+      throw new NotFoundException(`No existe el proyecto ${proyectoId}`);
+    }
+    if (proyecto.tipo !== TipoProyecto.LOTES) {
+      throw new ConflictException(`El proyecto ${proyecto.nombre} no es de venta de lotes: no maneja manzanas`);
+    }
+    if (proyecto.estado === EstadoProyecto.FINALIZADO) {
+      throw new ConflictException(`El proyecto ${proyecto.nombre} ya está finalizado, no admite manzanas nuevas`);
+    }
+
+    const nombre = dto.nombre.trim();
+    const repetida = await this.prisma.manzana.findFirst({
+      where: { proyectoId, nombre: { equals: nombre, mode: 'insensitive' } },
+    });
+    if (repetida) {
+      throw new ConflictException(`El proyecto ya tiene la manzana "${repetida.nombre}"`);
+    }
+
+    return this.prisma.manzana.create({ data: { proyectoId, nombre } });
   }
 
   async actualizarEstado(id: string, dto: ActualizarEstadoProyectoDto, usuario: UsuarioAutenticado) {

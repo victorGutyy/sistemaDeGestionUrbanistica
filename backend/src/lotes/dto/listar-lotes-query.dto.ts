@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { EstadoLote } from '../../generated/prisma/enums.js';
 
 export class ListarLotesQueryDto {
@@ -9,4 +9,14 @@ export class ListarLotesQueryDto {
   @IsOptional()
   @IsUUID()
   proyectoId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  manzanaId?: string;
+
+  // Busca por número de lote o por texto de los linderos.
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  buscar?: string;
 }

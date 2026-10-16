@@ -3,7 +3,9 @@ import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoLote, FormaPago } from '../generated/prisma/enums.js';
+import { FormaPago } from '../generated/prisma/enums.js';
+import { aplicarAccionLote } from '../lotes/aplicar-accion.js';
+import { puedeAplicar } from '../lotes/estado-lote.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CrearVentaDto } from './dto/crear-venta.dto.js';
 import { calcularEstadoCuenta } from './estado-cuenta.js';
@@ -39,7 +41,8 @@ export class VentasService {
         throw new NotFoundException(`No existe el lote ${dto.loteId}`);
       }
       exigirProyecto(usuario, lote.proyectoId, `No existe el lote ${dto.loteId}`);
-      if (lote.estado !== EstadoLote.DISPONIBLE) {
+      // Se puede vender un lote disponible o separado; cualquier otro estado lo impide.
+      if (!puedeAplicar(lote.estado, 'VENDER')) {
         throw new ConflictException(`El lote ${lote.numero} no está disponible (estado: ${lote.estado})`);
       }
 
@@ -95,10 +98,8 @@ export class VentasService {
         });
       }
 
-      await tx.lote.update({
-        where: { id: dto.loteId },
-        data: { estado: EstadoLote.VENDIDO },
-      });
+      // El cambio de estado pasa por la máquina de estados: valida, deja historial y evita vender dos veces el mismo lote.
+      await aplicarAccionLote(tx, lote, 'VENDER', usuario.id, { ventaId: venta.id });
 
       return tx.venta.findUniqueOrThrow({
         where: { id: venta.id },
