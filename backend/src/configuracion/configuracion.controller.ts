@@ -17,7 +17,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { PERMISOS } from '../auth/permisos.js';
-import { Permiso } from '../auth/roles.decorator.js';
+import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
 import { Public } from '../auth/public.decorator.js';
 import { MedioPago, TipoVendedor } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from './configuracion.service.js';
@@ -30,9 +30,12 @@ import { ActualizarCuentaBancariaDto, CrearCuentaBancariaDto } from './dto/cuent
 
 const TAMANO_MAXIMO_LOGO = 2 * 1024 * 1024;
 
-// Escritura: solo el máximo rol (hoy PROPIETARIO; se renombra a GERENTE en el
-// paso 2.2). Lectura completa: también el administrador, que necesita los
+// Escritura: solo quien tenga el permiso configuracion.editar (el gerente).
+// Lectura completa: también el administrador (configuracion.ver), que necesita los
 // medios de pago, cuentas y categorías para operar.
+// Todo lo de configuración es de la empresa, no de un proyecto: no es para usuarios con alcance
+// restringido. Solo los medios de pago activos se exceptúan, porque se necesitan al registrar abonos.
+@SoloAlcanceTotal()
 @Controller('configuracion')
 export class ConfiguracionController {
   constructor(private readonly configuracionService: ConfiguracionService) {}
@@ -98,6 +101,7 @@ export class ConfiguracionController {
   }
 
   @Permiso(PERMISOS.ABONOS_REGISTRAR)
+  @SoloAlcanceTotal(false)
   @Get('medios-pago')
   listarMediosPago() {
     return this.configuracionService.listarMediosPago();

@@ -27,7 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<UsuarioAutenticado> {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id: payload.sub },
-      include: { rol: true },
+      include: { rol: true, proyectosPermitidos: { select: { proyectoId: true } } },
     });
 
     // Usuario desactivado, rol desactivado o sesión anterior a un
@@ -45,6 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       nombre: usuario.nombre,
       rol: { id: usuario.rol.id, clave: usuario.rol.clave, nombre: usuario.rol.nombre },
       permisos: usuario.rol.permisos,
+      proyectoIds: usuario.todosLosProyectos ? null : usuario.proyectosPermitidos.map((p) => p.proyectoId),
     };
   }
 }

@@ -1,8 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
 import { PERMISOS } from '../auth/permisos.js';
-import { Permiso } from '../auth/roles.decorator.js';
+import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
 import { RolesService } from './roles.service.js';
 
+@SoloAlcanceTotal()
 @Controller('roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}

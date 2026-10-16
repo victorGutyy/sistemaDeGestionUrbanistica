@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { LotesService } from './lotes.service.js';
+import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 
 function crearPrismaFalso() {
   return {
@@ -9,6 +10,8 @@ function crearPrismaFalso() {
     lote: { findUnique: vi.fn(), create: vi.fn() },
   };
 }
+
+const USUARIO = usuarioDePrueba();
 
 describe('LotesService.crear', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>;
@@ -23,7 +26,7 @@ describe('LotesService.crear', () => {
     prisma.proyecto.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.crear({ proyectoId: 'p-1', numero: 'L-1', area: '500', valorVenta: '80000000' }),
+      service.crear({ proyectoId: 'p-1', numero: 'L-1', area: '500', valorVenta: '80000000' }, USUARIO),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -32,7 +35,7 @@ describe('LotesService.crear', () => {
     prisma.lote.findUnique.mockResolvedValue({ id: 'lote-existente' });
 
     await expect(
-      service.crear({ proyectoId: 'p-1', numero: 'L-1', area: '500', valorVenta: '80000000' }),
+      service.crear({ proyectoId: 'p-1', numero: 'L-1', area: '500', valorVenta: '80000000' }, USUARIO),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -40,7 +43,7 @@ describe('LotesService.crear', () => {
     prisma.proyecto.findUnique.mockResolvedValue({ id: 'p-1', nombre: 'Proyecto Test', estado: 'FINALIZADO' });
 
     await expect(
-      service.crear({ proyectoId: 'p-1', numero: 'L-1', area: '500', valorVenta: '80000000' }),
+      service.crear({ proyectoId: 'p-1', numero: 'L-1', area: '500', valorVenta: '80000000' }, USUARIO),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -50,7 +53,7 @@ describe('LotesService.crear', () => {
     prisma.lote.create.mockResolvedValue({ id: 'lote-nuevo' });
 
     const dto = { proyectoId: 'p-1', numero: 'L-1', area: '500', valorVenta: '80000000' };
-    const resultado = await service.crear(dto);
+    const resultado = await service.crear(dto, USUARIO);
 
     expect(prisma.lote.create).toHaveBeenCalledWith({ data: dto });
     expect(resultado).toEqual({ id: 'lote-nuevo' });

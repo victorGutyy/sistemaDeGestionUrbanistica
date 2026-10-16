@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { CarteraService } from '../cartera/cartera.service.js';
 import { FiltroPeriodoDto } from '../finanzas/dto/filtro-periodo.dto.js';
 import { FinanzasService } from '../finanzas/finanzas.service.js';
@@ -12,10 +13,10 @@ export class DashboardService {
     private readonly carteraService: CarteraService,
   ) {}
 
-  async resumen(filtro: FiltroPeriodoDto): Promise<ResumenDashboard> {
+  async resumen(filtro: FiltroPeriodoDto, usuario: UsuarioAutenticado): Promise<ResumenDashboard> {
     const [finanzas, cartera] = await Promise.all([
-      this.finanzasService.consolidado(filtro),
-      this.carteraService.reportePorProyecto(),
+      this.finanzasService.consolidado(filtro, usuario),
+      this.carteraService.reportePorProyecto(usuario),
     ]);
 
     return {

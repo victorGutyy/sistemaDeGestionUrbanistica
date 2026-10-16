@@ -15,7 +15,10 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    const usuario = await this.prisma.usuario.findUnique({ where: { email: dto.email }, include: { rol: true } });
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { email: dto.email },
+      include: { rol: true, proyectosPermitidos: { select: { proyectoId: true } } },
+    });
 
     // Mismo mensaje si el correo no existe, si la cuenta está inactiva o si la
     // contraseña no coincide, para no revelar cuáles correos están registrados.
@@ -52,6 +55,7 @@ export class AuthService {
         email: usuario.email,
         rol: { id: usuario.rol.id, clave: usuario.rol.clave, nombre: usuario.rol.nombre },
         permisos: usuario.rol.permisos,
+        proyectoIds: usuario.todosLosProyectos ? null : usuario.proyectosPermitidos.map((p) => p.proyectoId),
       },
     };
   }

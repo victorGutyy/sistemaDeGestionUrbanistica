@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EstadoLote, FormaPago } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { VentasService } from './ventas.service.js';
+import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 
 // Duplicamos aquí solo las llamadas a Prisma que usa VentasService.crear.
 // No hace falta una base de datos real para probar las reglas de negocio
@@ -15,6 +16,7 @@ function crearPrismaFalso() {
     },
     cliente: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
     },
     venta: {
@@ -37,6 +39,8 @@ function crearPrismaFalso() {
 
 const LOTE_DISPONIBLE = { id: 'lote-1', numero: 'L-1', estado: EstadoLote.DISPONIBLE };
 
+const USUARIO = usuarioDePrueba();
+
 describe('VentasService.crear', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>['prisma'];
   let tx: ReturnType<typeof crearPrismaFalso>['tx'];
@@ -54,7 +58,7 @@ describe('VentasService.crear', () => {
         formaPago: FormaPago.CONTADO,
         valorTotal: '1000000',
         cuotaInicial: '1000000',
-      }),
+      }, USUARIO),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -67,7 +71,7 @@ describe('VentasService.crear', () => {
         formaPago: FormaPago.CONTADO,
         valorTotal: '1000000',
         cuotaInicial: '1000000',
-      }),
+      }, USUARIO),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -79,7 +83,7 @@ describe('VentasService.crear', () => {
         formaPago: FormaPago.CONTADO,
         valorTotal: '1000000',
         cuotaInicial: '2000000',
-      }),
+      }, USUARIO),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -91,7 +95,7 @@ describe('VentasService.crear', () => {
         formaPago: FormaPago.FINANCIADO,
         valorTotal: '1000000',
         cuotaInicial: '200000',
-      }),
+      }, USUARIO),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -105,7 +109,7 @@ describe('VentasService.crear', () => {
         formaPago: FormaPago.CONTADO,
         valorTotal: '1000000',
         cuotaInicial: '1000000',
-      }),
+      }, USUARIO),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -119,13 +123,13 @@ describe('VentasService.crear', () => {
         formaPago: FormaPago.CONTADO,
         valorTotal: '1000000',
         cuotaInicial: '1000000',
-      }),
+      }, USUARIO),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('en una venta de contado no genera cuotas y marca el lote como VENDIDO', async () => {
     tx.lote.findUnique.mockResolvedValue(LOTE_DISPONIBLE);
-    tx.cliente.findUnique.mockResolvedValue({ id: 'cliente-1' });
+    tx.cliente.findFirst.mockResolvedValue({ id: 'cliente-1' });
     tx.venta.create.mockResolvedValue({ id: 'venta-1' });
     tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
 
@@ -135,7 +139,7 @@ describe('VentasService.crear', () => {
       formaPago: FormaPago.CONTADO,
       valorTotal: '1000000',
       cuotaInicial: '1000000',
-    });
+    }, USUARIO);
 
     expect(tx.cuota.createMany).not.toHaveBeenCalled();
     expect(tx.lote.update).toHaveBeenCalledWith({
@@ -146,7 +150,7 @@ describe('VentasService.crear', () => {
 
   it('en una venta financiada genera exactamente numeroCuotas cuotas', async () => {
     tx.lote.findUnique.mockResolvedValue(LOTE_DISPONIBLE);
-    tx.cliente.findUnique.mockResolvedValue({ id: 'cliente-1' });
+    tx.cliente.findFirst.mockResolvedValue({ id: 'cliente-1' });
     tx.venta.create.mockResolvedValue({ id: 'venta-1' });
     tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
 
@@ -158,7 +162,7 @@ describe('VentasService.crear', () => {
       cuotaInicial: '2000000',
       numeroCuotas: 12,
       tasaInteres: '1.5',
-    });
+    }, USUARIO);
 
     expect(tx.cuota.createMany).toHaveBeenCalledTimes(1);
     const { data: cuotasCreadas } = tx.cuota.createMany.mock.calls[0][0];
@@ -178,7 +182,7 @@ describe('VentasService.crear', () => {
       formaPago: FormaPago.CONTADO,
       valorTotal: '1000000',
       cuotaInicial: '1000000',
-    });
+    }, USUARIO);
 
     expect(tx.cliente.create).toHaveBeenCalledWith({
       data: { nombre: 'Ana Pérez', documento: '123456789' },

@@ -26,6 +26,8 @@ async function usuarioBase(sobrescribir: Record<string, unknown> = {}) {
     passwordHash: await bcrypt.hash('12345678', 4),
     bloqueadoHasta: null,
     rol: ROL,
+    todosLosProyectos: true,
+    proyectosPermitidos: [],
     ...sobrescribir,
   };
 }
@@ -139,6 +141,17 @@ describe('AuthService', () => {
       nombre: 'A',
       rol: { id: 'rol-1', clave: 'ADMINISTRADOR', nombre: 'Administrador' },
       permisos: ['ventas.ver'],
+      proyectoIds: null,
     });
+  });
+
+  it('un usuario con alcance restringido recibe la lista de sus proyectos', async () => {
+    prisma.usuario.findUnique.mockResolvedValue(
+      await usuarioBase({ todosLosProyectos: false, proyectosPermitidos: [{ proyectoId: 'p-1' }] }),
+    );
+
+    const resultado = await service.login({ email: 'a@x.com', password: '12345678' });
+
+    expect(resultado.usuario.proyectoIds).toEqual(['p-1']);
   });
 });

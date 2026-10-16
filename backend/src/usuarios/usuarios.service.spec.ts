@@ -5,13 +5,26 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import { UsuariosService } from './usuarios.service.js';
 
 const ROL_GERENTE = { id: 'rol-g', clave: 'GERENTE', nombre: 'Gerente', activo: true, permisos: ['usuarios.gestionar'] };
-const ROL_CONSULTA = { id: 'rol-c', clave: 'CONSULTA', nombre: 'Consulta', activo: true, permisos: ['ventas.ver'] };
+const ROL_CONSULTA = {
+  id: 'rol-c',
+  clave: 'CONSULTA',
+  nombre: 'Consulta',
+  activo: true,
+  permisos: ['ventas.ver'],
+  limitablePorProyecto: true,
+};
 
 function crearPrismaFalso() {
-  return {
+  const prisma = {
     usuario: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), count: vi.fn(), findMany: vi.fn() },
+    usuarioProyecto: { deleteMany: vi.fn(), createMany: vi.fn() },
     rolUsuario: { findUnique: vi.fn() },
+    proyecto: { count: vi.fn() },
+    $transaction: vi.fn(),
   };
+  // En la transacción el servicio usa las mismas tablas falsas.
+  prisma.$transaction.mockImplementation((accion: (tx: typeof prisma) => unknown) => accion(prisma));
+  return prisma;
 }
 
 describe('UsuariosService', () => {
@@ -129,7 +142,103 @@ describe('UsuariosService', () => {
       await service.actualizar('3', { nombre: 'Nuevo Nombre', rolId: 'rol-g' });
 
       expect(prisma.usuario.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { nombre: 'Nuevo Nombre', email: undefined, rolId: 'rol-g' } }),
+        expect.objectContaining({ data: expect.objectContaining({ nombre: 'Nuevo Nombre', rolId: 'rol-g' }) }),
+      );
+    });
+  });
+
+  describe('alcance por proyecto', () => {
+    const USUARIO_CONSULTA = { id: '3', email: 'a@x.com', rolId: 'rol-c', estado: 'ACTIVO', todosLosProyectos: true, rol: ROL_CONSULTA };
+
+    it('crea un usuario de Consulta limitado a los proyectos elegidos', async () => {
+      prisma.rolUsuario.findUnique.mockResolvedValue(ROL_CONSULTA);
+      prisma.usuario.findUnique.mockResolvedValue(null);
+      prisma.proyecto.count.mockResolvedValue(2);
+      prisma.usuario.create.mockResolvedValue({ id: '9' });
+
+      await service.crear({
+        nombre: 'Socio',
+        email: 's@x.com',
+        password: '12345678',
+        rolId: 'rol-c',
+        todosLosProyectos: false,
+        proyectoIds: ['p-1', 'p-2', 'p-1'],
+      });
+
+      const { data } = prisma.usuario.create.mock.calls[0][0];
+      expect(data.todosLosProyectos).toBe(false);
+      expect(data.proyectosPermitidos.create).toEqual([{ proyectoId: 'p-1' }, { proyectoId: 'p-2' }]);
+    });
+
+    it('rechaza limitar por proyecto a un rol que no es limitable (p. ej. administrador)', async () => {
+      prisma.rolUsuario.findUnique.mockResolvedValue({ ...ROL_CONSULTA, clave: 'ADMINISTRADOR', limitablePorProyecto: false });
+      prisma.usuario.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.crear({ nombre: 'Adm', email: 'a@x.com', password: '12345678', rolId: 'rol-c', todosLosProyectos: false, proyectoIds: ['p-1'] }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rechaza limitar el acceso sin elegir ningún proyecto', async () => {
+      prisma.rolUsuario.findUnique.mockResolvedValue(ROL_CONSULTA);
+      prisma.usuario.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.crear({ nombre: 'Socio', email: 's@x.com', password: '12345678', rolId: 'rol-c', todosLosProyectos: false, proyectoIds: [] }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.crear({ nombre: 'Socio', email: 's@x.com', password: '12345678', rolId: 'rol-c', todosLosProyectos: false }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rechaza proyectos que no existen', async () => {
+      prisma.rolUsuario.findUnique.mockResolvedValue(ROL_CONSULTA);
+      prisma.usuario.findUnique.mockResolvedValue(null);
+      prisma.proyecto.count.mockResolvedValue(1); // se pidieron 2
+
+      await expect(
+        service.crear({ nombre: 'Socio', email: 's@x.com', password: '12345678', rolId: 'rol-c', todosLosProyectos: false, proyectoIds: ['p-1', 'p-x'] }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('al editar reemplaza la lista de proyectos permitidos', async () => {
+      prisma.usuario.findUnique.mockResolvedValue(USUARIO_CONSULTA);
+      prisma.proyecto.count.mockResolvedValue(1);
+      prisma.usuario.update.mockResolvedValue({ id: '3' });
+
+      await service.actualizar('3', { todosLosProyectos: false, proyectoIds: ['p-7'] });
+
+      expect(prisma.usuarioProyecto.deleteMany).toHaveBeenCalledWith({ where: { usuarioId: '3' } });
+      expect(prisma.usuarioProyecto.createMany).toHaveBeenCalledWith({ data: [{ usuarioId: '3', proyectoId: 'p-7' }] });
+      expect(prisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ todosLosProyectos: false }) }),
+      );
+    });
+
+    it('cambiar solo el nombre de alguien restringido conserva su lista de proyectos', async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ ...USUARIO_CONSULTA, todosLosProyectos: false });
+      prisma.usuario.update.mockResolvedValue({ id: '3' });
+
+      await service.actualizar('3', { nombre: 'Nombre Nuevo' });
+
+      expect(prisma.usuarioProyecto.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ todosLosProyectos: false }) }),
+      );
+    });
+
+    it('pasar a alguien restringido a un rol no limitable le devuelve el acceso total y limpia su lista', async () => {
+      const rolAdmin = { id: 'rol-a', clave: 'ADMINISTRADOR', nombre: 'Administrador', activo: true, permisos: ['ventas.ver'], limitablePorProyecto: false };
+      prisma.usuario.findUnique.mockResolvedValue({ ...USUARIO_CONSULTA, todosLosProyectos: false });
+      prisma.rolUsuario.findUnique.mockResolvedValue(rolAdmin);
+      prisma.usuario.count.mockResolvedValue(1);
+      prisma.usuario.update.mockResolvedValue({ id: '3' });
+
+      await service.actualizar('3', { rolId: 'rol-a' });
+
+      expect(prisma.usuarioProyecto.deleteMany).toHaveBeenCalledWith({ where: { usuarioId: '3' } });
+      expect(prisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ todosLosProyectos: true, rolId: 'rol-a' }) }),
       );
     });
   });

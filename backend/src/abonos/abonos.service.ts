@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { filtroVenta } from '../auth/alcance.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota } from '../generated/prisma/enums.js';
@@ -22,8 +24,8 @@ export class AbonosService {
     private readonly configuracion: ConfiguracionService,
   ) {}
 
-  async crear(dto: CrearAbonoDto, comprobante?: Express.Multer.File) {
-    const venta = await this.prisma.venta.findUnique({ where: { id: dto.ventaId } });
+  async crear(dto: CrearAbonoDto, usuario: UsuarioAutenticado, comprobante?: Express.Multer.File) {
+    const venta = await this.prisma.venta.findFirst({ where: { id: dto.ventaId, ...filtroVenta(usuario) } });
     if (!venta) {
       throw new NotFoundException(`No existe la venta ${dto.ventaId}`);
     }
@@ -83,15 +85,24 @@ export class AbonosService {
     }
   }
 
-  listarPorVenta(ventaId: string) {
+  async listarPorVenta(ventaId: string, usuario: UsuarioAutenticado) {
+    const venta = await this.prisma.venta.findFirst({
+      where: { id: ventaId, ...filtroVenta(usuario) },
+      select: { id: true },
+    });
+    if (!venta) {
+      throw new NotFoundException(`No existe la venta ${ventaId}`);
+    }
+
     return this.prisma.abono.findMany({
       where: { ventaId },
       orderBy: { fecha: 'asc' },
     });
   }
 
-  async obtenerComprobante(id: string) {
-    const abono = await this.prisma.abono.findUnique({ where: { id } });
+  // El comprobante solo se entrega con sesión válida y permiso sobre el proyecto de la venta (RNF-SEG-05).
+  async obtenerComprobante(id: string, usuario: UsuarioAutenticado) {
+    const abono = await this.prisma.abono.findFirst({ where: { id, venta: filtroVenta(usuario) } });
     if (!abono?.comprobanteUrl) {
       throw new NotFoundException(`El abono ${id} no tiene comprobante`);
     }

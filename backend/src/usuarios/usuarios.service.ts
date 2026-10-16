@@ -17,21 +17,39 @@ const SELECT_PUBLICO = {
   ultimoIngreso: true,
   bloqueadoHasta: true,
   createdAt: true,
-  rol: { select: { id: true, clave: true, nombre: true } },
+  rol: { select: { id: true, clave: true, nombre: true, limitablePorProyecto: true } },
+  todosLosProyectos: true,
+  proyectosPermitidos: { select: { proyectoId: true } },
 } as const;
+
+interface AlcanceResuelto {
+  todosLosProyectos: boolean;
+  // undefined = no tocar la lista actual de proyectos.
+  proyectoIds: string[] | undefined;
+}
 
 @Injectable()
 export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
 
   async crear(dto: CrearUsuarioDto) {
-    await this.exigirRolActivo(dto.rolId);
+    const rol = await this.exigirRolActivo(dto.rolId);
     await this.exigirCorreoLibre(dto.email);
+    const alcance = await this.resolverAlcance(rol, dto, true);
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
     return this.prisma.usuario.create({
-      data: { nombre: dto.nombre, email: dto.email, passwordHash, rolId: dto.rolId },
+      data: {
+        nombre: dto.nombre,
+        email: dto.email,
+        passwordHash,
+        rolId: dto.rolId,
+        todosLosProyectos: alcance.todosLosProyectos,
+        proyectosPermitidos: alcance.proyectoIds
+          ? { create: alcance.proyectoIds.map((proyectoId) => ({ proyectoId })) }
+          : undefined,
+      },
       select: SELECT_PUBLICO,
     });
   }
@@ -47,18 +65,35 @@ export class UsuariosService {
       await this.exigirCorreoLibre(dto.email, id);
     }
 
+    let rolFinal = usuario.rol;
     if (dto.rolId && dto.rolId !== usuario.rolId) {
       const rolNuevo = await this.exigirRolActivo(dto.rolId);
       // Cambiar el rol puede quitarle a alguien la gestión de usuarios.
       if (!rolNuevo.permisos.includes(PERMISOS.USUARIOS_GESTIONAR)) {
         await this.exigirOtroGestorActivo(usuario);
       }
+      rolFinal = rolNuevo;
     }
 
-    return this.prisma.usuario.update({
-      where: { id },
-      data: { nombre: dto.nombre, email: dto.email, rolId: dto.rolId },
-      select: SELECT_PUBLICO,
+    const alcance = await this.resolverAlcance(rolFinal, dto, false, usuario.todosLosProyectos);
+
+    return this.prisma.$transaction(async (tx) => {
+      if (alcance.proyectoIds) {
+        await tx.usuarioProyecto.deleteMany({ where: { usuarioId: id } });
+        await tx.usuarioProyecto.createMany({
+          data: alcance.proyectoIds.map((proyectoId) => ({ usuarioId: id, proyectoId })),
+        });
+      }
+      return tx.usuario.update({
+        where: { id },
+        data: {
+          nombre: dto.nombre,
+          email: dto.email,
+          rolId: dto.rolId,
+          todosLosProyectos: alcance.todosLosProyectos,
+        },
+        select: SELECT_PUBLICO,
+      });
     });
   }
 
@@ -99,6 +134,48 @@ export class UsuariosService {
       data: { intentosFallidos: 0, bloqueadoHasta: null },
       select: SELECT_PUBLICO,
     });
+  }
+
+  // Decide el alcance por proyecto que queda tras crear o editar:
+  // - Un rol que no se puede limitar por proyecto siempre queda con todos los proyectos.
+  // - Restringir exige al menos un proyecto, y todos deben existir.
+  // - Si solo se cambia el rol de alguien ya restringido (a otro rol limitable), conserva su lista.
+  private async resolverAlcance(
+    rol: { clave: string; limitablePorProyecto: boolean },
+    dto: { todosLosProyectos?: boolean; proyectoIds?: string[] },
+    esCreacion: boolean,
+    todosActual = true,
+  ): Promise<AlcanceResuelto> {
+    const estabaRestringido = !esCreacion && !todosActual;
+
+    if (!rol.limitablePorProyecto) {
+      if (dto.todosLosProyectos === false) {
+        throw new BadRequestException(`El rol ${rol.clave} no se puede limitar a ciertos proyectos`);
+      }
+      // Si venía restringido y pasa a un rol no limitable, recupera el acceso total y se limpia su lista.
+      return { todosLosProyectos: true, proyectoIds: estabaRestringido ? [] : undefined };
+    }
+
+    const quiereTodos = dto.todosLosProyectos ?? !estabaRestringido;
+    if (quiereTodos) {
+      return { todosLosProyectos: true, proyectoIds: estabaRestringido ? [] : undefined };
+    }
+
+    // Queda restringido.
+    if (dto.proyectoIds === undefined) {
+      if (estabaRestringido) return { todosLosProyectos: false, proyectoIds: undefined }; // conserva su lista
+      throw new BadRequestException('Para limitar el acceso debes elegir al menos un proyecto');
+    }
+
+    const ids = [...new Set(dto.proyectoIds)];
+    if (ids.length === 0) {
+      throw new BadRequestException('Para limitar el acceso debes elegir al menos un proyecto');
+    }
+    const existentes = await this.prisma.proyecto.count({ where: { id: { in: ids } } });
+    if (existentes !== ids.length) {
+      throw new BadRequestException('Alguno de los proyectos elegidos no existe');
+    }
+    return { todosLosProyectos: false, proyectoIds: ids };
   }
 
   private async obtenerConRol(id: string) {

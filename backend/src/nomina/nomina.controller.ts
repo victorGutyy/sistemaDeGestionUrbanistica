@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { PERMISOS } from '../auth/permisos.js';
-import { Permiso } from '../auth/roles.decorator.js';
+import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
 import { CrearPagoNominaDto } from './dto/crear-pago-nomina.dto.js';
 import { NominaService } from './nomina.service.js';
 
+@SoloAlcanceTotal()
 @Controller('nomina')
 export class NominaController {
   constructor(private readonly nominaService: NominaService) {}

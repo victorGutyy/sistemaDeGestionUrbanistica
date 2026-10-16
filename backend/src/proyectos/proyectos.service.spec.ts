@@ -3,12 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EstadoProyecto } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { ProyectosService } from './proyectos.service.js';
+import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 
 function crearPrismaFalso() {
   return {
     proyecto: { findUnique: vi.fn(), update: vi.fn() },
   };
 }
+
+const USUARIO = usuarioDePrueba();
 
 describe('ProyectosService.actualizarEstado', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>;
@@ -23,7 +26,7 @@ describe('ProyectosService.actualizarEstado', () => {
     prisma.proyecto.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.actualizarEstado('p-x', { estado: EstadoProyecto.FINALIZADO }),
+      service.actualizarEstado('p-x', { estado: EstadoProyecto.FINALIZADO }, USUARIO),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -31,7 +34,7 @@ describe('ProyectosService.actualizarEstado', () => {
     prisma.proyecto.findUnique.mockResolvedValue({ id: 'p-1' });
     prisma.proyecto.update.mockResolvedValue({ id: 'p-1', estado: EstadoProyecto.FINALIZADO });
 
-    const resultado = await service.actualizarEstado('p-1', { estado: EstadoProyecto.FINALIZADO });
+    const resultado = await service.actualizarEstado('p-1', { estado: EstadoProyecto.FINALIZADO }, USUARIO);
 
     expect(prisma.proyecto.update).toHaveBeenCalledWith({
       where: { id: 'p-1' },

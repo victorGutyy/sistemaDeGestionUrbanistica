@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { CurrentUsuario } from '../auth/current-usuario.decorator.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { Permiso } from '../auth/roles.decorator.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { ClientesService } from './clientes.service.js';
 import { CrearClienteDto } from './dto/crear-cliente.dto.js';
 
@@ -10,19 +12,19 @@ export class ClientesController {
 
   @Permiso(PERMISOS.CLIENTES_CREAR)
   @Post()
-  crear(@Body() dto: CrearClienteDto) {
-    return this.clientesService.crear(dto);
+  crear(@Body() dto: CrearClienteDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.clientesService.crear(dto, usuario);
   }
 
   @Permiso(PERMISOS.CLIENTES_VER)
   @Get()
-  listar() {
-    return this.clientesService.listar();
+  listar(@CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.clientesService.listar(usuario);
   }
 
   @Permiso(PERMISOS.CLIENTES_VER)
   @Get(':id')
-  buscarPorId(@Param('id') id: string) {
-    return this.clientesService.buscarPorId(id);
+  buscarPorId(@Param('id') id: string, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.clientesService.buscarPorId(id, usuario);
   }
 }

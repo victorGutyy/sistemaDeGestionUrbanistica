@@ -1,4 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoLote, FormaPago } from '../generated/prisma/enums.js';
@@ -11,7 +13,7 @@ import { generarPlanDePagos } from './plan-de-pagos.js';
 export class VentasService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async crear(dto: CrearVentaDto) {
+  async crear(dto: CrearVentaDto, usuario: UsuarioAutenticado) {
     if (!dto.clienteId && !dto.clienteNuevo) {
       throw new BadRequestException('Debes enviar clienteId o clienteNuevo');
     }
@@ -36,6 +38,7 @@ export class VentasService {
       if (!lote) {
         throw new NotFoundException(`No existe el lote ${dto.loteId}`);
       }
+      exigirProyecto(usuario, lote.proyectoId, `No existe el lote ${dto.loteId}`);
       if (lote.estado !== EstadoLote.DISPONIBLE) {
         throw new ConflictException(`El lote ${lote.numero} no está disponible (estado: ${lote.estado})`);
       }
@@ -53,7 +56,8 @@ export class VentasService {
         const clienteCreado = await tx.cliente.create({ data: dto.clienteNuevo });
         clienteId = clienteCreado.id;
       } else if (clienteId) {
-        const cliente = await tx.cliente.findUnique({ where: { id: clienteId } });
+        // Con alcance restringido solo se pueden usar clientes que ya tienen ventas en sus proyectos.
+        const cliente = await tx.cliente.findFirst({ where: { id: clienteId, ...filtroCliente(usuario) } });
         if (!cliente) {
           throw new NotFoundException(`No existe el cliente ${clienteId}`);
         }
@@ -103,9 +107,9 @@ export class VentasService {
     });
   }
 
-  async buscarPorId(id: string) {
-    const venta = await this.prisma.venta.findUniqueOrThrow({
-      where: { id },
+  async buscarPorId(id: string, usuario: UsuarioAutenticado) {
+    const venta = await this.prisma.venta.findFirst({
+      where: { id, ...filtroVenta(usuario) },
       include: {
         cuotas: { orderBy: { numero: 'asc' } },
         abonos: true,
@@ -113,6 +117,9 @@ export class VentasService {
         lote: true,
       },
     });
+    if (!venta) {
+      throw new NotFoundException(`No existe la venta ${id}`);
+    }
 
     return {
       ...venta,
@@ -120,8 +127,9 @@ export class VentasService {
     };
   }
 
-  listar() {
+  listar(usuario: UsuarioAutenticado) {
     return this.prisma.venta.findMany({
+      where: filtroVenta(usuario),
       include: { cliente: true, lote: true },
       orderBy: { fechaVenta: 'desc' },
     });

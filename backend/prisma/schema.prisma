@@ -110,38 +110,55 @@ model RolUsuario {
 // Cuenta de acceso a la app. No hay registro público: las crea el gerente
 // desde la sección de Usuarios.
 model Usuario {
-  id                   String        @id @default(uuid())
+  id                   String            @id @default(uuid())
   nombre               String
-  email                String        @unique
+  email                String            @unique
   passwordHash         String
   rolId                String
-  rol                  RolUsuario    @relation(fields: [rolId], references: [id])
-  estado               EstadoUsuario @default(ACTIVO)
+  rol                  RolUsuario        @relation(fields: [rolId], references: [id])
+  estado               EstadoUsuario     @default(ACTIVO)
   // Bloqueo temporal por intentos fallidos de ingreso.
-  intentosFallidos     Int           @default(0)
+  intentosFallidos     Int               @default(0)
   bloqueadoHasta       DateTime?
   ultimoIngreso        DateTime?
   // Las sesiones (tokens) emitidas antes de esta fecha dejan de valer: se usa al restablecer la contraseña.
   sesionesValidasDesde DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  // Alcance por proyecto: true = ve todos los proyectos. Si es false, solo ve
+  // los de proyectosPermitidos (solo se permite en roles limitablePorProyecto).
+  todosLosProyectos    Boolean           @default(true)
+  proyectosPermitidos  UsuarioProyecto[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   @@index([rolId])
 }
 
+// Proyectos a los que puede acceder un usuario con alcance restringido.
+model UsuarioProyecto {
+  usuarioId  String
+  proyectoId String
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@id([usuarioId, proyectoId])
+  @@index([proyectoId])
+}
+
 // Predio de mayor extensión que la empresa compra y subdivide en lotes.
 model Proyecto {
-  id          String                 @id @default(uuid())
-  nombre      String
-  ubicacion   String?
-  areaTotal   Decimal                @db.Decimal(12, 2)
-  valorCompra Decimal?               @db.Decimal(14, 2)
-  fechaCompra DateTime?
-  estado      EstadoProyecto         @default(ACTIVO)
-  lotes       Lote[]
-  movimientos MovimientoFinanciero[]
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id                String                 @id @default(uuid())
+  nombre            String
+  ubicacion         String?
+  areaTotal         Decimal                @db.Decimal(12, 2)
+  valorCompra       Decimal?               @db.Decimal(14, 2)
+  fechaCompra       DateTime?
+  estado            EstadoProyecto         @default(ACTIVO)
+  lotes             Lote[]
+  movimientos       MovimientoFinanciero[]
+  usuariosConAcceso UsuarioProyecto[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 }
 
 // Subdivisión individual de un Proyecto, en venta.

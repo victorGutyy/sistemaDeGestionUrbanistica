@@ -11,7 +11,7 @@ import { JwtStrategy } from './jwt.strategy.js';
 const ROL = { id: 'rol-1', clave: 'CONSULTA', nombre: 'Consulta', permisos: ['ventas.ver'], activo: true };
 
 function usuario(sobrescribir: Record<string, unknown> = {}) {
-  return { id: '1', email: 'a@x.com', nombre: 'A', estado: 'ACTIVO', sesionesValidasDesde: null, rol: ROL, ...sobrescribir };
+  return { id: '1', email: 'a@x.com', nombre: 'A', estado: 'ACTIVO', sesionesValidasDesde: null, rol: ROL, todosLosProyectos: true, proyectosPermitidos: [], ...sobrescribir };
 }
 
 describe('JwtStrategy', () => {
@@ -33,7 +33,18 @@ describe('JwtStrategy', () => {
       nombre: 'A',
       rol: { id: 'rol-1', clave: 'CONSULTA', nombre: 'Consulta' },
       permisos: ['ventas.ver'],
+      proyectoIds: null,
     });
+  });
+
+  it('un usuario restringido queda limitado a sus proyectos; el alcance se lee de la base en cada petición', async () => {
+    prisma.usuario.findUnique.mockResolvedValue(
+      usuario({ todosLosProyectos: false, proyectosPermitidos: [{ proyectoId: 'p-1' }, { proyectoId: 'p-2' }] }),
+    );
+
+    const autenticado = await strategy.validate({ sub: '1', iat: 1000 });
+
+    expect(autenticado.proyectoIds).toEqual(['p-1', 'p-2']);
   });
 
   it('un token deja de servir si el usuario ya no existe', async () => {

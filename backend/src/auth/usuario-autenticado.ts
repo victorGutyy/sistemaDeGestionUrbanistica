@@ -7,4 +7,6 @@ export interface UsuarioAutenticado {
   nombre: string;
   rol: { id: string; clave: string; nombre: string };
   permisos: string[];
+  // null = ve todos los proyectos; una lista = solo esos (ver auth/alcance.ts).
+  proyectoIds: string[] | null;
 }

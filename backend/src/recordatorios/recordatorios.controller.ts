@@ -1,8 +1,9 @@
 import { Controller, Post } from '@nestjs/common';
 import { PERMISOS } from '../auth/permisos.js';
-import { Permiso } from '../auth/roles.decorator.js';
+import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
 import { RecordatoriosService } from './recordatorios.service.js';
 
+@SoloAlcanceTotal()
 @Controller('recordatorios')
 export class RecordatoriosController {
   constructor(private readonly recordatoriosService: RecordatoriosService) {}

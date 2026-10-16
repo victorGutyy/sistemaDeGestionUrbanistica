@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { filtroCliente, filtroProyecto, filtroVenta } from '../auth/alcance.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota, EstadoVenta } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
@@ -29,12 +31,14 @@ export class CarteraService {
     return { mora, diasAlertaAmarilla: empresa.diasSemaforoAmarillo };
   }
 
-  async listarPorCliente() {
+  async listarPorCliente(usuario: UsuarioAutenticado) {
     const { mora, diasAlertaAmarilla } = await this.leerParametros();
     const clientes = await this.prisma.cliente.findMany({
+      where: filtroCliente(usuario),
       include: {
         ventas: {
-          where: { estado: EstadoVenta.ACTIVA },
+          // Un cliente con ventas en varios proyectos solo muestra las del alcance del usuario.
+          where: { estado: EstadoVenta.ACTIVA, ...filtroVenta(usuario) },
           include: { cuotas: { include: { abonos: true } }, lote: { include: { proyecto: true } } },
         },
       },
@@ -91,9 +95,10 @@ export class CarteraService {
       });
   }
 
-  async reportePorProyecto() {
+  async reportePorProyecto(usuario: UsuarioAutenticado) {
     const { mora } = await this.leerParametros();
     const proyectos = await this.prisma.proyecto.findMany({
+      where: filtroProyecto(usuario),
       include: {
         lotes: {
           include: {

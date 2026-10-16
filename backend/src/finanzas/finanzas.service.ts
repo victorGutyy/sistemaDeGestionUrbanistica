@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { exigirAlcanceTotal, exigirProyecto, filtroMovimiento, filtroProyecto, filtroVenta, tieneAlcanceTotal } from '../auth/alcance.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoVenta, TipoMovimiento } from '../generated/prisma/enums.js';
@@ -22,7 +24,14 @@ function construirRangoFechas(filtro: FiltroPeriodoDto): Prisma.DateTimeFilter |
 export class FinanzasService {
   constructor(private readonly prisma: PrismaService) {}
 
-  crear(dto: CrearMovimientoDto) {
+  crear(dto: CrearMovimientoDto, usuario: UsuarioAutenticado) {
+    // Un movimiento general (sin proyecto) no es de ningún proyecto: solo con alcance total.
+    if (dto.proyectoId) {
+      exigirProyecto(usuario, dto.proyectoId, `No existe el proyecto ${dto.proyectoId}`);
+    } else {
+      exigirAlcanceTotal(usuario);
+    }
+
     return this.prisma.movimientoFinanciero.create({
       data: {
         tipo: dto.tipo,
@@ -34,10 +43,11 @@ export class FinanzasService {
     });
   }
 
-  listar(filtro: ListarMovimientosQueryDto) {
+  listar(filtro: ListarMovimientosQueryDto, usuario: UsuarioAutenticado) {
     return this.prisma.movimientoFinanciero.findMany({
       where: {
         proyectoId: filtro.proyectoId,
+        AND: [filtroMovimiento(usuario)],
         fecha: construirRangoFechas(filtro),
       },
       include: { proyecto: true },
@@ -45,15 +55,18 @@ export class FinanzasService {
     });
   }
 
-  async consolidado(filtro: FiltroPeriodoDto) {
+  async consolidado(filtro: FiltroPeriodoDto, usuario: UsuarioAutenticado) {
     const [movimientosRegistrados, ventas, pagosNomina, proyectos] = await Promise.all([
-      this.prisma.movimientoFinanciero.findMany({ where: { fecha: construirRangoFechas(filtro) } }),
+      this.prisma.movimientoFinanciero.findMany({
+        where: { fecha: construirRangoFechas(filtro), ...filtroMovimiento(usuario) },
+      }),
       this.prisma.venta.findMany({
-        where: { estado: EstadoVenta.ACTIVA },
+        where: { estado: EstadoVenta.ACTIVA, ...filtroVenta(usuario) },
         include: { lote: true, abonos: true },
       }),
-      this.prisma.pagoNomina.findMany(),
-      this.prisma.proyecto.findMany({ select: { id: true, nombre: true } }),
+      // La nómina no pertenece a ningún proyecto: con alcance restringido no se incluye.
+      tieneAlcanceTotal(usuario) ? this.prisma.pagoNomina.findMany() : Promise.resolve([]),
+      this.prisma.proyecto.findMany({ where: filtroProyecto(usuario), select: { id: true, nombre: true } }),
     ]);
 
     // La cuota inicial se paga en el momento de la venta y no queda como
