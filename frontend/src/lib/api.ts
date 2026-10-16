@@ -489,6 +489,10 @@ export interface DesistirVentaPayload {
   motivo: string
   valorDevolver?: string
   valorRetener?: string
+  // Obligatorios si hay valor a devolver: la devolución queda registrada como un egreso del proyecto.
+  medioPagoDevolucion?: MedioPago
+  cuentaDevolucionId?: string
+  referenciaDevolucion?: string
 }
 
 export function desistirVenta(id: string, datos: DesistirVentaPayload) {
@@ -635,38 +639,114 @@ export function obtenerReporteCartera() {
 }
 
 export type TipoMovimiento = 'INGRESO' | 'GASTO'
+export type EstadoMovimiento = 'ACTIVO' | 'ANULADO'
+export type OrigenMovimiento = 'MANUAL' | 'DEVOLUCION_DESISTIMIENTO'
 
 export interface Movimiento {
   id: string
   tipo: TipoMovimiento
   fecha: string
   valor: string
-  concepto: string
+  descripcion: string
   proyectoId: string | null
-  proyecto: Proyecto | null
+  proyecto: { id: string; nombre: string } | null
+  categoria: { id: string; nombre: string } | null
+  medioPago: MedioPago
+  cuenta: { id: string; banco: string; alias: string } | null
+  referencia: string | null
+  terceroNombre: string | null
+  terceroDocumento: string | null
+  numeroDocumento: string | null
+  tieneSoporte: boolean
+  motivoSinSoporte: string | null
+  origen: OrigenMovimiento
+  ventaId: string | null
+  estado: EstadoMovimiento
+  registradoPor: { nombre: string } | null
+  anuladoPor: { nombre: string } | null
+  anuladoEn: string | null
+  motivoAnulacion: string | null
+  createdAt: string
 }
 
-export interface CrearMovimientoPayload {
-  tipo: TipoMovimiento
-  fecha: string
-  valor: string
-  concepto: string
+// El movimiento se envía como formulario porque puede llevar el archivo del soporte (campo "soporte").
+export function crearMovimiento(formData: FormData) {
+  return solicitar<Movimiento>('/finanzas/movimientos', { method: 'POST', body: formData })
+}
+
+export interface FiltroMovimientos {
+  desde?: string
+  hasta?: string
   proyectoId?: string
+  tipo?: TipoMovimiento
+  estado?: EstadoMovimiento
 }
 
-export function crearMovimiento(payload: CrearMovimientoPayload) {
-  return solicitar<Movimiento>('/finanzas/movimientos', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
-}
-
-export function listarMovimientos(filtro?: { desde?: string; hasta?: string }) {
+export function listarMovimientos(filtro: FiltroMovimientos = {}) {
   const params = new URLSearchParams()
-  if (filtro?.desde) params.set('desde', filtro.desde)
-  if (filtro?.hasta) params.set('hasta', filtro.hasta)
+  for (const [clave, valor] of Object.entries(filtro)) {
+    if (valor) params.set(clave, valor)
+  }
   const query = params.toString()
   return solicitar<Movimiento[]>(`/finanzas/movimientos${query ? `?${query}` : ''}`)
+}
+
+export function obtenerMovimiento(id: string) {
+  return solicitar<Movimiento>(`/finanzas/movimientos/${id}`)
+}
+
+export function anularMovimiento(id: string, motivo: string) {
+  return solicitar<Movimiento>(`/finanzas/movimientos/${id}/anular`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
+export function abrirSoporteMovimiento(id: string) {
+  return abrirArchivo(`/finanzas/movimientos/${id}/soporte`)
+}
+
+// Una línea del detalle de finanzas de un proyecto: un movimiento o el abono de un cliente.
+export interface FilaFinanzaProyecto {
+  origen: 'ABONO' | 'MOVIMIENTO'
+  id: string
+  fecha: string
+  tipo: TipoMovimiento
+  categoria: string
+  descripcion: string
+  valor: string
+  medioPago: MedioPago
+  cuenta: string | null
+  referencia: string | null
+  tercero: string | null
+  numeroDocumento: string | null
+  tieneSoporte: boolean
+  registradoPor: string | null
+  estado: EstadoMovimiento
+  recibo: string | null
+  ventaId: string | null
+}
+
+export interface ResumenFinanzasProyecto {
+  ingresosPorVentas: string
+  otrosIngresos: string
+  totalIngresos: string
+  egresos: string
+  utilidad: string
+  valorVendido: string
+  recaudadoVentas: string
+  saldoPorCobrar: string
+}
+
+export interface FinanzasProyecto {
+  proyecto: { id: string; nombre: string; tipo: string }
+  resumen: ResumenFinanzasProyecto
+  movimientos: FilaFinanzaProyecto[]
+}
+
+export function obtenerFinanzasProyecto(id: string, filtro: { desde?: string; hasta?: string } = {}) {
+  const params = new URLSearchParams()
+  if (filtro.desde) params.set('desde', filtro.desde)
+  if (filtro.hasta) params.set('hasta', filtro.hasta)
+  const query = params.toString()
+  return solicitar<FinanzasProyecto>(`/finanzas/proyectos/${id}${query ? `?${query}` : ''}`)
 }
 
 export interface ResumenCaja {
@@ -768,6 +848,9 @@ export interface CrearPagoNominaPayload {
   periodoInicio: string
   periodoFin: string
   fechaPago: string
+  // Con qué se pagó y, si no fue en efectivo, de qué cuenta salió el dinero.
+  medioPago: MedioPago
+  cuentaId?: string
   novedades?: CrearNovedadPayload[]
 }
 
@@ -1007,6 +1090,9 @@ export interface MedioPagoConfig {
   activo: boolean
 }
 
+// Las categorías de ingreso tienen la misma forma que las de gasto.
+export type CategoriaIngreso = CategoriaGasto
+
 export interface CategoriaGasto {
   id: string
   nombre: string
@@ -1024,6 +1110,7 @@ export interface ConfiguracionCompleta {
   cuentas: CuentaBancaria[]
   mediosPago: MedioPagoConfig[]
   categoriasGasto: CategoriaGasto[]
+  categoriasIngreso: CategoriaIngreso[]
   comisiones: ComisionConfig[]
 }
 
@@ -1112,6 +1199,17 @@ export function crearCategoriaGasto(nombre: string) {
 
 export function actualizarCategoriaGasto(id: string, payload: { nombre?: string; activa?: boolean }) {
   return solicitar<CategoriaGasto>(`/configuracion/categorias-gasto/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function crearCategoriaIngreso(nombre: string) {
+  return solicitar<CategoriaIngreso>('/configuracion/categorias-ingreso', { method: 'POST', body: JSON.stringify({ nombre }) })
+}
+
+export function actualizarCategoriaIngreso(id: string, payload: { nombre?: string; activa?: boolean }) {
+  return solicitar<CategoriaIngreso>(`/configuracion/categorias-ingreso/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   })

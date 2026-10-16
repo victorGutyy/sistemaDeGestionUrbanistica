@@ -29,7 +29,8 @@ export function formatearCOP(valor: string | number | null | undefined): string 
   if (valor === null || valor === undefined || valor === '') return '—'
   const numero = Number(valor)
   if (!Number.isFinite(numero)) return String(valor)
-  return `$${FORMATO_MONEDA.format(numero)}`
+  // Un negativo se escribe -$680.000, no $-680.000.
+  return `${numero < 0 ? '-' : ''}$${FORMATO_MONEDA.format(Math.abs(numero))}`
 }
 
 // Recibe el instante ISO que manda el servidor (p. ej. "2026-09-19T05:00:00.000Z")

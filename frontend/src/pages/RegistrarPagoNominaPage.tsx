@@ -1,6 +1,16 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { crearPagoNomina, type CrearNovedadPayload, type TipoNovedad } from '../lib/api'
+import { CuentaYReferencia } from '../components/CuentaYReferencia'
+import {
+  crearPagoNomina,
+  listarCuentasActivas,
+  listarMediosPago,
+  type CrearNovedadPayload,
+  type CuentaBancaria,
+  type MedioPago,
+  type MedioPagoConfig,
+  type TipoNovedad,
+} from '../lib/api'
 import { hoyEnBogota } from '../lib/formato'
 
 type NovedadFormulario = CrearNovedadPayload & { id: number }
@@ -18,6 +28,21 @@ export function RegistrarPagoNominaPage() {
   const [periodoFin, setPeriodoFin] = useState('')
   const [fechaPago, setFechaPago] = useState(() => hoyEnBogota())
   const [novedades, setNovedades] = useState<NovedadFormulario[]>([])
+  const [mediosPago, setMediosPago] = useState<MedioPagoConfig[]>([])
+  const [medioPago, setMedioPago] = useState<MedioPago | ''>('')
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
+  const [cuentaId, setCuentaId] = useState('')
+
+  useEffect(() => {
+    Promise.all([listarMediosPago(), listarCuentasActivas().catch(() => [] as CuentaBancaria[])])
+      .then(([medios, cuentasActivas]) => {
+        const activos = medios.filter((m) => m.activo)
+        setMediosPago(activos)
+        setMedioPago(activos[0]?.medio ?? '')
+        setCuentas(cuentasActivas)
+      })
+      .catch((err: Error) => setError(err.message))
+  }, [])
 
   function agregarNovedad() {
     setNovedades((actual) => [...actual, { id: siguienteId++, tipo: 'HORAS_EXTRA', valor: '', descripcion: '' }])
@@ -35,6 +60,10 @@ export function RegistrarPagoNominaPage() {
     event.preventDefault()
     if (!trabajadorId) return
     setError(null)
+    if (!medioPago) {
+      setError('No hay medios de pago habilitados')
+      return
+    }
     setEnviando(true)
 
     try {
@@ -43,6 +72,8 @@ export function RegistrarPagoNominaPage() {
         periodoInicio,
         periodoFin,
         fechaPago,
+        medioPago,
+        cuentaId: medioPago !== 'EFECTIVO' && cuentaId ? cuentaId : undefined,
         novedades: novedades.map(({ tipo, valor, descripcion }) => ({
           tipo,
           valor,
@@ -108,6 +139,35 @@ export function RegistrarPagoNominaPage() {
             />
           </div>
         </div>
+
+        <div>
+          <label htmlFor="medioPago" className="block text-sm font-medium text-slate-700">
+            Medio de pago
+          </label>
+          <select
+            id="medioPago"
+            value={medioPago}
+            onChange={(event) => setMedioPago(event.target.value as MedioPago)}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            {mediosPago.map((medio) => (
+              <option key={medio.medio} value={medio.medio}>
+                {medio.etiqueta}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <CuentaYReferencia
+          medioPago={medioPago}
+          cuentas={cuentas}
+          cuentaId={cuentaId}
+          onCuentaChange={setCuentaId}
+          referencia=""
+          onReferenciaChange={() => undefined}
+          etiquetaCuenta="Cuenta de donde salió el dinero"
+          mostrarReferencia={false}
+        />
 
         <div>
           <div className="flex flex-wrap items-start justify-between gap-3">

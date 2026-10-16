@@ -18,7 +18,7 @@ export const ITEMS_MENU: ItemMenu[] = [
   { to: '/ventas', label: 'Ventas', icon: FileText, permiso: PERMISOS.VENTAS_VER },
   { to: '/recibos', label: 'Recibos', icon: Receipt, permiso: PERMISOS.ABONOS_VER },
   { to: '/cartera', label: 'Cartera', icon: Wallet, permiso: PERMISOS.CARTERA_VER },
-  { to: '/contabilidad', label: 'Contabilidad', icon: Calculator, permiso: PERMISOS.FINANZAS_VER },
+  { to: '/finanzas', label: 'Finanzas', icon: Calculator, permiso: PERMISOS.FINANZAS_VER },
   { to: '/nomina', label: 'Nómina', icon: Users, permiso: PERMISOS.NOMINA_VER, soloAlcanceTotal: true },
   { to: '/usuarios', label: 'Usuarios', icon: Shield, permiso: PERMISOS.USUARIOS_GESTIONAR, soloAlcanceTotal: true },
   { to: '/configuracion', label: 'Configuración', icon: Settings, permiso: PERMISOS.CONFIGURACION_EDITAR, soloAlcanceTotal: true },

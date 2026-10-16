@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { CuentaYReferencia } from '../components/CuentaYReferencia'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
 import {
   abrirDocumentoVenta,
   aprobarVenta,
   desistirVenta,
+  listarCuentasActivas,
+  listarMediosPago,
   subirDocumentosVenta,
   anularAbono,
   obtenerVenta,
@@ -13,6 +16,9 @@ import {
   abrirComprobante,
   abrirRecibo,
   type Abono,
+  type CuentaBancaria,
+  type MedioPago,
+  type MedioPagoConfig,
   type EstadoCuota,
   type Venta,
 } from '../lib/api'
@@ -53,6 +59,24 @@ export function VentaDetallePage() {
   const [mostrarDesistir, setMostrarDesistir] = useState(false)
   const [desistimiento, setDesistimiento] = useState({ fecha: hoyEnBogota(), motivo: '', valorDevolver: '', valorRetener: '' })
   const [desistiendo, setDesistiendo] = useState(false)
+  // La devolución es un egreso: necesita medio de pago y, si no es efectivo, la cuenta de donde sale el dinero.
+  const [mediosDevolucion, setMediosDevolucion] = useState<MedioPagoConfig[]>([])
+  const [cuentasDevolucion, setCuentasDevolucion] = useState<CuentaBancaria[]>([])
+  const [medioDevolucion, setMedioDevolucion] = useState<MedioPago | ''>('')
+  const [cuentaDevolucionId, setCuentaDevolucionId] = useState('')
+  const [referenciaDevolucion, setReferenciaDevolucion] = useState('')
+
+  useEffect(() => {
+    if (!mostrarDesistir) return
+    Promise.all([listarMediosPago(), listarCuentasActivas().catch(() => [] as CuentaBancaria[])])
+      .then(([medios, cuentas]) => {
+        const activos = medios.filter((m) => m.activo)
+        setMediosDevolucion(activos)
+        setMedioDevolucion((actual) => actual || (activos[0]?.medio ?? ''))
+        setCuentasDevolucion(cuentas)
+      })
+      .catch((err: Error) => setError(err.message))
+  }, [mostrarDesistir])
 
   async function handleSubirDocumentos(event: FormEvent) {
     event.preventDefault()
@@ -98,6 +122,13 @@ export function VentaDetallePage() {
         motivo: desistimiento.motivo.trim(),
         valorDevolver: desistimiento.valorDevolver || undefined,
         valorRetener: desistimiento.valorRetener || undefined,
+        ...(Number(desistimiento.valorDevolver) > 0 && medioDevolucion
+          ? {
+              medioPagoDevolucion: medioDevolucion,
+              cuentaDevolucionId: medioDevolucion !== 'EFECTIVO' && cuentaDevolucionId ? cuentaDevolucionId : undefined,
+              referenciaDevolucion: referenciaDevolucion.trim() || undefined,
+            }
+          : {}),
       })
       setMostrarDesistir(false)
       setRecarga((n) => n + 1)
@@ -393,6 +424,29 @@ Motivo (queda registrado):`,
                   <input id="desRetener" inputMode="numeric" value={desistimiento.valorRetener} onChange={(e) => setDesistimiento({ ...desistimiento, valorRetener: e.target.value.replace(/\D/g, '') })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900" />
                 </div>
               </div>
+              {Number(desistimiento.valorDevolver) > 0 && (
+                <div className="space-y-3 rounded-md border border-slate-200 p-3">
+                  <p className="text-sm text-slate-600">La devolución queda registrada como un egreso del proyecto.</p>
+                  <div>
+                    <label htmlFor="desMedio" className="block text-sm text-slate-700">Medio de pago de la devolución</label>
+                    <select id="desMedio" value={medioDevolucion} onChange={(e) => setMedioDevolucion(e.target.value as MedioPago)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900">
+                      {mediosDevolucion.map((medio) => (
+                        <option key={medio.medio} value={medio.medio}>{medio.etiqueta}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <CuentaYReferencia
+                    medioPago={medioDevolucion}
+                    cuentas={cuentasDevolucion}
+                    cuentaId={cuentaDevolucionId}
+                    onCuentaChange={setCuentaDevolucionId}
+                    referencia={referenciaDevolucion}
+                    onReferenciaChange={setReferenciaDevolucion}
+                    etiquetaCuenta="Cuenta de donde sale el dinero"
+                    ayudaReferencia=""
+                  />
+                </div>
+              )}
               <div>
                 <label htmlFor="desMotivo" className="block text-sm text-slate-700">Motivo</label>
                 <textarea id="desMotivo" required minLength={5} maxLength={500} rows={2} value={desistimiento.motivo} onChange={(e) => setDesistimiento({ ...desistimiento, motivo: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900" />

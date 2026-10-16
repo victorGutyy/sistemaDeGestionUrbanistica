@@ -10,17 +10,32 @@ interface Props {
   onCuentaChange: (id: string) => void
   referencia: string
   onReferenciaChange: (texto: string) => void
+  // Para los egresos: 'Cuenta de donde salió el dinero'.
+  etiquetaCuenta?: string
+  // La nómina no lleva referencia de transacción.
+  mostrarReferencia?: boolean
+  ayudaReferencia?: string
 }
 
 // Cuenta donde entró el dinero y referencia de la transacción. El efectivo no tiene ninguna de las dos.
-export function CuentaYReferencia({ medioPago, cuentas, cuentaId, onCuentaChange, referencia, onReferenciaChange }: Props) {
+export function CuentaYReferencia({
+  medioPago,
+  cuentas,
+  cuentaId,
+  onCuentaChange,
+  referencia,
+  onReferenciaChange,
+  etiquetaCuenta = 'Cuenta donde entró el dinero',
+  mostrarReferencia = true,
+  ayudaReferencia = 'No se puede repetir en la misma cuenta.',
+}: Props) {
   if (!medioPago || medioPago === 'EFECTIVO') return null
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div>
         <label htmlFor="cuentaDestino" className="block text-sm font-medium text-slate-700">
-          Cuenta donde entró el dinero
+          {etiquetaCuenta}
         </label>
         <select id="cuentaDestino" required value={cuentaId} onChange={(event) => onCuentaChange(event.target.value)} className={CLASE_INPUT}>
           <option value="">Elige una cuenta…</option>
@@ -34,6 +49,7 @@ export function CuentaYReferencia({ medioPago, cuentas, cuentaId, onCuentaChange
           <p className="mt-1 text-xs text-amber-700">No hay cuentas activas. El gerente debe activar una en Configuración.</p>
         )}
       </div>
+      {mostrarReferencia && (
       <div>
         <label htmlFor="referencia" className="block text-sm font-medium text-slate-700">
           Referencia de la transacción
@@ -46,8 +62,9 @@ export function CuentaYReferencia({ medioPago, cuentas, cuentaId, onCuentaChange
           placeholder="Opcional, p. ej. número de aprobación"
           className={CLASE_INPUT}
         />
-        <p className="mt-1 text-xs text-slate-500">No se puede repetir en la misma cuenta.</p>
+        {ayudaReferencia && <p className="mt-1 text-xs text-slate-500">{ayudaReferencia}</p>}
       </div>
+      )}
     </div>
   )
 }

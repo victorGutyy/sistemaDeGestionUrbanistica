@@ -142,6 +142,14 @@ export function ProyectoDetallePage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {tiene(PERMISOS.FINANZAS_VER) && (
+            <Link
+              to={`/proyectos/${proyecto.id}/finanzas`}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Finanzas
+            </Link>
+          )}
           {tiene(PERMISOS.PROYECTOS_CAMBIAR_ESTADO) && (
             <button
               type="button"

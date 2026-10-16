@@ -3,12 +3,14 @@ import { LogoEmpresa } from '../components/LogoEmpresa'
 import { useEmpresa } from '../contexts/EmpresaContext'
 import {
   actualizarCategoriaGasto,
+  actualizarCategoriaIngreso,
   actualizarComision,
   actualizarCuenta,
   actualizarEmpresa,
   actualizarMedioPago,
   actualizarParametros,
   crearCategoriaGasto,
+  crearCategoriaIngreso,
   crearCuenta,
   obtenerConfiguracion,
   quitarLogo,
@@ -550,7 +552,17 @@ function SeccionMediosPago({ medios, onCambio }: { medios: MedioPagoConfig[]; on
 
 // ---------- Categorías de gasto ----------
 
-function SeccionCategorias({ categorias, onCambio }: { categorias: CategoriaGasto[]; onCambio: (c: CategoriaGasto[]) => void }) {
+interface PropsCategorias {
+  titulo: string
+  descripcion: string
+  categorias: CategoriaGasto[]
+  onCambio: (c: CategoriaGasto[]) => void
+  crear: (nombre: string) => Promise<CategoriaGasto>
+  actualizar: (id: string, payload: { activa?: boolean }) => Promise<CategoriaGasto>
+}
+
+// Las categorías de gasto y las de ingreso se administran igual (RF-CFG-08 y RF-CFG-11).
+function SeccionCategorias({ titulo, descripcion, categorias, onCambio, crear, actualizar }: PropsCategorias) {
   const [nombre, setNombre] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -560,7 +572,7 @@ function SeccionCategorias({ categorias, onCambio }: { categorias: CategoriaGast
     setError(null)
     setEnviando(true)
     try {
-      const nueva = await crearCategoriaGasto(nombre.trim())
+      const nueva = await crear(nombre.trim())
       onCambio([...categorias, nueva])
       setNombre('')
     } catch (err) {
@@ -573,7 +585,7 @@ function SeccionCategorias({ categorias, onCambio }: { categorias: CategoriaGast
   async function alternar(categoria: CategoriaGasto) {
     setError(null)
     try {
-      const actualizada = await actualizarCategoriaGasto(categoria.id, { activa: !categoria.activa })
+      const actualizada = await actualizar(categoria.id, { activa: !categoria.activa })
       onCambio(categorias.map((c) => (c.id === actualizada.id ? actualizada : c)))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo actualizar la categoría')
@@ -581,7 +593,7 @@ function SeccionCategorias({ categorias, onCambio }: { categorias: CategoriaGast
   }
 
   return (
-    <Seccion titulo="Categorías de gasto" descripcion="Para clasificar los egresos. Las del sistema (Nómina, Comisiones) no se pueden quitar.">
+    <Seccion titulo={titulo} descripcion={descripcion}>
       <Aviso error={error} ok={null} />
       <ul className="divide-y divide-slate-100">
         {categorias.map((categoria) => (
@@ -693,7 +705,22 @@ export function ConfiguracionPage() {
       <SeccionParametros empresa={config.empresa} onGuardada={(empresa) => setConfig({ ...config, empresa })} />
       <SeccionCuentas cuentas={config.cuentas} onCambio={(cuentas) => setConfig({ ...config, cuentas })} />
       <SeccionMediosPago medios={config.mediosPago} onCambio={(mediosPago) => setConfig({ ...config, mediosPago })} />
-      <SeccionCategorias categorias={config.categoriasGasto} onCambio={(categoriasGasto) => setConfig({ ...config, categoriasGasto })} />
+      <SeccionCategorias
+        titulo="Categorías de gasto"
+        descripcion="Para clasificar los egresos. Las del sistema (Nómina, Comisiones, Devolución por desistimiento) no se pueden quitar."
+        categorias={config.categoriasGasto}
+        onCambio={(categoriasGasto) => setConfig({ ...config, categoriasGasto })}
+        crear={crearCategoriaGasto}
+        actualizar={actualizarCategoriaGasto}
+      />
+      <SeccionCategorias
+        titulo="Categorías de ingreso"
+        descripcion="Para clasificar los ingresos que no son cuotas ni abonos de lotes (esos se suman solos), por ejemplo un anticipo de remodelación."
+        categorias={config.categoriasIngreso}
+        onCambio={(categoriasIngreso) => setConfig({ ...config, categoriasIngreso })}
+        crear={crearCategoriaIngreso}
+        actualizar={actualizarCategoriaIngreso}
+      />
       <SeccionComisiones comisiones={config.comisiones} onCambio={(comisiones) => setConfig({ ...config, comisiones })} />
     </div>
   )

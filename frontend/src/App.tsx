@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { RutaInicial } from './components/RutaInicial'
@@ -12,8 +12,10 @@ import { DashboardPage } from './pages/DashboardPage'
 import { EditarUsuarioPage } from './pages/EditarUsuarioPage'
 import { LoginPage } from './pages/LoginPage'
 import { LoteDetallePage } from './pages/LoteDetallePage'
+import { MovimientoDetallePage } from './pages/MovimientoDetallePage'
 import { NominaPage } from './pages/NominaPage'
 import { ProyectoDetallePage } from './pages/ProyectoDetallePage'
+import { ProyectoFinanzasPage } from './pages/ProyectoFinanzasPage'
 import { ProyectosPage } from './pages/ProyectosPage'
 import { RecibosPage } from './pages/RecibosPage'
 import { RegistrarAbonoPage } from './pages/RegistrarAbonoPage'
@@ -53,8 +55,11 @@ function App() {
               <Route path="/ventas/:id" element={<VentaDetallePage />} />
               <Route path="/recibos" element={<RecibosPage />} />
               <Route path="/cartera" element={<CarteraPage />} />
-              <Route path="/contabilidad" element={<ContabilidadPage />} />
-              <Route path="/contabilidad/nuevo" element={<RegistrarMovimientoPage />} />
+              <Route path="/finanzas" element={<ContabilidadPage />} />
+              <Route path="/finanzas/nuevo" element={<RegistrarMovimientoPage />} />
+              <Route path="/finanzas/movimientos/:id" element={<MovimientoDetallePage />} />
+              <Route path="/proyectos/:id/finanzas" element={<ProyectoFinanzasPage />} />
+              <Route path="/contabilidad" element={<Navigate to="/finanzas" replace />} />
 
               <Route element={<ProtectedRoute permiso={PERMISOS.NOMINA_VER} />}>
                 <Route path="/nomina" element={<NominaPage />} />
