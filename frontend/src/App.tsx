@@ -5,7 +5,9 @@ import { RutaInicial } from './components/RutaInicial'
 import { AuthProvider } from './contexts/AuthContext'
 import { EmpresaProvider } from './contexts/EmpresaContext'
 import { PERMISOS } from './lib/permisos'
+import { CajaPage } from './pages/CajaPage'
 import { CarteraPage } from './pages/CarteraPage'
+import { CierreDetallePage } from './pages/CierreDetallePage'
 import { ConfiguracionPage } from './pages/ConfiguracionPage'
 import { ContabilidadPage } from './pages/ContabilidadPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -54,6 +56,10 @@ function App() {
               <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />
               <Route path="/ventas/:id" element={<VentaDetallePage />} />
               <Route path="/recibos" element={<RecibosPage />} />
+              <Route element={<ProtectedRoute permiso={PERMISOS.CAJA_VER} />}>
+                <Route path="/caja" element={<CajaPage />} />
+                <Route path="/caja/:id" element={<CierreDetallePage />} />
+              </Route>
               <Route path="/cartera" element={<CarteraPage />} />
               <Route path="/finanzas" element={<ContabilidadPage />} />
               <Route path="/finanzas/nuevo" element={<RegistrarMovimientoPage />} />

@@ -749,6 +749,116 @@ export function obtenerFinanzasProyecto(id: string, filtro: { desde?: string; ha
   return solicitar<FinanzasProyecto>(`/finanzas/proyectos/${id}${query ? `?${query}` : ''}`)
 }
 
+// ---------- Cierres de caja ----------
+
+export type TipoCierre = 'DIARIO' | 'SEMANAL' | 'QUINCENAL'
+export type EstadoCierre = 'BORRADOR' | 'CERRADO' | 'APROBADO' | 'DEVUELTO'
+
+export interface EventoCierre {
+  origen: 'ABONO' | 'INGRESO' | 'EGRESO' | 'NOMINA'
+  id: string
+  fecha: string
+  // Una anulación es el movimiento contrario, en la fecha en que se anuló.
+  clase: 'REGISTRO' | 'ANULACION'
+  sentido: 'ENTRADA' | 'SALIDA'
+  valor: string
+  medioPago: MedioPago
+  cuenta: string | null
+  descripcion: string
+  detalle: string | null
+}
+
+export interface ResumenCierre {
+  desde: string
+  hasta: string
+  eventos: EventoCierre[]
+  totales: {
+    entradasBrutas: string
+    reversasEntradas: string
+    entradas: string
+    salidasBrutas: string
+    reversasSalidas: string
+    salidas: string
+    neto: string
+  }
+  porMedio: { medioPago: MedioPago; entradas: string; salidas: string; neto: string }[]
+  porCuenta: { cuentaId: string | null; nombre: string; entradas: string; salidas: string; neto: string }[]
+  efectivo: { inicial: string; entradas: string; salidas: string; esperado: string }
+}
+
+export interface CierreCaja {
+  id: string
+  numero: number | null
+  numeroTexto: string | null
+  tipo: TipoCierre
+  desde: string
+  hasta: string
+  estado: EstadoCierre
+  efectivoInicial: string
+  efectivoEsperado: string | null
+  efectivoContado: string | null
+  diferencia: string | null
+  explicacionDiferencia: string | null
+  cerradoEn: string | null
+  resueltoEn: string | null
+  observacionGerente: string | null
+  creadoPor: { nombre: string }
+  cerradoPor: { nombre: string } | null
+  resueltoPor: { nombre: string } | null
+}
+
+export interface CierreCajaDetalle extends CierreCaja {
+  // Un borrador o un devuelto se calcula en vivo; uno cerrado o aprobado muestra su fotografía congelada.
+  enVivo: boolean
+  resumen: ResumenCierre
+  historial: { estadoAnterior: EstadoCierre | null; estadoNuevo: EstadoCierre; usuario: string; observacion: string | null; fecha: string }[]
+}
+
+export interface ProximoCierre {
+  esPrimero: boolean
+  puedeCrear: boolean
+  motivo: string | null
+  desde: string | null
+  hasta: string | null
+  efectivoInicial: string | null
+}
+
+export function listarCierres() {
+  return solicitar<CierreCaja[]>('/cierres-caja')
+}
+
+export function obtenerProximoCierre(tipo?: TipoCierre) {
+  return solicitar<ProximoCierre>(`/cierres-caja/proximo${tipo ? `?tipo=${tipo}` : ''}`)
+}
+
+export function obtenerCierre(id: string) {
+  return solicitar<CierreCajaDetalle>(`/cierres-caja/${id}`)
+}
+
+export function crearCierre(payload: { tipo: TipoCierre; desde?: string; efectivoInicial?: string }) {
+  return solicitar<CierreCajaDetalle>('/cierres-caja', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function cerrarCierre(id: string, payload: { efectivoContado: string; explicacionDiferencia?: string }) {
+  return solicitar<CierreCajaDetalle>(`/cierres-caja/${id}/cerrar`, { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function aprobarCierre(id: string, observacion?: string) {
+  return solicitar<CierreCajaDetalle>(`/cierres-caja/${id}/aprobar`, { method: 'POST', body: JSON.stringify({ observacion }) })
+}
+
+export function devolverCierre(id: string, observacion: string) {
+  return solicitar<CierreCajaDetalle>(`/cierres-caja/${id}/devolver`, { method: 'POST', body: JSON.stringify({ observacion }) })
+}
+
+export function descartarCierre(id: string) {
+  return solicitar<{ descartado: boolean }>(`/cierres-caja/${id}`, { method: 'DELETE' })
+}
+
+export function abrirPdfCierre(id: string) {
+  return abrirArchivo(`/cierres-caja/${id}/pdf`)
+}
+
 export interface ResumenCaja {
   ingresosPorVentas: string
   ingresosGenerales: string

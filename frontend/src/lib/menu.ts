@@ -1,4 +1,4 @@
-import { Building2, Calculator, FileText, Receipt, LayoutDashboard, Settings, Shield, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Banknote, Building2, Calculator, FileText, Receipt, LayoutDashboard, Settings, Shield, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PERMISOS } from './permisos'
 
 export interface ItemMenu {
@@ -17,6 +17,7 @@ export const ITEMS_MENU: ItemMenu[] = [
   { to: '/proyectos', label: 'Proyectos', icon: Building2, permiso: PERMISOS.PROYECTOS_VER },
   { to: '/ventas', label: 'Ventas', icon: FileText, permiso: PERMISOS.VENTAS_VER },
   { to: '/recibos', label: 'Recibos', icon: Receipt, permiso: PERMISOS.ABONOS_VER },
+  { to: '/caja', label: 'Caja', icon: Banknote, permiso: PERMISOS.CAJA_VER, soloAlcanceTotal: true },
   { to: '/cartera', label: 'Cartera', icon: Wallet, permiso: PERMISOS.CARTERA_VER },
   { to: '/finanzas', label: 'Finanzas', icon: Calculator, permiso: PERMISOS.FINANZAS_VER },
   { to: '/nomina', label: 'Nómina', icon: Users, permiso: PERMISOS.NOMINA_VER, soloAlcanceTotal: true },
