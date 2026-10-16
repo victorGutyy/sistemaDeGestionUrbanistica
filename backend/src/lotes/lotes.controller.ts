@@ -3,7 +3,7 @@ import { CurrentUsuario } from '../auth/current-usuario.decorator.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { Permiso } from '../auth/roles.decorator.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
-import { AccionLoteDto, EscriturarLoteDto, ReponerLoteDto } from './dto/accion-lote.dto.js';
+import { AccionLoteDto, EscriturarLoteDto, ReponerLoteDto, SepararLoteDto } from './dto/accion-lote.dto.js';
 import { ActualizarLoteDto } from './dto/actualizar-lote.dto.js';
 import { CrearLoteDto } from './dto/crear-lote.dto.js';
 import { ListarLotesQueryDto } from './dto/listar-lotes-query.dto.js';
@@ -47,7 +47,7 @@ export class LotesController {
   @Post(':id/separar')
   separar(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: AccionLoteDto,
+    @Body() dto: SepararLoteDto,
     @CurrentUsuario() usuario: UsuarioAutenticado,
   ) {
     return this.lotesService.separar(id, dto, usuario);

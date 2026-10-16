@@ -30,6 +30,7 @@ describe('catálogo de permisos y roles del sistema', () => {
     expect(permisos).toContain(PERMISOS.NOMINA_GESTIONAR);
     expect(permisos).not.toContain(PERMISOS.USUARIOS_GESTIONAR);
     expect(permisos).not.toContain(PERMISOS.VENTAS_AUTORIZAR);
+    expect(permisos).not.toContain(PERMISOS.VENTAS_DESISTIR);
     expect(permisos).not.toContain(PERMISOS.CONFIGURACION_EDITAR);
     expect(permisos).not.toContain(PERMISOS.PROYECTOS_CAMBIAR_ESTADO);
   });
@@ -44,6 +45,10 @@ describe('catálogo de permisos y roles del sistema', () => {
 
   it('solo el gerente autoriza las excepciones de venta', () => {
     expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.VENTAS_AUTORIZAR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
+  });
+
+  it('solo el gerente registra desistimientos', () => {
+    expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.VENTAS_DESISTIR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
   });
 
   it('solo el gerente puede gestionar usuarios', () => {

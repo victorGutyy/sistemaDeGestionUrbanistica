@@ -13,6 +13,7 @@ export const PERMISOS = {
   VENTAS_VER: 'ventas.ver',
   VENTAS_CREAR: 'ventas.crear',
   VENTAS_AUTORIZAR: 'ventas.autorizar', // aprobar o rechazar ventas con excepción
+  VENTAS_DESISTIR: 'ventas.desistir', // registrar el desistimiento de una venta
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
   CARTERA_VER: 'cartera.ver',
@@ -66,6 +67,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.CONFIGURACION_EDITAR &&
         permiso !== PERMISOS.USUARIOS_GESTIONAR &&
         permiso !== PERMISOS.VENTAS_AUTORIZAR &&
+        permiso !== PERMISOS.VENTAS_DESISTIR &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,

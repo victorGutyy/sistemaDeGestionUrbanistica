@@ -1,6 +1,40 @@
-import { IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 
-// Separar o liberar la separación: el motivo es opcional.
+// Separar un lote (RF-VEN-01): quién lo aparta, cuánto dejó y hasta cuándo se le guarda. Todo es opcional,
+// salvo que si hay valor debe saberse de quién es (un cliente ya registrado o su nombre).
+export class SepararLoteDto {
+  @IsOptional()
+  @IsUUID()
+  clienteId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(120)
+  nombreInteresado?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  telefonoInteresado?: string;
+
+  // Valor que dejó el interesado, en pesos enteros. Es informativo: el dinero se recibe como abono a la cuota inicial.
+  @IsOptional()
+  @Matches(/^\d{1,12}$/, { message: 'valor debe ser un valor en pesos enteros' })
+  valor?: string;
+
+  // Fecha límite para formalizar la venta, formato YYYY-MM-DD.
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'fechaLimite debe tener el formato YYYY-MM-DD' })
+  fechaLimite?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  motivo?: string;
+}
+
+// Liberar la separación: el motivo es opcional.
 export class AccionLoteDto {
   @IsOptional()
   @IsString()

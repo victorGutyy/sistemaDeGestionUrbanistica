@@ -4,6 +4,7 @@ import type { ConfiguracionService } from '../configuracion/configuracion.servic
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoLote, EstadoVenta, FormaPago, MedioPago, TipoVendedor } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { StorageService } from '../storage/storage.service.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 import type { CrearVentaDto } from './dto/crear-venta.dto.js';
 
@@ -28,6 +29,9 @@ function crearPrismaFalso() {
     },
     cuota: { create: vi.fn(), createMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
     abono: { create: vi.fn(), findMany: vi.fn() },
+    separacion: { updateMany: vi.fn() },
+    desistimiento: { create: vi.fn() },
+    documentoVenta: { create: vi.fn(), findFirst: vi.fn() },
   };
 
   type Tx = typeof tx;
@@ -36,6 +40,7 @@ function crearPrismaFalso() {
 }
 
 const D = (valor: string) => new Prisma.Decimal(valor);
+const STORAGE_FALSO = () => ({ guardar: vi.fn(), leer: vi.fn() }) as unknown as StorageService;
 const LOTE = { id: 'lote-1', proyectoId: 'p-1', numero: 'L-1', estado: EstadoLote.DISPONIBLE };
 const USUARIO = usuarioDePrueba();
 const GERENTE = { ...usuarioDePrueba(), id: 'gerente-1', permisos: ['ventas.autorizar'] };
@@ -64,7 +69,7 @@ describe('VentasService.crear', () => {
       obtenerEmpresa: vi.fn().mockResolvedValue(CONFIG),
       exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined),
     };
-    service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService);
+    service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO());
 
     tx.lote.findUnique.mockResolvedValue(LOTE);
     tx.cliente.findFirst.mockResolvedValue({ id: 'cliente-1' });
@@ -154,6 +159,15 @@ describe('VentasService.crear', () => {
       expect(tx.lote.updateMany).toHaveBeenCalledWith({
         where: { id: 'lote-1', estado: EstadoLote.SEPARADO },
         data: { estado: EstadoLote.VENDIDO },
+      });
+    });
+
+    it('al vender un lote separado, su separación activa pasa a CONVERTIDA en esa venta', async () => {
+      tx.lote.findUnique.mockResolvedValue({ ...LOTE, estado: EstadoLote.SEPARADO });
+      await service.crear(BASE_CONTADO, USUARIO);
+      expect(tx.separacion.updateMany).toHaveBeenCalledWith({
+        where: { loteId: 'lote-1', estado: 'ACTIVA' },
+        data: { estado: 'CONVERTIDA', ventaId: 'venta-1' },
       });
     });
 
@@ -370,7 +384,7 @@ describe('VentasService: aprobar y rechazar excepciones', () => {
 
   beforeEach(() => {
     ({ prisma, tx } = crearPrismaFalso());
-    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService);
+    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService, STORAGE_FALSO());
     tx.venta.findFirst.mockResolvedValue(PENDIENTE);
     tx.cuota.create.mockResolvedValue({ id: 'cuota-0' });
     tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
@@ -434,7 +448,7 @@ describe('VentasService.parametros', () => {
   it('entrega los valores por defecto del negocio y si quien consulta puede autorizar excepciones', async () => {
     const { prisma } = crearPrismaFalso();
     const configuracion = { obtenerEmpresa: vi.fn().mockResolvedValue({ ...CONFIG, tasaFinanciacionMensual: D('0') }) };
-    const service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService);
+    const service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO());
 
     expect(await service.parametros(USUARIO)).toEqual({
       porcentajeCuotaInicial: '30',
@@ -443,5 +457,156 @@ describe('VentasService.parametros', () => {
       puedeAutorizar: false,
     });
     expect((await service.parametros(GERENTE)).puedeAutorizar).toBe(true);
+  });
+});
+
+describe('VentasService.desistir (RF-VEN-08)', () => {
+  let prisma: ReturnType<typeof crearPrismaFalso>['prisma'];
+  let tx: ReturnType<typeof crearPrismaFalso>['tx'];
+  let service: VentasService;
+
+  const VENTA = {
+    id: 'venta-1',
+    estado: EstadoVenta.ACTIVA,
+    lote: { id: 'lote-1', numero: 'L-1', estado: EstadoLote.VENDIDO },
+    abonos: [{ valor: D('30000000') }, { valor: D('5000000') }],
+  };
+  const DTO = { fecha: '2026-10-16', motivo: 'El cliente no pudo continuar con los pagos' };
+
+  beforeEach(() => {
+    ({ prisma, tx } = crearPrismaFalso());
+    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService, STORAGE_FALSO());
+    tx.venta.findFirst.mockResolvedValue(VENTA);
+    tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
+  });
+
+  it('deja la venta DESISTIDA, el lote DESISTIDO y registra el desistimiento sin tocar los abonos', async () => {
+    await service.desistir('venta-1', { ...DTO, valorDevolver: '20000000', valorRetener: '15000000' }, GERENTE);
+
+    expect(tx.venta.updateMany).toHaveBeenCalledWith({
+      where: { id: 'venta-1', estado: EstadoVenta.ACTIVA },
+      data: { estado: EstadoVenta.DESISTIDA },
+    });
+    expect(tx.lote.updateMany).toHaveBeenCalledWith({
+      where: { id: 'lote-1', estado: EstadoLote.VENDIDO },
+      data: { estado: EstadoLote.DESISTIDO },
+    });
+    expect(tx.loteHistorial.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ estadoNuevo: EstadoLote.DESISTIDO, ventaId: 'venta-1', usuarioId: GERENTE.id }),
+    });
+    const { data } = tx.desistimiento.create.mock.calls[0][0];
+    expect(data).toMatchObject({ ventaId: 'venta-1', motivo: DTO.motivo, registradoPorId: GERENTE.id });
+    expect(data.valorDevolver.toString()).toBe('20000000');
+    expect(data.valorRetener.toString()).toBe('15000000');
+    // No existe ninguna operación que borre o modifique abonos.
+    expect(tx.abono.create).not.toHaveBeenCalled();
+  });
+
+  it('los valores a devolver y retener son opcionales', async () => {
+    await service.desistir('venta-1', DTO, GERENTE);
+    expect(tx.desistimiento.create.mock.calls[0][0].data).toMatchObject({ valorDevolver: null, valorRetener: null });
+  });
+
+  it('no se puede devolver o retener más de lo que el cliente pagó', async () => {
+    await expect(service.desistir('venta-1', { ...DTO, valorDevolver: '36000000' }, GERENTE)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.desistir('venta-1', { ...DTO, valorRetener: '36000000' }, GERENTE)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.desistir('venta-1', { ...DTO, valorDevolver: '20000000', valorRetener: '20000000' }, GERENTE),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(tx.desistimiento.create).not.toHaveBeenCalled();
+  });
+
+  it('un cliente que no pagó nada puede desistir sin valores', async () => {
+    tx.venta.findFirst.mockResolvedValue({ ...VENTA, abonos: [] });
+    await expect(service.desistir('venta-1', DTO, GERENTE)).resolves.toBeDefined();
+    await expect(service.desistir('venta-1', { ...DTO, valorRetener: '1' }, GERENTE)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it.each([EstadoVenta.PENDIENTE_APROBACION, EstadoVenta.RECHAZADA, EstadoVenta.DESISTIDA])('solo se desiste una venta activa, no una %s', async (estado) => {
+    tx.venta.findFirst.mockResolvedValue({ ...VENTA, estado });
+    await expect(service.desistir('venta-1', DTO, GERENTE)).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.desistimiento.create).not.toHaveBeenCalled();
+  });
+
+  it('un lote ya escriturado no admite desistimiento', async () => {
+    tx.venta.findFirst.mockResolvedValue({ ...VENTA, lote: { ...VENTA.lote, estado: EstadoLote.ESCRITURADO } });
+    await expect(service.desistir('venta-1', DTO, GERENTE)).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.desistimiento.create).not.toHaveBeenCalled();
+  });
+
+  it('si otra persona cambió el estado de la venta al mismo tiempo, responde conflicto', async () => {
+    tx.venta.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.desistir('venta-1', DTO, GERENTE)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('una venta que no existe o es de otro proyecto responde 404', async () => {
+    tx.venta.findFirst.mockResolvedValue(null);
+    await expect(service.desistir('x', DTO, GERENTE)).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('VentasService: documentos firmados (RF-VEN-06)', () => {
+  let prisma: ReturnType<typeof crearPrismaFalso>['prisma'];
+  let tx: ReturnType<typeof crearPrismaFalso>['tx'];
+  let storage: { guardar: ReturnType<typeof vi.fn>; leer: ReturnType<typeof vi.fn> };
+  let service: VentasService;
+
+  const PDF = Buffer.from('%PDF-1.7 contenido de prueba');
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
+  const archivo = (buffer: Buffer, originalname: string) => ({ buffer, originalname }) as Express.Multer.File;
+
+  beforeEach(() => {
+    ({ prisma, tx } = crearPrismaFalso());
+    storage = { guardar: vi.fn().mockResolvedValue({ rutaRelativa: 'ventas/venta-1/abc.pdf' }), leer: vi.fn() };
+    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService, storage as unknown as StorageService);
+    tx.venta.findFirst.mockResolvedValue({ id: 'venta-1' });
+    tx.documentoVenta.create.mockImplementation(({ data }: { data: object }) => Promise.resolve({ id: 'doc-1', ...data }));
+  });
+
+  it('guarda varios documentos con nombre de disco decidido por el servidor y el tipo real por sus bytes', async () => {
+    const resultado = await service.subirDocumentos('venta-1', [archivo(PDF, '../../contrato firmado.pdf'), archivo(PNG, 'promesa.JPG')], 'Contrato', USUARIO);
+
+    expect(resultado).toHaveLength(2);
+    // El nombre en disco es "documento.<tipo real>": un .JPG que en realidad es PNG se guarda como png.
+    expect(storage.guardar).toHaveBeenNthCalledWith(1, 'ventas/venta-1', 'documento.pdf', PDF);
+    expect(storage.guardar).toHaveBeenNthCalledWith(2, 'ventas/venta-1', 'documento.png', PNG);
+    const primero = tx.documentoVenta.create.mock.calls[0][0].data;
+    expect(primero).toMatchObject({ nombreOriginal: 'contrato firmado.pdf', tipoMime: 'application/pdf', descripcion: 'Contrato', subidoPorId: USUARIO.id });
+    expect(tx.documentoVenta.create.mock.calls[1][0].data.tipoMime).toBe('image/png');
+  });
+
+  it('rechaza un archivo que dice ser PDF pero no lo es, sin guardar ninguno (la carga no queda a medias)', async () => {
+    await expect(
+      service.subirDocumentos('venta-1', [archivo(PDF, 'bueno.pdf'), archivo(Buffer.from('<script>alert(1)</script>'), 'malo.pdf')], undefined, USUARIO),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(storage.guardar).not.toHaveBeenCalled();
+    expect(tx.documentoVenta.create).not.toHaveBeenCalled();
+  });
+
+  it('exige al menos un archivo', async () => {
+    await expect(service.subirDocumentos('venta-1', [], undefined, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.subirDocumentos('venta-1', undefined, undefined, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('una venta de otro proyecto (fuera del alcance) responde 404 sin guardar nada', async () => {
+    tx.venta.findFirst.mockResolvedValue(null);
+    await expect(service.subirDocumentos('venta-x', [archivo(PDF, 'a.pdf')], undefined, USUARIO)).rejects.toBeInstanceOf(NotFoundException);
+    expect(storage.guardar).not.toHaveBeenCalled();
+  });
+
+  it('descargar un documento exige que la venta esté dentro del alcance del usuario', async () => {
+    tx.documentoVenta.findFirst.mockResolvedValue(null);
+    await expect(service.leerDocumento('venta-1', 'doc-x', usuarioDePrueba(['p-otro']))).rejects.toBeInstanceOf(NotFoundException);
+    expect(tx.documentoVenta.findFirst).toHaveBeenCalledWith({
+      where: { id: 'doc-x', ventaId: 'venta-1', venta: { lote: { proyectoId: { in: ['p-otro'] } } } },
+    });
+    expect(storage.leer).not.toHaveBeenCalled();
+  });
+
+  it('entrega el archivo con el tipo que se guardó (el detectado), no el que diga el cliente', async () => {
+    tx.documentoVenta.findFirst.mockResolvedValue({ ruta: 'ventas/venta-1/abc.pdf', tipoMime: 'application/pdf', nombreOriginal: 'contrato.pdf' });
+    storage.leer.mockResolvedValue(PDF);
+
+    expect(await service.leerDocumento('venta-1', 'doc-1', USUARIO)).toEqual({ buffer: PDF, contentType: 'application/pdf', nombre: 'contrato.pdf' });
   });
 });

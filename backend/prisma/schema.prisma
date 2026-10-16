@@ -46,6 +46,13 @@ enum FormaPago {
   FINANCIADO
 }
 
+// ACTIVA: el lote está apartado. CONVERTIDA: terminó en una venta. LIBERADA: se canceló la separación.
+enum EstadoSeparacion {
+  ACTIVA
+  CONVERTIDA
+  LIBERADA
+}
+
 // PENDIENTE_APROBACION: venta con excepción (cuota inicial baja o plazo largo) que espera al gerente.
 // RECHAZADA: el gerente no la autorizó. DESISTIDA: el cliente desistió (se conserva todo el historial).
 enum EstadoVenta {
@@ -130,28 +137,31 @@ model RolUsuario {
 // Cuenta de acceso a la app. No hay registro público: las crea el gerente
 // desde la sección de Usuarios.
 model Usuario {
-  id                   String            @id @default(uuid())
-  nombre               String
-  email                String            @unique
-  passwordHash         String
-  rolId                String
-  rol                  RolUsuario        @relation(fields: [rolId], references: [id])
-  estado               EstadoUsuario     @default(ACTIVO)
+  id                        String            @id @default(uuid())
+  nombre                    String
+  email                     String            @unique
+  passwordHash              String
+  rolId                     String
+  rol                       RolUsuario        @relation(fields: [rolId], references: [id])
+  estado                    EstadoUsuario     @default(ACTIVO)
   // Bloqueo temporal por intentos fallidos de ingreso.
-  intentosFallidos     Int               @default(0)
-  bloqueadoHasta       DateTime?
-  ultimoIngreso        DateTime?
+  intentosFallidos          Int               @default(0)
+  bloqueadoHasta            DateTime?
+  ultimoIngreso             DateTime?
   // Las sesiones (tokens) emitidas antes de esta fecha dejan de valer: se usa al restablecer la contraseña.
-  sesionesValidasDesde DateTime?
+  sesionesValidasDesde      DateTime?
   // Alcance por proyecto: true = ve todos los proyectos. Si es false, solo ve
   // los de proyectosPermitidos (solo se permite en roles limitablePorProyecto).
-  todosLosProyectos    Boolean           @default(true)
-  proyectosPermitidos  UsuarioProyecto[]
-  historialLotes       LoteHistorial[]
-  ventasRegistradas    Venta[]           @relation("VentasRegistradas")
-  ventasResueltas      Venta[]           @relation("VentasResueltas")
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  todosLosProyectos         Boolean           @default(true)
+  proyectosPermitidos       UsuarioProyecto[]
+  historialLotes            LoteHistorial[]
+  separacionesRegistradas   Separacion[]
+  documentosSubidos         DocumentoVenta[]
+  desistimientosRegistrados Desistimiento[]
+  ventasRegistradas         Venta[]           @relation("VentasRegistradas")
+  ventasResueltas           Venta[]           @relation("VentasResueltas")
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
 
   @@index([rolId])
 }
@@ -221,6 +231,7 @@ model Lote {
   escrituraFecha   DateTime?
   ventas           Venta[]
   historial        LoteHistorial[]
+  separaciones     Separacion[]
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -253,15 +264,74 @@ model LoteHistorial {
 
 // Comprador de uno o más lotes.
 model Cliente {
-  id        String   @id @default(uuid())
-  nombre    String
-  documento String   @unique
-  telefono  String?
-  email     String?
-  direccion String?
-  ventas    Venta[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String       @id @default(uuid())
+  nombre       String
+  documento    String       @unique
+  telefono     String?
+  email        String?
+  direccion    String?
+  ventas       Venta[]
+  separaciones Separacion[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+// Apartado de un lote antes de formalizar la venta. El valor es solo informativo (lo que dejó el
+// interesado); el dinero se recibe como abono a la cuota inicial cuando se formaliza la venta.
+// Solo puede haber una separación ACTIVA por lote (índice parcial escrito a mano en la migración).
+model Separacion {
+  id                 String           @id @default(uuid())
+  loteId             String
+  lote               Lote             @relation(fields: [loteId], references: [id])
+  // Interesado: un cliente ya registrado o solo su nombre y teléfono.
+  clienteId          String?
+  cliente            Cliente?         @relation(fields: [clienteId], references: [id])
+  nombreInteresado   String?
+  telefonoInteresado String?
+  valor              Decimal?         @db.Decimal(14, 2)
+  fechaLimite        DateTime?
+  estado             EstadoSeparacion @default(ACTIVA)
+  // Venta en la que terminó (cuando pasa a CONVERTIDA).
+  ventaId            String?          @unique
+  venta              Venta?           @relation(fields: [ventaId], references: [id])
+  registradaPorId    String
+  registradaPor      Usuario          @relation(fields: [registradaPorId], references: [id])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([loteId, estado])
+}
+
+// Documento firmado de una venta (contrato, promesa, etc.). Se conservan siempre: no se borran.
+model DocumentoVenta {
+  id             String   @id @default(uuid())
+  ventaId        String
+  venta          Venta    @relation(fields: [ventaId], references: [id])
+  nombreOriginal String
+  ruta           String
+  tipoMime       String
+  tamano         Int
+  descripcion    String?
+  subidoPorId    String
+  subidoPor      Usuario  @relation(fields: [subidoPorId], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([ventaId])
+}
+
+// El cliente desiste de la compra. No se borra ningún abono ni recibo: solo se registra la
+// decisión del gerente y qué valor se devuelve o se retiene (dato manual).
+model Desistimiento {
+  id              String   @id @default(uuid())
+  ventaId         String   @unique
+  venta           Venta    @relation(fields: [ventaId], references: [id])
+  fecha           DateTime
+  motivo          String
+  valorDevolver   Decimal? @db.Decimal(14, 2)
+  valorRetener    Decimal? @db.Decimal(14, 2)
+  registradoPorId String
+  registradoPor   Usuario  @relation(fields: [registradoPorId], references: [id])
+  createdAt       DateTime @default(now())
 }
 
 // Persona que trajo la venta (asesor inmobiliario o referido). Se reutiliza entre
@@ -282,42 +352,45 @@ model Vendedor {
 // para no perder el rastro de por qué el lote volvió a estar disponible.
 // La cuota inicial es la cuota número 0 del plan (ver Cuota); se paga con abonos como cualquier cuota.
 model Venta {
-  id                String      @id @default(uuid())
+  id                String           @id @default(uuid())
   loteId            String
-  lote              Lote        @relation(fields: [loteId], references: [id])
+  lote              Lote             @relation(fields: [loteId], references: [id])
   clienteId         String
-  cliente           Cliente     @relation(fields: [clienteId], references: [id])
+  cliente           Cliente          @relation(fields: [clienteId], references: [id])
   vendedorId        String?
-  vendedor          Vendedor?   @relation(fields: [vendedorId], references: [id])
-  valorTotal        Decimal     @db.Decimal(14, 2)
-  cuotaInicial      Decimal     @db.Decimal(14, 2)
+  vendedor          Vendedor?        @relation(fields: [vendedorId], references: [id])
+  valorTotal        Decimal          @db.Decimal(14, 2)
+  cuotaInicial      Decimal          @db.Decimal(14, 2)
   // numeroCuotas y tasaInteres solo aplican cuando formaPago = FINANCIADO.
   numeroCuotas      Int?
-  tasaInteres       Decimal?    @db.Decimal(5, 2)
+  tasaInteres       Decimal?         @db.Decimal(5, 2)
   formaPago         FormaPago
-  fechaVenta        DateTime    @default(now())
+  fechaVenta        DateTime         @default(now())
   // Hasta cuándo se espera la cuota inicial (cuota 0); por defecto, el día de la venta.
   fechaCuotaInicial DateTime?
-  estado            EstadoVenta @default(ACTIVA)
+  estado            EstadoVenta      @default(ACTIVA)
   // Quién registró la venta (nulo en ventas anteriores al control por usuario).
   registradaPorId   String?
-  registradaPor     Usuario?    @relation("VentasRegistradas", fields: [registradaPorId], references: [id])
+  registradaPor     Usuario?         @relation("VentasRegistradas", fields: [registradaPorId], references: [id])
   // Excepción: cuota inicial menor a la configurada o plazo mayor al máximo. Exige motivo y
   // la autorización de un gerente (quien tenga el permiso ventas.autorizar).
-  esExcepcion       Boolean     @default(false)
+  esExcepcion       Boolean          @default(false)
   motivoExcepcion   String?
   // Quién autorizó o rechazó la excepción, cuándo y, si se rechazó, por qué.
   resueltaPorId     String?
-  resueltaPor       Usuario?    @relation("VentasResueltas", fields: [resueltaPorId], references: [id])
+  resueltaPor       Usuario?         @relation("VentasResueltas", fields: [resueltaPorId], references: [id])
   resueltaEn        DateTime?
   motivoRechazo     String?
   // true si esta venta fue la que dejó el lote SEPARADO mientras esperaba aprobación
   // (para liberarlo si se rechaza).
-  separoElLote      Boolean     @default(false)
+  separoElLote      Boolean          @default(false)
   cuotas            Cuota[]
   abonos            Abono[]
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  documentos        DocumentoVenta[]
+  desistimiento     Desistimiento?
+  separacion        Separacion?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@index([loteId])
   @@index([estado])

@@ -33,6 +33,8 @@ function crearPrismaFalso() {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     loteHistorial: { create: vi.fn() },
+    separacion: { create: vi.fn(), updateMany: vi.fn() },
+    cliente: { findFirst: vi.fn() },
     $transaction: vi.fn(),
   };
   prisma.$transaction.mockImplementation((accion: (tx: typeof prisma) => unknown) => accion(prisma));
@@ -208,6 +210,75 @@ describe('LotesService: acciones de estado', () => {
     );
     expect(prisma.loteHistorial.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ estadoAnterior: 'DISPONIBLE', estadoNuevo: 'SEPARADO', motivo: 'Cliente interesado', usuarioId: USUARIO.id }),
+    });
+  });
+
+  describe('separación (RF-VEN-01)', () => {
+    const DISPONIBLE = { id: 'lote-1', numero: 'L-1', estado: EstadoLote.DISPONIBLE, proyecto: PROYECTO };
+
+    beforeEach(() => {
+      prisma.lote.findFirst.mockResolvedValue(DISPONIBLE);
+    });
+
+    it('registra quién separa, cuánto dejó y hasta cuándo, además del cambio de estado', async () => {
+      const manana = new Date();
+      manana.setDate(manana.getDate() + 1);
+      const fecha = `${manana.getFullYear()}-${String(manana.getMonth() + 1).padStart(2, '0')}-${String(manana.getDate()).padStart(2, '0')}`;
+
+      await service.separar(
+        'lote-1',
+        { nombreInteresado: '  Ana Pérez  ', telefonoInteresado: '3000000000', valor: '5000000', fechaLimite: fecha, motivo: 'Dejó una consignación' },
+        USUARIO,
+      );
+
+      expect(prisma.lote.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { estado: EstadoLote.SEPARADO } }));
+      const { data } = prisma.separacion.create.mock.calls[0][0];
+      expect(data).toMatchObject({
+        loteId: 'lote-1',
+        nombreInteresado: 'Ana Pérez',
+        telefonoInteresado: '3000000000',
+        valor: '5000000',
+        registradaPorId: USUARIO.id,
+      });
+      expect(data.fechaLimite).toBeInstanceOf(Date);
+    });
+
+    it('una separación sin datos extra también es válida (valor y fecha límite son opcionales)', async () => {
+      await service.separar('lote-1', {}, USUARIO);
+      expect(prisma.separacion.create).toHaveBeenCalledWith({ data: expect.objectContaining({ loteId: 'lote-1', valor: undefined, fechaLimite: null }) });
+    });
+
+    it('si hay un valor debe saberse de quién es', async () => {
+      await expect(service.separar('lote-1', { valor: '1000000' }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.lote.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('indica un cliente registrado o un nombre, no ambos', async () => {
+      await expect(service.separar('lote-1', { clienteId: 'c-1', nombreInteresado: 'Ana' }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('un cliente que no existe (o fuera del alcance) responde 404', async () => {
+      prisma.cliente.findFirst.mockResolvedValue(null);
+      await expect(service.separar('lote-1', { clienteId: 'c-x' }, USUARIO)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rechaza una fecha límite en el pasado', async () => {
+      await expect(service.separar('lote-1', { fechaLimite: '2020-01-01' }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('un lote que no está disponible no se puede separar y no deja registro de separación', async () => {
+      prisma.lote.findFirst.mockResolvedValue({ ...DISPONIBLE, estado: EstadoLote.VENDIDO });
+      await expect(service.separar('lote-1', {}, USUARIO)).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.separacion.create).not.toHaveBeenCalled();
+    });
+
+    it('liberar la separación cierra el registro (queda LIBERADA, no se borra)', async () => {
+      prisma.lote.findFirst.mockResolvedValue({ ...DISPONIBLE, estado: EstadoLote.SEPARADO });
+
+      await service.liberar('lote-1', { motivo: 'El cliente se arrepintió' }, USUARIO);
+
+      expect(prisma.lote.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { estado: EstadoLote.DISPONIBLE } }));
+      expect(prisma.separacion.updateMany).toHaveBeenCalledWith({ where: { loteId: 'lote-1', estado: 'ACTIVA' }, data: { estado: 'LIBERADA' } });
     });
   });
 

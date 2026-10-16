@@ -1,19 +1,26 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { exigirProyecto, filtroLote } from '../auth/alcance.js';
+import { exigirProyecto, filtroCliente, filtroLote } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoProyecto, TipoEventoLote, TipoProyecto } from '../generated/prisma/enums.js';
+import { EstadoProyecto, EstadoSeparacion, TipoEventoLote, TipoProyecto } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { calcularResumenAreas } from '../proyectos/areas.js';
 import { aplicarAccionLote, type OpcionesAccionLote } from './aplicar-accion.js';
-import { AccionLoteDto, EscriturarLoteDto, ReponerLoteDto } from './dto/accion-lote.dto.js';
+import { AccionLoteDto, EscriturarLoteDto, ReponerLoteDto, SepararLoteDto } from './dto/accion-lote.dto.js';
 import { ActualizarLoteDto } from './dto/actualizar-lote.dto.js';
 import { CrearLoteDto } from './dto/crear-lote.dto.js';
 import { ListarLotesQueryDto } from './dto/listar-lotes-query.dto.js';
 import { ESTADOS_CON_VENTA, ETIQUETA_ESTADO_LOTE, accionesDisponibles, type AccionLote } from './estado-lote.js';
 
 const ERROR_UNICO_PRISMA = 'P2002';
+
+// La separación activa de un lote (si la hay), con quién la registró, para mostrarla en la ficha y en las listas.
+const SEPARACION_ACTIVA = {
+  where: { estado: EstadoSeparacion.ACTIVA },
+  take: 1,
+  include: { cliente: { select: { id: true, nombre: true } }, registradaPor: { select: { nombre: true } } },
+} as const;
 
 @Injectable()
 export class LotesService {
@@ -106,7 +113,7 @@ export class LotesService {
         // Se combina con el alcance: pedir un proyecto ajeno devuelve una lista vacía.
         AND: [filtroLote(usuario)],
       },
-      include: { proyecto: true, manzana: true },
+      include: { proyecto: true, manzana: true, separaciones: SEPARACION_ACTIVA },
       orderBy: [{ proyecto: { nombre: 'asc' } }, { manzana: { nombre: 'asc' } }, { numero: 'asc' }],
     });
   }
@@ -119,12 +126,14 @@ export class LotesService {
         proyecto: true,
         manzana: true,
         historial: { orderBy: { createdAt: 'desc' }, include: { usuario: { select: { nombre: true } } } },
+        separaciones: SEPARACION_ACTIVA,
       },
     });
     if (!lote) {
       throw new NotFoundException(`No existe el lote ${id}`);
     }
-    return { ...lote, acciones: accionesDisponibles(lote.estado) };
+    const { separaciones, ...datos } = lote;
+    return { ...datos, separacionActiva: separaciones[0] ?? null, acciones: accionesDisponibles(lote.estado) };
   }
 
   async actualizar(id: string, dto: ActualizarLoteDto, usuario: UsuarioAutenticado) {
@@ -169,12 +178,57 @@ export class LotesService {
     });
   }
 
-  separar(id: string, dto: AccionLoteDto, usuario: UsuarioAutenticado) {
-    return this.cambiarEstado(id, 'SEPARAR', usuario, { motivo: dto.motivo });
+  // Separar el lote y dejar constancia de quién lo aparta, cuánto dejó y hasta cuándo (RF-VEN-01).
+  async separar(id: string, dto: SepararLoteDto, usuario: UsuarioAutenticado) {
+    const lote = await this.obtenerParaCambiar(id, usuario);
+
+    if (dto.valor && !dto.clienteId && !dto.nombreInteresado) {
+      throw new BadRequestException('Si la separación tiene un valor, indica de quién es (un cliente o su nombre)');
+    }
+    if (dto.clienteId && dto.nombreInteresado) {
+      throw new BadRequestException('Indica un cliente registrado o un nombre, no ambos');
+    }
+    if (dto.clienteId) {
+      const cliente = await this.prisma.cliente.findFirst({ where: { id: dto.clienteId, ...filtroCliente(usuario) } });
+      if (!cliente) {
+        throw new NotFoundException(`No existe el cliente ${dto.clienteId}`);
+      }
+    }
+    const fechaLimite = dto.fechaLimite ? parsearFechaLocal(dto.fechaLimite) : null;
+    if (fechaLimite) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      if (fechaLimite.getTime() < hoy.getTime()) {
+        throw new BadRequestException('La fecha límite no puede estar en el pasado');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await aplicarAccionLote(tx, lote, 'SEPARAR', usuario.id, { motivo: dto.motivo });
+      await tx.separacion.create({
+        data: {
+          loteId: id,
+          clienteId: dto.clienteId,
+          nombreInteresado: dto.nombreInteresado?.trim(),
+          telefonoInteresado: dto.telefonoInteresado?.trim(),
+          valor: dto.valor,
+          fechaLimite,
+          registradaPorId: usuario.id,
+        },
+      });
+      return tx.lote.findUniqueOrThrow({ where: { id } });
+    });
   }
 
-  liberar(id: string, dto: AccionLoteDto, usuario: UsuarioAutenticado) {
-    return this.cambiarEstado(id, 'LIBERAR', usuario, { motivo: dto.motivo });
+  // Liberar la separación cierra también el registro de la separación (queda LIBERADA, no se borra).
+  async liberar(id: string, dto: AccionLoteDto, usuario: UsuarioAutenticado) {
+    const lote = await this.obtenerParaCambiar(id, usuario);
+
+    return this.prisma.$transaction(async (tx) => {
+      await aplicarAccionLote(tx, lote, 'LIBERAR', usuario.id, { motivo: dto.motivo });
+      await tx.separacion.updateMany({ where: { loteId: id, estado: EstadoSeparacion.ACTIVA }, data: { estado: EstadoSeparacion.LIBERADA } });
+      return tx.lote.findUniqueOrThrow({ where: { id } });
+    });
   }
 
   escriturar(id: string, dto: EscriturarLoteDto, usuario: UsuarioAutenticado) {

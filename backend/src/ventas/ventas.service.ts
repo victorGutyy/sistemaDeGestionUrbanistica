@@ -1,16 +1,21 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { basename } from 'node:path';
 import { crearAbonoEnTx } from '../abonos/crear-abono-tx.js';
 import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
 import { PERMISOS } from '../auth/permisos.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
+import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento } from '../common/tipo-archivo.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoLote, EstadoVenta, FormaPago } from '../generated/prisma/enums.js';
 import { aplicarAccionLote } from '../lotes/aplicar-accion.js';
 import { puedeAplicar } from '../lotes/estado-lote.js';
+import { convertirSeparacionEnTx } from '../lotes/separacion.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { CrearVentaDto } from './dto/crear-venta.dto.js';
+import { DesistirVentaDto } from './dto/desistir-venta.dto.js';
 import { calcularEstadoCuenta } from './estado-cuenta.js';
 import { generarPlanDePagos } from './plan-de-pagos.js';
 import { calcularCuotaInicial, evaluarExcepcion, type ParametrosVenta } from './reglas-venta.js';
@@ -33,6 +38,7 @@ export class VentasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configuracion: ConfiguracionService,
+    private readonly storage: StorageService,
   ) {}
 
   // Lo que necesita la pantalla de venta nueva: los valores por defecto del negocio y si quien
@@ -189,6 +195,7 @@ export class VentasService {
         const cuotaInicialId = await this.crearPlanDeCuotas(tx, venta);
         // El cambio de estado pasa por la máquina de estados: valida, deja historial y evita vender dos veces el mismo lote.
         await aplicarAccionLote(tx, lote, 'VENDER', usuario.id, { ventaId: venta.id });
+        await convertirSeparacionEnTx(tx, lote.id, venta.id);
 
         if (dto.cuotaInicialRecibida && cuotaInicialId) {
           await crearAbonoEnTx(tx, {
@@ -223,6 +230,7 @@ export class VentasService {
 
       await this.crearPlanDeCuotas(tx, venta);
       await aplicarAccionLote(tx, venta.lote, 'VENDER', usuario.id, { ventaId: id, motivo: 'Excepción aprobada' });
+      await convertirSeparacionEnTx(tx, venta.lote.id, id);
 
       return tx.venta.findUniqueOrThrow({
         where: { id },
@@ -263,6 +271,8 @@ export class VentasService {
         vendedor: true,
         registradaPor: { select: { nombre: true } },
         resueltaPor: { select: { nombre: true } },
+        documentos: { orderBy: { createdAt: 'asc' }, include: { subidoPor: { select: { nombre: true } } } },
+        desistimiento: { include: { registradoPor: { select: { nombre: true } } } },
       },
     });
     if (!venta) {
@@ -281,6 +291,119 @@ export class VentasService {
       include: { cliente: true, lote: { include: { proyecto: true, manzana: true } }, vendedor: true },
       orderBy: { fechaVenta: 'desc' },
     });
+  }
+
+  // Desistimiento (RF-VEN-08): decisión del gerente. La venta queda DESISTIDA y el lote DESISTIDO; no se
+  // borra ningún abono ni recibo, y los valores a devolver o retener son datos que se registran a mano.
+  async desistir(id: string, dto: DesistirVentaDto, usuario: UsuarioAutenticado) {
+    const fecha = parsearFechaLocal(dto.fecha);
+
+    return this.prisma.$transaction(async (tx) => {
+      const venta = await tx.venta.findFirst({
+        where: { id, ...filtroVenta(usuario) },
+        include: { lote: true, abonos: true },
+      });
+      if (!venta) {
+        throw new NotFoundException(`No existe la venta ${id}`);
+      }
+      if (venta.estado !== EstadoVenta.ACTIVA) {
+        throw new ConflictException('Solo se puede registrar el desistimiento de una venta activa');
+      }
+
+      const pagado = venta.abonos.reduce((total, abono) => total.plus(abono.valor), new Prisma.Decimal(0));
+      const valorDevolver = dto.valorDevolver ? new Prisma.Decimal(dto.valorDevolver) : null;
+      const valorRetener = dto.valorRetener ? new Prisma.Decimal(dto.valorRetener) : null;
+      if (valorDevolver?.greaterThan(pagado) || valorRetener?.greaterThan(pagado)) {
+        throw new BadRequestException(`El valor a devolver o retener no puede superar lo pagado por el cliente (${pagado.toString()})`);
+      }
+      if (valorDevolver && valorRetener && valorDevolver.plus(valorRetener).greaterThan(pagado)) {
+        throw new BadRequestException(`Lo que se devuelve más lo que se retiene supera lo pagado por el cliente (${pagado.toString()})`);
+      }
+
+      const { count } = await tx.venta.updateMany({
+        where: { id, estado: EstadoVenta.ACTIVA },
+        data: { estado: EstadoVenta.DESISTIDA },
+      });
+      if (count === 0) {
+        throw new ConflictException('Otra persona ya cambió el estado de esta venta');
+      }
+
+      // El lote pasa a DESISTIDO (solo desde VENDIDO: un lote ya escriturado no admite desistimiento).
+      await aplicarAccionLote(tx, venta.lote, 'DESISTIR', usuario.id, { ventaId: id, motivo: dto.motivo.trim() });
+
+      await tx.desistimiento.create({
+        data: {
+          ventaId: id,
+          fecha,
+          motivo: dto.motivo.trim(),
+          valorDevolver,
+          valorRetener,
+          registradoPorId: usuario.id,
+        },
+      });
+
+      return tx.venta.findUniqueOrThrow({ where: { id }, include: { cliente: true, lote: true, desistimiento: true } });
+    });
+  }
+
+  // Documentos firmados de la venta (RF-VEN-06): PDF o imágenes. Se valida el tipo real por los primeros bytes
+  // y se valida todo antes de guardar, para no dejar la carga a medias.
+  async subirDocumentos(
+    ventaId: string,
+    archivos: Express.Multer.File[] | undefined,
+    descripcion: string | undefined,
+    usuario: UsuarioAutenticado,
+  ) {
+    const venta = await this.prisma.venta.findFirst({ where: { id: ventaId, ...filtroVenta(usuario) }, select: { id: true } });
+    if (!venta) {
+      throw new NotFoundException(`No existe la venta ${ventaId}`);
+    }
+    if (!archivos || archivos.length === 0) {
+      throw new BadRequestException('Adjunta al menos un archivo');
+    }
+    if (descripcion && descripcion.length > 300) {
+      throw new BadRequestException('La descripción es demasiado larga (máximo 300 caracteres)');
+    }
+
+    const validados = archivos.map((archivo) => {
+      const tipo = detectarTipoDocumento(archivo.buffer);
+      if (!tipo) {
+        throw new BadRequestException(`El archivo "${archivo.originalname}" no es un PDF ni una imagen PNG o JPG`);
+      }
+      return { archivo, tipo };
+    });
+
+    const creados = [];
+    for (const { archivo, tipo } of validados) {
+      // El nombre en disco lo fija el servidor según el tipo real; el original solo se muestra.
+      const { rutaRelativa } = await this.storage.guardar(`ventas/${ventaId}`, `documento.${tipo}`, archivo.buffer);
+      creados.push(
+        await this.prisma.documentoVenta.create({
+          data: {
+            ventaId,
+            nombreOriginal: basename(archivo.originalname).slice(0, 200),
+            ruta: rutaRelativa,
+            tipoMime: CONTENT_TYPE_DOCUMENTO[tipo],
+            tamano: archivo.buffer.length,
+            descripcion: descripcion?.trim() || null,
+            subidoPorId: usuario.id,
+          },
+        }),
+      );
+    }
+    return creados;
+  }
+
+  // Solo con sesión y permiso sobre el proyecto de la venta (RNF-SEG-05).
+  async leerDocumento(ventaId: string, documentoId: string, usuario: UsuarioAutenticado) {
+    const documento = await this.prisma.documentoVenta.findFirst({
+      where: { id: documentoId, ventaId, venta: filtroVenta(usuario) },
+    });
+    if (!documento) {
+      throw new NotFoundException(`No existe el documento ${documentoId}`);
+    }
+    const buffer = await this.storage.leer(documento.ruta);
+    return { buffer, contentType: documento.tipoMime, nombre: documento.nombreOriginal };
   }
 
   listarVendedores() {
