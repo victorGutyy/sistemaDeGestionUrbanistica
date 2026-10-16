@@ -26,6 +26,7 @@ import { RegistrarVentaPage } from './pages/RegistrarVentaPage'
 import { TrabajadorDetallePage } from './pages/TrabajadorDetallePage'
 import { UsuariosPage } from './pages/UsuariosPage'
 import { VentaDetallePage } from './pages/VentaDetallePage'
+import { VentasPage } from './pages/VentasPage'
 
 // Las rutas se protegen por permiso (no por nombre de rol): un rol nuevo
 // funciona sin tocar este archivo. Las rutas sin permiso exigen solo sesión.
@@ -45,6 +46,7 @@ function App() {
               <Route path="/proyectos/:id/lotes/nuevo" element={<RegistrarLotePage />} />
               <Route path="/proyectos/:id" element={<ProyectoDetallePage />} />
               <Route path="/lotes/:id" element={<LoteDetallePage />} />
+              <Route path="/ventas" element={<VentasPage />} />
               <Route path="/ventas/nueva" element={<RegistrarVentaPage />} />
               <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />
               <Route path="/ventas/:id" element={<VentaDetallePage />} />

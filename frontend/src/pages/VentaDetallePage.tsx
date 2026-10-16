@@ -3,14 +3,17 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
 import {
+  aprobarVenta,
   listarAbonosPorVenta,
   obtenerVenta,
+  rechazarVenta,
   abrirComprobante,
   type Abono,
   type EstadoCuota,
   type Venta,
 } from '../lib/api'
 import { formatearCOP, formatearFecha } from '../lib/formato'
+import { CLASE_ESTADO_VENTA, ETIQUETA_ESTADO_VENTA, etiquetaCuota } from '../lib/ventas'
 
 const ESTILO_ESTADO_CUOTA: Record<EstadoCuota, string> = {
   PENDIENTE: 'bg-slate-100 text-slate-600',
@@ -35,6 +38,31 @@ export function VentaDetallePage() {
   const [abonos, setAbonos] = useState<Abono[]>([])
   const [error, setError] = useState<string | null>(null)
   const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
+  const [resolviendo, setResolviendo] = useState(false)
+  const [recarga, setRecarga] = useState(0)
+
+  async function resolver(accion: 'aprobar' | 'rechazar') {
+    if (!venta) return
+    let motivo = ''
+    if (accion === 'rechazar') {
+      motivo = window.prompt('Motivo del rechazo (queda registrado):')?.trim() ?? ''
+      if (motivo.length < 3) return
+    } else if (!window.confirm('¿Aprobar esta venta? Se generará su plan de cuotas y el lote pasará a vendido.')) {
+      return
+    }
+
+    setResolviendo(true)
+    setError(null)
+    try {
+      if (accion === 'aprobar') await aprobarVenta(venta.id)
+      else await rechazarVenta(venta.id, motivo)
+      setRecarga((n) => n + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo resolver la venta')
+    } finally {
+      setResolviendo(false)
+    }
+  }
 
   async function handleVerComprobante(abonoId: string) {
     setErrorComprobante(null)
@@ -53,9 +81,9 @@ export function VentaDetallePage() {
         setAbonos(abonosRecibidos)
       })
       .catch((err: Error) => setError(err.message))
-  }, [id])
+  }, [id, recarga])
 
-  if (error) {
+  if (error && !venta) {
     return <p className="text-sm text-red-600">{error}</p>
   }
 
@@ -64,20 +92,31 @@ export function VentaDetallePage() {
   }
 
   const estadoCuenta = venta.estadoCuenta
+  const activa = venta.estado === 'ACTIVA'
 
   return (
     <div className="max-w-2xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900">
-            Lote {venta.lote.numero} — {venta.cliente.nombre}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg font-semibold text-slate-900">
+              {venta.lote.manzana ? `Mz. ${venta.lote.manzana.nombre} · ` : ''}Lote {venta.lote.numero} — {venta.cliente.nombre}
+            </h1>
+            <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${CLASE_ESTADO_VENTA[venta.estado]}`}>
+              {ETIQUETA_ESTADO_VENTA[venta.estado]}
+            </span>
+          </div>
           <p className="text-sm text-slate-500">
             Valor total: {formatearCOP(venta.valorTotal)} · Cuota inicial: {formatearCOP(venta.cuotaInicial)} ·{' '}
-            {venta.formaPago === 'CONTADO' ? 'Contado' : 'Financiado'}
+            {venta.formaPago === 'CONTADO' ? 'Contado' : `Financiado en ${venta.numeroCuotas} cuotas`} · Vendida el {formatearFecha(venta.fechaVenta)}
           </p>
+          {venta.vendedor && (
+            <p className="text-sm text-slate-500">
+              Vendedor: {venta.vendedor.nombre} ({venta.vendedor.tipo === 'ASESOR_INMOBILIARIO' ? 'asesor inmobiliario' : 'referido'})
+            </p>
+          )}
         </div>
-        {tiene(PERMISOS.ABONOS_REGISTRAR) && (
+        {activa && tiene(PERMISOS.ABONOS_REGISTRAR) && (
           <Link
             to={`/ventas/${venta.id}/abonos/nuevo`}
             className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -87,7 +126,53 @@ export function VentaDetallePage() {
         )}
       </div>
 
-      {estadoCuenta && (
+      {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      {venta.esExcepcion && (
+        <div className="mt-4 space-y-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">Venta con excepción</p>
+          <p>Motivo: {venta.motivoExcepcion}</p>
+          {venta.registradaPor && <p>Registrada por {venta.registradaPor.nombre}.</p>}
+          {venta.estado === 'ACTIVA' && venta.resueltaPor && venta.resueltaEn && (
+            <p>
+              Autorizada por {venta.resueltaPor.nombre} el {formatearFecha(venta.resueltaEn)}.
+            </p>
+          )}
+          {venta.estado === 'RECHAZADA' && (
+            <p>
+              Rechazada{venta.resueltaPor ? ` por ${venta.resueltaPor.nombre}` : ''}
+              {venta.resueltaEn ? ` el ${formatearFecha(venta.resueltaEn)}` : ''}: {venta.motivoRechazo}
+            </p>
+          )}
+          {venta.estado === 'PENDIENTE_APROBACION' && (
+            <>
+              <p>Espera la aprobación del gerente. El lote está apartado y todavía no hay plan de cuotas.</p>
+              {tiene(PERMISOS.VENTAS_AUTORIZAR) && (
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={resolviendo}
+                    onClick={() => void resolver('aprobar')}
+                    className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Aprobar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={resolviendo}
+                    onClick={() => void resolver('rechazar')}
+                    className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {estadoCuenta && venta.estado !== 'PENDIENTE_APROBACION' && (
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500">Total pagado</p>
@@ -101,7 +186,7 @@ export function VentaDetallePage() {
             <p className="text-xs text-slate-500">Próxima cuota</p>
             <p className="mt-1 text-lg font-semibold text-slate-900">
               {estadoCuenta.proximaCuota
-                ? `#${estadoCuenta.proximaCuota.numero} · ${formatearFecha(estadoCuenta.proximaCuota.fechaVencimiento)}`
+                ? `${etiquetaCuota(estadoCuenta.proximaCuota.numero)} · ${formatearFecha(estadoCuenta.proximaCuota.fechaVencimiento)}`
                 : '—'}
             </p>
           </div>
@@ -123,7 +208,7 @@ export function VentaDetallePage() {
             <tbody>
               {venta.cuotas.map((cuota) => (
                 <tr key={cuota.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">{cuota.numero}</td>
+                  <td className="px-4 py-2">{etiquetaCuota(cuota.numero)}</td>
                   <td className="px-4 py-2">{formatearFecha(cuota.fechaVencimiento)}</td>
                   <td className="px-4 py-2">{formatearCOP(cuota.valor)}</td>
                   <td className="px-4 py-2">
@@ -132,7 +217,7 @@ export function VentaDetallePage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right">
-                    {cuota.estado !== 'PAGADA' && tiene(PERMISOS.ABONOS_REGISTRAR) && (
+                    {activa && cuota.estado !== 'PAGADA' && tiene(PERMISOS.ABONOS_REGISTRAR) && (
                       <Link
                         to={`/ventas/${venta.id}/abonos/nuevo?cuotaId=${cuota.id}`}
                         className="text-sm font-medium text-blue-600 hover:underline"

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { crearAbono, listarMediosPago, obtenerVenta, type MedioPago, type MedioPagoConfig, type Venta } from '../lib/api'
 import { formatearCOP, formatearFecha, hoyEnBogota } from '../lib/formato'
+import { etiquetaCuota } from '../lib/ventas'
 
 export function RegistrarAbonoPage() {
   const { ventaId } = useParams<{ ventaId: string }>()
@@ -106,7 +107,7 @@ export function RegistrarAbonoPage() {
             <option value="">Sin asignar a una cuota específica</option>
             {cuotasSeleccionables.map((c) => (
               <option key={c.id} value={c.id}>
-                Cuota {c.numero} — vence {formatearFecha(c.fechaVencimiento)} — {formatearCOP(c.valor)} ({c.estado})
+                {etiquetaCuota(c.numero)} — vence {formatearFecha(c.fechaVencimiento)} — {formatearCOP(c.valor)} ({c.estado})
               </option>
             ))}
           </select>

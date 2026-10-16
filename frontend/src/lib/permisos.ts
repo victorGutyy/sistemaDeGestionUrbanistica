@@ -9,6 +9,7 @@ export const PERMISOS = {
   CLIENTES_CREAR: 'clientes.crear',
   VENTAS_VER: 'ventas.ver',
   VENTAS_CREAR: 'ventas.crear',
+  VENTAS_AUTORIZAR: 'ventas.autorizar',
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
   CARTERA_VER: 'cartera.ver',

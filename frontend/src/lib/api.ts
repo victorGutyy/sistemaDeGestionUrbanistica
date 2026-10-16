@@ -324,16 +324,59 @@ export interface ClienteNuevoPayload {
   email?: string
 }
 
+export type EstadoVenta = 'PENDIENTE_APROBACION' | 'ACTIVA' | 'RECHAZADA' | 'DESISTIDA'
+
+export interface Vendedor {
+  id: string
+  tipo: TipoVendedor
+  nombre: string
+  documento: string
+  telefono: string | null
+}
+
+export interface VendedorNuevoPayload {
+  tipo: TipoVendedor
+  nombre: string
+  documento: string
+  telefono?: string
+}
+
 export interface CrearVentaPayload {
   loteId: string
   clienteId?: string
   clienteNuevo?: ClienteNuevoPayload
+  vendedorId?: string
+  vendedorNuevo?: VendedorNuevoPayload
   formaPago: FormaPago
+  // Todo valor es en pesos enteros, como texto.
   valorTotal: string
-  cuotaInicial: string
+  // En valor o en porcentaje (no ambos). Sin ninguno, el servidor usa el porcentaje configurado.
+  cuotaInicial?: string
+  cuotaInicialPorcentaje?: string
   numeroCuotas?: number
-  tasaInteres?: string
   fechaVenta?: string
+  fechaLimiteCuotaInicial?: string
+  // Registra de una vez el abono de la cuota inicial recibida.
+  cuotaInicialRecibida?: boolean
+  medioPago?: MedioPago
+  // Obligatorio cuando la venta es una excepción.
+  motivoExcepcion?: string
+}
+
+export interface ParametrosVenta {
+  porcentajeCuotaInicial: string
+  plazoMaximoMeses: number
+  tasaFinanciacionMensual: string
+  // true si quien registra la venta puede autorizar excepciones por sí mismo (gerente).
+  puedeAutorizar: boolean
+}
+
+export function obtenerParametrosVenta() {
+  return solicitar<ParametrosVenta>('/ventas/parametros')
+}
+
+export function listarVendedores() {
+  return solicitar<Vendedor[]>('/ventas/vendedores')
 }
 
 export type EstadoCuota = 'PENDIENTE' | 'PARCIAL' | 'PAGADA'
@@ -355,15 +398,36 @@ export interface EstadoCuenta {
 
 export interface Venta {
   id: string
+  estado: EstadoVenta
   valorTotal: string
   cuotaInicial: string
+  numeroCuotas: number | null
   formaPago: FormaPago
   fechaVenta: string
   cliente: Cliente
   lote: Lote
   cuotas: Cuota[]
+  vendedor: Vendedor | null
+  esExcepcion: boolean
+  motivoExcepcion: string | null
+  motivoRechazo: string | null
+  resueltaEn: string | null
+  registradaPor?: { nombre: string } | null
+  resueltaPor?: { nombre: string } | null
   // Solo viene en la respuesta de obtenerVenta (GET /ventas/:id), no al crear.
   estadoCuenta?: EstadoCuenta
+}
+
+export function listarVentas(estado?: EstadoVenta) {
+  return solicitar<Venta[]>(`/ventas${estado ? `?estado=${estado}` : ''}`)
+}
+
+export function aprobarVenta(id: string) {
+  return solicitar<Venta>(`/ventas/${id}/aprobar`, { method: 'POST' })
+}
+
+export function rechazarVenta(id: string, motivo: string) {
+  return solicitar<Venta>(`/ventas/${id}/rechazar`, { method: 'POST', body: JSON.stringify({ motivo }) })
 }
 
 export function crearVenta(payload: CrearVentaPayload) {
