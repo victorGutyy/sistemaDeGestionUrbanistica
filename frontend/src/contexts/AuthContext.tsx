@@ -16,6 +16,8 @@ interface AuthContextValue {
   // Dice si el rol del usuario incluye un permiso (ver lib/permisos.ts). Sirve
   // para mostrar u ocultar botones y menús; el servidor valida cada acción igual.
   tiene: (permiso: string) => boolean
+  // false si el usuario está limitado a ciertos proyectos: no ve nómina, configuración ni usuarios.
+  alcanceTotal: boolean
   // Mensaje para la pantalla de ingreso cuando la sesión se cerró sola.
   avisoSesion: string | null
   login: (email: string, password: string) => Promise<void>
@@ -96,8 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const tiene = useCallback((permiso: string) => usuario?.permisos.includes(permiso) ?? false, [usuario])
 
+  const alcanceTotal = usuario?.proyectoIds === null
+
   return (
-    <AuthContext.Provider value={{ usuario, cargando, tiene, avisoSesion, login, logout }}>
+    <AuthContext.Provider value={{ usuario, cargando, tiene, alcanceTotal, avisoSesion, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

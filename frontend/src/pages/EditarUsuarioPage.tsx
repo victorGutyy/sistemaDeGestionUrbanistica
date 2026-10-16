@@ -1,10 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { SelectorAlcance } from '../components/SelectorAlcance'
 import {
   actualizarUsuario,
+  listarProyectos,
   listarRoles,
   listarUsuarios,
   restablecerPasswordUsuario,
+  type Proyecto,
   type RolConPermisos,
   type Usuario,
 } from '../lib/api'
@@ -26,6 +29,9 @@ export function EditarUsuarioPage() {
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
   const [rolId, setRolId] = useState('')
+  const [proyectos, setProyectos] = useState<Proyecto[]>([])
+  const [todosLosProyectos, setTodosLosProyectos] = useState(true)
+  const [proyectoIds, setProyectoIds] = useState<string[]>([])
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,8 +41,8 @@ export function EditarUsuarioPage() {
   const [okPassword, setOkPassword] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([listarUsuarios(), listarRoles()])
-      .then(([usuarios, { roles: recibidos }]) => {
+    Promise.all([listarUsuarios(), listarRoles(), listarProyectos()])
+      .then(([usuarios, { roles: recibidos }, listaProyectos]) => {
         const encontrado = usuarios.find((u) => u.id === id)
         if (!encontrado) {
           setErrorCarga('No se encontró el usuario.')
@@ -46,6 +52,9 @@ export function EditarUsuarioPage() {
         setNombre(encontrado.nombre)
         setEmail(encontrado.email)
         setRolId(encontrado.rol.id)
+        setTodosLosProyectos(encontrado.todosLosProyectos)
+        setProyectoIds(encontrado.proyectosPermitidos.map((p) => p.proyectoId))
+        setProyectos(listaProyectos)
         setRoles(recibidos)
       })
       .catch((err: Error) => setErrorCarga(err.message))
@@ -53,6 +62,8 @@ export function EditarUsuarioPage() {
   }, [id])
 
   const rolElegido = roles.find((r) => r.id === rolId)
+  const limitable = rolElegido?.limitablePorProyecto ?? false
+  const restringido = limitable && !todosLosProyectos
 
   async function handleGuardar(event: FormEvent) {
     event.preventDefault()
@@ -60,7 +71,13 @@ export function EditarUsuarioPage() {
     setError(null)
     setEnviando(true)
     try {
-      await actualizarUsuario(id, { nombre: nombre.trim(), email: email.trim(), rolId })
+      await actualizarUsuario(id, {
+        nombre: nombre.trim(),
+        email: email.trim(),
+        rolId,
+        // Un rol no limitable recupera el acceso total en el servidor; aquí solo se manda lo que aplica.
+        ...(limitable ? (restringido ? { todosLosProyectos: false, proyectoIds } : { todosLosProyectos: true }) : {}),
+      })
       navigate('/usuarios')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar')
@@ -135,7 +152,18 @@ export function EditarUsuarioPage() {
             {rolElegido?.descripcion && <p className="mt-1 text-xs text-slate-500">{rolElegido.descripcion}</p>}
             <p className="mt-1 text-xs text-slate-400">El cambio de rol aplica de inmediato, sin que la persona tenga que volver a ingresar.</p>
           </div>
-          <button type="submit" disabled={enviando} className={CLASE_BOTON}>
+          {limitable && (
+            <SelectorAlcance
+              proyectos={proyectos}
+              todos={todosLosProyectos}
+              seleccion={proyectoIds}
+              onCambio={({ todos, seleccion }) => {
+                setTodosLosProyectos(todos)
+                setProyectoIds(seleccion)
+              }}
+            />
+          )}
+          <button type="submit" disabled={enviando || (restringido && proyectoIds.length === 0)} className={CLASE_BOTON}>
             {enviando ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </form>

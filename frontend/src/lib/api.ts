@@ -529,6 +529,8 @@ export interface UsuarioSesion {
   rol: RolResumen
   // Permisos del rol (ver lib/permisos.ts). Solo sirven para mostrar u ocultar opciones.
   permisos: string[]
+  // null = ve todos los proyectos; una lista = solo esos.
+  proyectoIds: string[] | null
 }
 
 export interface RolConPermisos extends RolResumen {
@@ -562,8 +564,11 @@ export interface Usuario {
   id: string
   nombre: string
   email: string
-  rol: RolResumen
+  rol: RolResumen & { limitablePorProyecto: boolean }
   estado: EstadoUsuario
+  // false = solo ve los proyectos de proyectosPermitidos.
+  todosLosProyectos: boolean
+  proyectosPermitidos: { proyectoId: string }[]
   ultimoIngreso: string | null
   // Si es una fecha futura, la cuenta está bloqueada por intentos fallidos.
   bloqueadoHasta: string | null
@@ -575,12 +580,16 @@ export interface CrearUsuarioPayload {
   email: string
   password: string
   rolId: string
+  todosLosProyectos?: boolean
+  proyectoIds?: string[]
 }
 
 export interface ActualizarUsuarioPayload {
   nombre?: string
   email?: string
   rolId?: string
+  todosLosProyectos?: boolean
+  proyectoIds?: string[]
 }
 
 export function listarUsuarios() {

@@ -4,8 +4,8 @@ import { ITEMS_MENU } from '../lib/menu'
 
 // Lleva al usuario a la primera pantalla que su rol puede ver.
 export function RutaInicial() {
-  const { tiene } = useAuth()
-  const inicio = ITEMS_MENU.find((item) => tiene(item.permiso))
+  const { tiene, alcanceTotal } = useAuth()
+  const inicio = ITEMS_MENU.find((item) => tiene(item.permiso) && (alcanceTotal || !item.soloAlcanceTotal))
 
   if (!inicio) {
     return <p className="text-sm text-slate-500">Tu rol todavía no tiene acceso a ninguna sección. Habla con el gerente.</p>

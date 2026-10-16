@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { actualizarEstadoUsuario, desbloquearUsuario, listarUsuarios, type Usuario } from '../lib/api'
+import { actualizarEstadoUsuario, desbloquearUsuario, listarProyectos, listarUsuarios, type Proyecto, type Usuario } from '../lib/api'
 import { formatearFecha } from '../lib/formato'
 
 const CLASE_ACCION = 'text-sm font-medium text-blue-600 hover:underline disabled:opacity-50'
@@ -13,11 +13,13 @@ function estaBloqueado(usuario: Usuario) {
 export function UsuariosPage() {
   const { usuario: usuarioActual } = useAuth()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [actualizandoId, setActualizandoId] = useState<string | null>(null)
 
   useEffect(() => {
+    listarProyectos().then(setProyectos).catch(() => setProyectos([]))
     listarUsuarios()
       .then(setUsuarios)
       .catch((err: Error) => setError(err.message))
@@ -80,6 +82,14 @@ export function UsuariosPage() {
                   >
                     {u.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'}
                   </span>
+                  {!u.todosLosProyectos && (
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">
+                      Solo:{' '}
+                      {u.proyectosPermitidos
+                        .map((p) => proyectos.find((x) => x.id === p.proyectoId)?.nombre ?? 'proyecto')
+                        .join(', ') || 'ningún proyecto'}
+                    </span>
+                  )}
                   {bloqueado && (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">Bloqueado</span>
                   )}

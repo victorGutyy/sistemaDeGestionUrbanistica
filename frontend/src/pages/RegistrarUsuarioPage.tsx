@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { crearUsuario, listarRoles, type RolConPermisos } from '../lib/api'
+import { SelectorAlcance } from '../components/SelectorAlcance'
+import { crearUsuario, listarProyectos, listarRoles, type Proyecto, type RolConPermisos } from '../lib/api'
 
 const CLASE_INPUT =
   'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
@@ -15,8 +16,12 @@ export function RegistrarUsuarioPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rolId, setRolId] = useState('')
+  const [proyectos, setProyectos] = useState<Proyecto[]>([])
+  const [todosLosProyectos, setTodosLosProyectos] = useState(true)
+  const [proyectoIds, setProyectoIds] = useState<string[]>([])
 
   useEffect(() => {
+    listarProyectos().then(setProyectos).catch(() => setProyectos([]))
     listarRoles()
       .then(({ roles: recibidos }) => {
         setRoles(recibidos)
@@ -27,6 +32,8 @@ export function RegistrarUsuarioPage() {
   }, [])
 
   const rolElegido = roles.find((r) => r.id === rolId)
+  const limitable = rolElegido?.limitablePorProyecto ?? false
+  const restringido = limitable && !todosLosProyectos
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -34,7 +41,13 @@ export function RegistrarUsuarioPage() {
     setEnviando(true)
 
     try {
-      await crearUsuario({ nombre, email, password, rolId })
+      await crearUsuario({
+        nombre,
+        email,
+        password,
+        rolId,
+        ...(restringido ? { todosLosProyectos: false, proyectoIds } : {}),
+      })
       navigate('/usuarios')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear el usuario')
@@ -98,9 +111,21 @@ export function RegistrarUsuarioPage() {
           {rolElegido?.descripcion && <p className="mt-1 text-xs text-slate-500">{rolElegido.descripcion}</p>}
         </div>
 
+        {limitable && (
+          <SelectorAlcance
+            proyectos={proyectos}
+            todos={todosLosProyectos}
+            seleccion={proyectoIds}
+            onCambio={({ todos, seleccion }) => {
+              setTodosLosProyectos(todos)
+              setProyectoIds(seleccion)
+            }}
+          />
+        )}
+
         <button
           type="submit"
-          disabled={enviando || !rolId}
+          disabled={enviando || !rolId || (restringido && proyectoIds.length === 0)}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {enviando ? 'Guardando...' : 'Crear usuario'}

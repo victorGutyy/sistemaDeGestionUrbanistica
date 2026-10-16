@@ -8,11 +8,11 @@ import { cn } from '../../lib/utils'
 import { LogoEmpresa } from '../LogoEmpresa'
 
 export function AppLayout() {
-  const { usuario, logout, tiene } = useAuth()
+  const { usuario, logout, tiene, alcanceTotal } = useAuth()
   const { marca } = useEmpresa()
   const [menuAbierto, setMenuAbierto] = useState(false)
   // Solo se muestran las secciones que el rol del usuario puede usar.
-  const items = ITEMS_MENU.filter((item) => tiene(item.permiso))
+  const items = ITEMS_MENU.filter((item) => tiene(item.permiso) && (alcanceTotal || !item.soloAlcanceTotal))
   // Nombre que se muestra en pantalla: el de la empresa; si aún no hay, el del producto.
   const nombreMarca = marca.nombreComercial || marca.nombreProducto
 
