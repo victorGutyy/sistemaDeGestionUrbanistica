@@ -81,14 +81,14 @@ Ya existe en la base:
 - ✅ Login con JWT, roles con permisos (Gerente, Administrador, Consulta; se pueden agregar más sin tocar el código), bloqueo tras intentos fallidos, cierre de sesión por inactividad, gestión de usuarios y alcance por proyecto (un usuario de Consulta puede limitarse a ciertos proyectos y no ve datos de los demás).
 - ✅ Proyectos de lotes, remodelación y maquinaria; manzanas opcionales; lotes con ficha, estados (disponible, separado, vendido, escriturado, desistido) con historial de cambios de estado y de precio, área disponible y finalizar/reactivar proyectos.
 - ✅ Ventas de contado y financiadas: cuota inicial como cuota 0 pagada con abonos, plan de cuotas en pesos enteros, parámetros del negocio desde Configuración, excepciones (cuota inicial baja o plazo largo) con aprobación del gerente, vendedor (asesor o referido), separación del lote con valor y fecha límite, documentos firmados de la venta y desistimiento (solo gerente).
-- ✅ Abonos con comprobante adjunto y estado de las cuotas.
+- ✅ Abonos y recibos de caja: el abono se reparte solo entre las cuotas pendientes por fecha de vencimiento, con cuenta destino y referencia (no repetible por cuenta), soporte opcional validado por su contenido, recibo con consecutivo sin repetidos ni saltos (prefijo configurable, `H-` para recibos históricos), PDF a partir de una fotografía del recibo, anulación solo por el gerente (el recibo y el abono se conservan y el número no se reutiliza), búsqueda de recibos y registros inmutables en la base de datos.
 - ✅ Cartera con semáforo e interés de mora (informativo).
 - ✅ Ingresos y gastos manuales con consolidado de caja.
 - ✅ Nómina básica.
 - ✅ Panel general con exportación a PDF y Excel, y recordatorios de pago por correo.
 
 En adaptación (ver `docs/requerimientos.md`):
-- ⏳ Etapa 1: recibo de caja con consecutivo y anulación, cierre de caja, egresos por categoría, auditoría e importador de Excel.
+- ⏳ Etapa 1: cierre de caja, egresos por categoría, auditoría e importador de Excel.
 - ⏳ Etapa 2: notificaciones (correo y WhatsApp), verificación de consignaciones, comisiones, panel y reportes ampliados, recuperación de contraseña.
 - ⏳ Etapa 3: módulo de personal.
 

@@ -78,7 +78,8 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 - Si CC-01 y CC-02 entran en el presupuesto o se cotiza adicional; si una remodelación guarda cliente de la obra y valor del contrato; si el préstamo se descuenta en una nómina o en cuotas y quién lo aprueba; definición de la quincena; concepto de la abogada sobre la carta de descuento; si el alquiler de maquinaria es siempre de contado y si se cobra el uso interno a proyectos propios.
 
 ## Deuda técnica conocida (quitar de aquí cuando se resuelva)
-- Hoy no hay auditoría, anulaciones, edición de datos ni búsqueda de clientes; el abono se aplica a una sola cuota elegida a mano.
-- "Ver comprobante" ya usa descarga autenticada, pero no se pudo probar con un archivo real (no había abonos con adjunto); probarlo cuando exista uno.
-- La tabla de cuotas en 360 px necesita desplazamiento lateral para ver "Estado" y "Abonar"; se rediseña en el paso 2.5 (el abono se aplicará automáticamente).
+- Hoy no hay auditoría general, edición de datos ni búsqueda de clientes (la auditoría llega en el paso 2.8).
+- Al anular un abono, lo que aplicaron los demás abonos no se reacomoda: la anulación devuelve el valor a las cuotas donde ese abono cayó. El total pagado y el saldo siempre cuadran, pero pueden quedar cuotas posteriores parcialmente pagadas con una anterior pendiente. Decidir con el cliente si prefiere reaplicar en orden.
+- El PDF del recibo se probó por contenido y número de hojas (una), pero no se pudo ver renderizado en esta máquina (sin visor de PDF en el entorno); revisarlo a ojo una vez.
+- Los abonos antiguos de desarrollo con centavos (de antes del plan en pesos enteros) tienen su recibo histórico con los centavos dichos en letras; los abonos nuevos solo admiten pesos enteros.
 - El frontend no tiene corredor de pruebas (sin vitest): los formateadores de `lib/formato.ts` se verificaron a mano. Instalarlo requiere mi confirmación.
