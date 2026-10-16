@@ -13,6 +13,7 @@ export const PERMISOS = {
   VENTAS_DESISTIR: 'ventas.desistir',
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
+  ABONOS_ANULAR: 'abonos.anular',
   CARTERA_VER: 'cartera.ver',
   FINANZAS_VER: 'finanzas.ver',
   FINANZAS_REGISTRAR: 'finanzas.registrar',

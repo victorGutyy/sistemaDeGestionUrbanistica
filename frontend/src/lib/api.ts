@@ -384,6 +384,8 @@ export interface CrearVentaPayload {
   // Registra de una vez el abono de la cuota inicial recibida.
   cuotaInicialRecibida?: boolean
   medioPago?: MedioPago
+  cuentaDestinoId?: string
+  referencia?: string
   // Obligatorio cuando la venta es una excepción.
   motivoExcepcion?: string
 }
@@ -413,6 +415,8 @@ export interface Cuota {
   fechaVencimiento: string
   valor: string
   estado: EstadoCuota
+  // Lo aplicado por abonos activos. Solo viene en el detalle de la venta.
+  pagado?: string
 }
 
 export interface EstadoCuenta {
@@ -459,6 +463,7 @@ export interface Venta {
   resueltaPor?: { nombre: string } | null
   documentos?: DocumentoVenta[]
   desistimiento?: Desistimiento | null
+  abonos?: Abono[]
   // Solo viene en la respuesta de obtenerVenta (GET /ventas/:id), no al crear.
   estadoCuenta?: EstadoCuenta
 }
@@ -509,14 +514,31 @@ export function obtenerVenta(id: string) {
   return solicitar<Venta>(`/ventas/${id}`)
 }
 
+export type EstadoAbono = 'ACTIVO' | 'ANULADO'
+
 export interface Abono {
   id: string
   ventaId: string
-  cuotaId: string | null
   fecha: string
   valor: string
   medioPago: MedioPago
+  referencia: string | null
   comprobanteUrl: string | null
+  estado: EstadoAbono
+  anuladoEn: string | null
+  motivoAnulacion: string | null
+  recibo: { id: string; numeroTexto: string; esHistorico: boolean } | null
+  cuentaDestino: { id: string; banco: string; alias: string } | null
+  registradoPor: { nombre: string } | null
+  anuladoPor: { nombre: string } | null
+}
+
+export interface AbonoRegistrado {
+  id: string
+  valor: string
+  recibo: { id: string; numeroTexto: string }
+  // Cómo se repartió el abono entre las cuotas.
+  cuotasCubiertas: { numero: number; valor: string; completa: boolean }[]
 }
 
 export function listarAbonosPorVenta(ventaId: string) {
@@ -524,14 +546,53 @@ export function listarAbonosPorVenta(ventaId: string) {
 }
 
 export function crearAbono(formData: FormData) {
-  return solicitar<Abono>('/abonos', {
+  return solicitar<AbonoRegistrado>('/abonos', {
     method: 'POST',
     body: formData,
   })
 }
 
+export function anularAbono(abonoId: string, motivo: string) {
+  return solicitar<Abono>(`/abonos/${abonoId}/anular`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
 export function abrirComprobante(abonoId: string) {
   return abrirArchivo(`/abonos/${abonoId}/comprobante`)
+}
+
+export function abrirRecibo(abonoId: string) {
+  return abrirArchivo(`/abonos/${abonoId}/recibo`)
+}
+
+export interface ReciboResumen {
+  abonoId: string
+  ventaId: string
+  recibo: { id: string; numeroTexto: string; esHistorico: boolean }
+  fecha: string
+  valor: string
+  medioPago: MedioPago
+  cuenta: { banco: string; alias: string } | null
+  referencia: string | null
+  estado: EstadoAbono
+  cliente: { nombre: string; documento: string }
+  lote: string
+  proyecto: string
+}
+
+export interface FiltroRecibos {
+  buscar?: string
+  estado?: EstadoAbono
+  desde?: string
+  hasta?: string
+}
+
+export function buscarRecibos(filtro: FiltroRecibos = {}) {
+  const query = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(filtro)) {
+    if (valor) query.set(clave, valor)
+  }
+  const texto = query.toString()
+  return solicitar<ReciboResumen[]>(`/recibos${texto ? `?${texto}` : ''}`)
 }
 
 export type Semaforo = 'VERDE' | 'AMARILLO' | 'ROJO'
@@ -913,6 +974,7 @@ export interface EmpresaConfig {
   logoRuta: string | null
   colorPrimario: string
   textoLegalRecibo: string | null
+  prefijoRecibo: string
   nombreProducto: string
   // Los porcentajes llegan como texto decimal ("30", "2.5").
   porcentajeCuotaInicial: string
@@ -969,6 +1031,12 @@ export function obtenerConfiguracion() {
   return solicitar<ConfiguracionCompleta>('/configuracion')
 }
 
+// Cuentas donde puede entrar el dinero de un abono: solo las activas.
+export async function listarCuentasActivas() {
+  const { cuentas } = await obtenerConfiguracion()
+  return cuentas.filter((cuenta) => cuenta.activa)
+}
+
 export function listarMediosPago() {
   return solicitar<MedioPagoConfig[]>('/configuracion/medios-pago')
 }
@@ -982,6 +1050,7 @@ export interface ActualizarEmpresaPayload {
   correo?: string
   colorPrimario: string
   textoLegalRecibo?: string
+  prefijoRecibo?: string
 }
 
 export function actualizarEmpresa(payload: ActualizarEmpresaPayload) {

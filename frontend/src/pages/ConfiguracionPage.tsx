@@ -97,6 +97,7 @@ function SeccionEmpresa({ empresa, onGuardada }: { empresa: EmpresaConfig; onGua
   const [correo, setCorreo] = useState(empresa.correo ?? '')
   const [colorPrimario, setColorPrimario] = useState(empresa.colorPrimario)
   const [textoLegal, setTextoLegal] = useState(empresa.textoLegalRecibo ?? '')
+  const [prefijoRecibo, setPrefijoRecibo] = useState(empresa.prefijoRecibo)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -124,6 +125,7 @@ function SeccionEmpresa({ empresa, onGuardada }: { empresa: EmpresaConfig; onGua
         correo: correo.trim() || undefined,
         colorPrimario,
         textoLegalRecibo: textoLegal.trim() || undefined,
+        prefijoRecibo: prefijoRecibo.trim(),
       })
       onGuardada(guardada)
       await recargarMarca()
@@ -234,6 +236,21 @@ function SeccionEmpresa({ empresa, onGuardada }: { empresa: EmpresaConfig; onGua
               className="w-28 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
+        </Campo>
+
+        <Campo
+          id="prefijoRecibo"
+          etiqueta="Prefijo de los recibos de caja"
+          ayuda="Letras mayúsculas, números y guion (hasta 10). Ejemplo: RC- da RC-000001. Los recibos ya emitidos conservan el prefijo con que salieron."
+        >
+          <input
+            id="prefijoRecibo"
+            required
+            maxLength={10}
+            value={prefijoRecibo}
+            onChange={(e) => setPrefijoRecibo(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+            className={CLASE_INPUT}
+          />
         </Campo>
 
         <Campo id="textoLegal" etiqueta="Texto legal al pie del recibo" ayuda="Opcional. Se imprime al final de cada recibo de pago.">

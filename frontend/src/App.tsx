@@ -15,6 +15,7 @@ import { LoteDetallePage } from './pages/LoteDetallePage'
 import { NominaPage } from './pages/NominaPage'
 import { ProyectoDetallePage } from './pages/ProyectoDetallePage'
 import { ProyectosPage } from './pages/ProyectosPage'
+import { RecibosPage } from './pages/RecibosPage'
 import { RegistrarAbonoPage } from './pages/RegistrarAbonoPage'
 import { RegistrarLotePage } from './pages/RegistrarLotePage'
 import { RegistrarMovimientoPage } from './pages/RegistrarMovimientoPage'
@@ -50,6 +51,7 @@ function App() {
               <Route path="/ventas/nueva" element={<RegistrarVentaPage />} />
               <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />
               <Route path="/ventas/:id" element={<VentaDetallePage />} />
+              <Route path="/recibos" element={<RecibosPage />} />
               <Route path="/cartera" element={<CarteraPage />} />
               <Route path="/contabilidad" element={<ContabilidadPage />} />
               <Route path="/contabilidad/nuevo" element={<RegistrarMovimientoPage />} />

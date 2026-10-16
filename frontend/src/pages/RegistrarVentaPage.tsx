@@ -3,11 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   crearVenta,
   listarClientes,
+  listarCuentasActivas,
   listarLotesVendibles,
   listarMediosPago,
   listarVendedores,
   obtenerParametrosVenta,
   type Cliente,
+  type CuentaBancaria,
   type FormaPago,
   type Lote,
   type MedioPago,
@@ -16,6 +18,7 @@ import {
   type TipoVendedor,
   type Vendedor,
 } from '../lib/api'
+import { CuentaYReferencia } from '../components/CuentaYReferencia'
 import { formatearCOP, hoyEnBogota } from '../lib/formato'
 
 type OrigenCliente = 'existente' | 'nuevo'
@@ -70,6 +73,9 @@ export function RegistrarVentaPage() {
   const [fechaVenta, setFechaVenta] = useState(() => hoyEnBogota())
   const [cuotaRecibida, setCuotaRecibida] = useState(true)
   const [medioPago, setMedioPago] = useState<MedioPago | ''>('')
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
+  const [cuentaId, setCuentaId] = useState('')
+  const [referencia, setReferencia] = useState('')
   const [fechaLimite, setFechaLimite] = useState('')
   const [motivoExcepcion, setMotivoExcepcion] = useState('')
 
@@ -81,8 +87,10 @@ export function RegistrarVentaPage() {
       listarVendedores(),
       obtenerParametrosVenta(),
       listarMediosPago().catch(() => [] as MedioPagoConfig[]),
+      listarCuentasActivas().catch(() => [] as CuentaBancaria[]),
     ])
-      .then(([lotesRecibidos, clientesRecibidos, vendedoresRecibidos, parametrosRecibidos, medios]) => {
+      .then(([lotesRecibidos, clientesRecibidos, vendedoresRecibidos, parametrosRecibidos, medios, cuentasActivas]) => {
+        setCuentas(cuentasActivas)
         setLotes(lotesRecibidos)
         setClientes(clientesRecibidos)
         setVendedores(vendedoresRecibidos)
@@ -164,7 +172,7 @@ export function RegistrarVentaPage() {
           : {}),
         fechaVenta,
         fechaLimiteCuotaInicial: !cuotaRecibida && fechaLimite ? fechaLimite : undefined,
-        ...(puedeRegistrarPago && cuotaRecibida && medioPago ? { cuotaInicialRecibida: true, medioPago } : {}),
+        ...(puedeRegistrarPago && cuotaRecibida && medioPago ? { cuotaInicialRecibida: true, medioPago, cuentaDestinoId: cuentaId || undefined, referencia: referencia.trim() || undefined } : {}),
         motivoExcepcion: esExcepcion ? motivoExcepcion.trim() : undefined,
       })
 
@@ -423,6 +431,16 @@ export function RegistrarVentaPage() {
                       </option>
                     ))}
                   </select>
+                  <div className="mt-3">
+                    <CuentaYReferencia
+                      medioPago={medioPago}
+                      cuentas={cuentas}
+                      cuentaId={cuentaId}
+                      onCuentaChange={setCuentaId}
+                      referencia={referencia}
+                      onReferenciaChange={setReferencia}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div>

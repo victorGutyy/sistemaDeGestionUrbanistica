@@ -7,10 +7,11 @@ import {
   aprobarVenta,
   desistirVenta,
   subirDocumentosVenta,
-  listarAbonosPorVenta,
+  anularAbono,
   obtenerVenta,
   rechazarVenta,
   abrirComprobante,
+  abrirRecibo,
   type Abono,
   type EstadoCuota,
   type Venta,
@@ -38,9 +39,9 @@ export function VentaDetallePage() {
   const { tiene } = useAuth()
   const { id } = useParams<{ id: string }>()
   const [venta, setVenta] = useState<Venta | null>(null)
-  const [abonos, setAbonos] = useState<Abono[]>([])
   const [error, setError] = useState<string | null>(null)
   const [errorComprobante, setErrorComprobante] = useState<string | null>(null)
+  const [anulandoId, setAnulandoId] = useState<string | null>(null)
   const [resolviendo, setResolviendo] = useState(false)
 
   // Documentos firmados
@@ -131,6 +132,40 @@ export function VentaDetallePage() {
     }
   }
 
+  async function handleVerRecibo(abonoId: string) {
+    setErrorComprobante(null)
+    try {
+      await abrirRecibo(abonoId)
+    } catch (err) {
+      setErrorComprobante(err instanceof Error ? err.message : 'No se pudo abrir el recibo')
+    }
+  }
+
+  // Anular (solo gerente): el abono y su recibo se conservan, marcados como anulados con el motivo.
+  async function handleAnular(abono: Abono) {
+    const motivo = window.prompt(
+      `Anular el recibo ${abono.recibo?.numeroTexto ?? ''} por ${formatearCOP(abono.valor)}.
+El valor volverá al saldo de la venta y el recibo quedará marcado como ANULADO.
+
+Motivo (queda registrado):`,
+    )?.trim()
+    if (!motivo) return
+    if (motivo.length < 5) {
+      setErrorComprobante('Explica el motivo de la anulación (mínimo 5 caracteres).')
+      return
+    }
+    setAnulandoId(abono.id)
+    setErrorComprobante(null)
+    try {
+      await anularAbono(abono.id, motivo)
+      setRecarga((n) => n + 1)
+    } catch (err) {
+      setErrorComprobante(err instanceof Error ? err.message : 'No se pudo anular el abono')
+    } finally {
+      setAnulandoId(null)
+    }
+  }
+
   async function handleVerComprobante(abonoId: string) {
     setErrorComprobante(null)
     try {
@@ -142,11 +177,8 @@ export function VentaDetallePage() {
 
   useEffect(() => {
     if (!id) return
-    Promise.all([obtenerVenta(id), listarAbonosPorVenta(id)])
-      .then(([ventaRecibida, abonosRecibidos]) => {
-        setVenta(ventaRecibida)
-        setAbonos(abonosRecibidos)
-      })
+    obtenerVenta(id)
+      .then(setVenta)
       .catch((err: Error) => setError(err.message))
   }, [id, recarga])
 
@@ -160,6 +192,7 @@ export function VentaDetallePage() {
 
   const estadoCuenta = venta.estadoCuenta
   const activa = venta.estado === 'ACTIVA'
+  const abonos = venta.abonos ?? []
 
   return (
     <div className="max-w-2xl">
@@ -273,43 +306,23 @@ export function VentaDetallePage() {
       )}
 
       {venta.cuotas.length > 0 && (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full min-w-[30rem] text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Cuota</th>
-                <th className="px-4 py-2 font-medium">Vence</th>
-                <th className="px-4 py-2 font-medium">Valor</th>
-                <th className="px-4 py-2 font-medium">Estado</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {venta.cuotas.map((cuota) => (
-                <tr key={cuota.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">{etiquetaCuota(cuota.numero)}</td>
-                  <td className="px-4 py-2">{formatearFecha(cuota.fechaVencimiento)}</td>
-                  <td className="px-4 py-2">{formatearCOP(cuota.valor)}</td>
-                  <td className="px-4 py-2">
-                    <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${ESTILO_ESTADO_CUOTA[cuota.estado]}`}>
-                      {cuota.estado}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {activa && cuota.estado !== 'PAGADA' && tiene(PERMISOS.ABONOS_REGISTRAR) && (
-                      <Link
-                        to={`/ventas/${venta.id}/abonos/nuevo?cuotaId=${cuota.id}`}
-                        className="text-sm font-medium text-blue-600 hover:underline"
-                      >
-                        Abonar
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="mt-6 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          {venta.cuotas.map((cuota) => (
+            <li key={cuota.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+              <div className="min-w-0">
+                <p className="font-medium text-slate-900">{etiquetaCuota(cuota.numero)}</p>
+                <p className="text-xs text-slate-500">Vence {formatearFecha(cuota.fechaVencimiento)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-slate-900">{formatearCOP(cuota.valor)}</p>
+                {cuota.estado === 'PARCIAL' && <p className="text-xs text-slate-500">Pagado {formatearCOP(cuota.pagado ?? 0)}</p>}
+                <span className={`mt-0.5 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${ESTILO_ESTADO_CUOTA[cuota.estado]}`}>
+                  {cuota.estado}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       <section className="mt-8">
@@ -398,47 +411,64 @@ export function VentaDetallePage() {
           {errorComprobante}
         </div>
       )}
-      <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full min-w-[30rem] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-            <tr>
-              <th className="px-4 py-2 font-medium">Fecha</th>
-              <th className="px-4 py-2 font-medium">Valor</th>
-              <th className="px-4 py-2 font-medium">Medio de pago</th>
-              <th className="px-4 py-2 font-medium">Comprobante</th>
-            </tr>
-          </thead>
-          <tbody>
-            {abonos.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
-                  Todavía no hay abonos registrados.
-                </td>
-              </tr>
-            )}
-            {abonos.map((abono) => (
-              <tr key={abono.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-2">{formatearFecha(abono.fecha)}</td>
-                <td className="px-4 py-2">{formatearCOP(abono.valor)}</td>
-                <td className="px-4 py-2">{ETIQUETA_MEDIO_PAGO[abono.medioPago]}</td>
-                <td className="px-4 py-2">
-                  {abono.comprobanteUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => handleVerComprobante(abono.id)}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Ver
-                    </button>
-                  ) : (
-                    <span className="text-slate-400">—</span>
+      <ul className="mt-2 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
+        {abonos.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-400">Todavía no hay abonos registrados.</li>}
+        {abonos.map((abono) => {
+          const anulado = abono.estado === 'ANULADO'
+          return (
+            <li key={abono.id} className={`px-4 py-3 text-sm ${anulado ? 'bg-red-50/60' : ''}`}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className={anulado ? 'text-slate-500 line-through' : 'font-medium text-slate-900'}>{formatearCOP(abono.valor)}</p>
+                  <p className="text-xs text-slate-500">
+                    {formatearFecha(abono.fecha)} · {ETIQUETA_MEDIO_PAGO[abono.medioPago]}
+                    {abono.cuentaDestino ? ` · ${abono.cuentaDestino.alias}` : ''}
+                    {abono.referencia ? ` · Ref. ${abono.referencia}` : ''}
+                  </p>
+                  {abono.registradoPor && <p className="text-xs text-slate-400">Registró {abono.registradoPor.nombre}</p>}
+                </div>
+                <div className="text-right">
+                  {abono.recibo && (
+                    <p className="font-mono text-xs text-slate-700">
+                      {abono.recibo.numeroTexto}
+                      {abono.recibo.esHistorico ? ' (histórico)' : ''}
+                    </p>
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  {anulado && <span className="mt-0.5 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">ANULADO</span>}
+                </div>
+              </div>
+              {anulado && (
+                <p className="mt-1 text-xs text-red-700">
+                  Anulado{abono.anuladoPor ? ` por ${abono.anuladoPor.nombre}` : ''}
+                  {abono.anuladoEn ? ` el ${formatearFecha(abono.anuladoEn)}` : ''}: {abono.motivoAnulacion}
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-4 text-sm">
+                {abono.recibo && (
+                  <button type="button" onClick={() => void handleVerRecibo(abono.id)} className="font-medium text-blue-600 hover:underline">
+                    Ver recibo
+                  </button>
+                )}
+                {abono.comprobanteUrl && (
+                  <button type="button" onClick={() => void handleVerComprobante(abono.id)} className="text-blue-600 hover:underline">
+                    Ver soporte
+                  </button>
+                )}
+                {!anulado && tiene(PERMISOS.ABONOS_ANULAR) && (
+                  <button
+                    type="button"
+                    disabled={anulandoId === abono.id}
+                    onClick={() => void handleAnular(abono)}
+                    className="text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    {anulandoId === abono.id ? 'Anulando...' : 'Anular'}
+                  </button>
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
