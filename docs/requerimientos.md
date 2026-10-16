@@ -372,7 +372,7 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 
 | ID | Requerimiento | Prioridad | Etapa |
 |---|---|---|---|
-| RF-PRY-07 | Cada proyecto tiene un tipo: venta de lotes o remodelación. Un proyecto de remodelación no tiene manzanas ni lotes; solo ingresos y egresos propios | Debe | 1 |
+| RF-PRY-11 | Cada proyecto tiene un tipo: venta de lotes o remodelación. Un proyecto de remodelación no tiene manzanas ni lotes; solo ingresos y egresos propios | Debe | 1 |
 | RF-CFG-11 | El gerente administra las categorías de ingreso (por ejemplo: cuota inicial, abono, anticipo de remodelación, otros) | Debe | 1 |
 | RF-CFG-12 | El gerente configura la fecha de pago de la nómina: día de la semana para el pago semanal y fechas del pago quincenal | Debe | 3 |
 | RF-EGR-08 | Cada proyecto tiene una sección de finanzas con sus ingresos y egresos detallados (fecha, tipo, categoría, descripción, valor, medio de pago, cuenta, soporte y usuario), con totales de ingresos, egresos y utilidad filtrables por período | Debe | 1 |
@@ -395,7 +395,7 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 | Punto | Requerimientos afectados |
 |---|---|
 | Si el cambio entra en el presupuesto de $10.000.000 o se cotiza como adicional | CC-01 completo |
-| Si en una remodelación se debe registrar también el cliente de la obra y el valor del contrato | RF-PRY-07 |
+| Si en una remodelación se debe registrar también el cliente de la obra y el valor del contrato | RF-PRY-11 |
 | Si el préstamo se descuenta en una sola nómina o en cuotas, y quién lo aprueba | RF-PER-12, RF-PER-16 |
 | Definición de la quincena (propuesta: del 1 al 15 y del 16 al fin de mes) | RF-CFG-12, RF-REP-11 |
 | Si el cliente necesita más campos en cada ingreso o egreso (por ejemplo, centro de costo) | RF-EGR-08, RF-EGR-09 |
@@ -411,7 +411,7 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 
 | ID | Requerimiento | Prioridad | Etapa |
 |---|---|---|---|
-| RF-PRY-08 | Existe el tipo de proyecto Maquinaria, que agrupa el alquiler de equipos; no tiene manzanas ni lotes | Debe | 1 |
+| RF-PRY-12 | Existe el tipo de proyecto Maquinaria, que agrupa el alquiler de equipos; no tiene manzanas ni lotes | Debe | 1 |
 | RF-MAQ-01 | Registrar los equipos de maquinaria, sin límite de cantidad ni de tipos, con nombre, tipo, marca, modelo, año, placa o serie y estado (activo, en mantenimiento, fuera de servicio) | Debe | 1 |
 | RF-MAQ-02 | El gerente administra la lista de tipos de equipo (por ejemplo: excavadora, retroexcavadora, volqueta) | Debería | 1 |
 | RF-MAQ-03 | Cada ingreso o egreso de un proyecto de maquinaria se asigna a un equipo, o se marca como gasto general de la flota, y lleva soporte adjunto o motivo | Debe | 1 |
