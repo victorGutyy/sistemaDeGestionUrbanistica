@@ -88,7 +88,8 @@ Ya existe en la base:
 - ✅ Panel general con exportación a PDF y Excel, y recordatorios de pago por correo.
 
 En adaptación (ver `docs/requerimientos.md`):
-- ⏳ Etapa 1: cierre de caja, egresos por categoría, auditoría e importador de Excel.
+- ✅ Finanzas: egresos e ingresos con categoría (de gasto o de ingreso, administrables por el gerente), medio de pago y cuenta, tercero y número de factura, soporte adjunto o motivo de no tenerlo, anulación solo por el gerente (el movimiento se conserva y no suma), movimientos inmutables en la base de datos, finanzas por proyecto (ingresos, egresos, utilidad, vendido, recaudado y saldo por cobrar) y la devolución de un desistimiento registrada como egreso. El pago de nómina guarda medio y cuenta.
+- ⏳ Etapa 1: cierre de caja, auditoría e importador de Excel.
 - ⏳ Etapa 2: notificaciones (correo y WhatsApp), verificación de consignaciones, comisiones, panel y reportes ampliados, recuperación de contraseña.
 - ⏳ Etapa 3: módulo de personal.
 

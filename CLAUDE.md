@@ -79,6 +79,8 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 
 ## Deuda técnica conocida (quitar de aquí cuando se resuelva)
 - Hoy no hay auditoría general, edición de datos ni búsqueda de clientes (la auditoría llega en el paso 2.8).
+- Las categorías de gasto del sistema (Nómina, Comisiones, Devolución por desistimiento) también aparecen en el formulario manual de egresos; elegir "Devolución por desistimiento" a mano no la liga a una venta. Decidir si se ocultan en el formulario.
+- Los archivos de pantalla conservan su nombre original aunque cambió el texto (`ContabilidadPage.tsx` ahora es "Finanzas", ruta `/finanzas`; `/contabilidad` redirige). Renombrar el archivo requiere mover/borrar: pedir confirmación.
 - Al anular un abono, lo que aplicaron los demás abonos no se reacomoda: la anulación devuelve el valor a las cuotas donde ese abono cayó. El total pagado y el saldo siempre cuadran, pero pueden quedar cuotas posteriores parcialmente pagadas con una anterior pendiente. Decidir con el cliente si prefiere reaplicar en orden.
 - El PDF del recibo se probó por contenido y número de hojas (una), pero no se pudo ver renderizado en esta máquina (sin visor de PDF en el entorno); revisarlo a ojo una vez.
 - Los abonos antiguos de desarrollo con centavos (de antes del plan en pesos enteros) tienen su recibo histórico con los centavos dichos en letras; los abonos nuevos solo admiten pesos enteros.
