@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { basename } from 'node:path';
-import { crearAbonoEnTx } from '../abonos/crear-abono-tx.js';
+import { crearAbonoEnTx, type ContextoRecibo } from '../abonos/crear-abono-tx.js';
+import { validarCuentaDestino } from '../abonos/validar-pago.js';
 import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
 import { PERMISOS } from '../auth/permisos.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
@@ -8,7 +9,7 @@ import { ConfiguracionService } from '../configuracion/configuracion.service.js'
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento } from '../common/tipo-archivo.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoLote, EstadoVenta, FormaPago } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoLote, EstadoVenta, FormaPago } from '../generated/prisma/enums.js';
 import { aplicarAccionLote } from '../lotes/aplicar-accion.js';
 import { puedeAplicar } from '../lotes/estado-lote.js';
 import { convertirSeparacionEnTx } from '../lotes/separacion.js';
@@ -104,6 +105,8 @@ export class VentasService {
     const puedeAutorizar = usuario.permisos.includes(PERMISOS.VENTAS_AUTORIZAR);
     const pendiente = evaluacion.esExcepcion && !puedeAutorizar;
 
+    let cuentaDestinoId: string | null = null;
+    let contextoRecibo: ContextoRecibo | null = null;
     if (dto.cuotaInicialRecibida) {
       if (pendiente) {
         throw new BadRequestException(
@@ -117,6 +120,8 @@ export class VentasService {
         throw new BadRequestException('No hay cuota inicial por recibir');
       }
       await this.configuracion.exigirMedioPagoActivo(dto.medioPago);
+      cuentaDestinoId = await validarCuentaDestino(this.prisma, dto.medioPago, dto.cuentaDestinoId);
+      contextoRecibo = await this.construirContextoRecibo(usuario);
     }
 
     const fechaVenta = dto.fechaVenta ? parsearFechaLocal(dto.fechaVenta) : new Date();
@@ -197,14 +202,21 @@ export class VentasService {
         await aplicarAccionLote(tx, lote, 'VENDER', usuario.id, { ventaId: venta.id });
         await convertirSeparacionEnTx(tx, lote.id, venta.id);
 
-        if (dto.cuotaInicialRecibida && cuotaInicialId) {
-          await crearAbonoEnTx(tx, {
-            ventaId: venta.id,
-            cuotaId: cuotaInicialId,
-            fecha: fechaVenta,
-            valor: cuotaInicial,
-            medioPago: dto.medioPago!,
-          });
+        if (dto.cuotaInicialRecibida && cuotaInicialId && contextoRecibo) {
+          await crearAbonoEnTx(
+            tx,
+            {
+              ventaId: venta.id,
+              soloCuotaId: cuotaInicialId,
+              fecha: fechaVenta,
+              valor: cuotaInicial,
+              medioPago: dto.medioPago!,
+              cuentaDestinoId,
+              referencia: dto.referencia,
+              registradoPorId: usuario.id,
+            },
+            contextoRecibo,
+          );
         }
       }
 
@@ -264,8 +276,19 @@ export class VentasService {
     const venta = await this.prisma.venta.findFirst({
       where: { id, ...filtroVenta(usuario) },
       include: {
-        cuotas: { orderBy: { numero: 'asc' } },
-        abonos: { orderBy: { fecha: 'asc' } },
+        cuotas: {
+          orderBy: { numero: 'asc' },
+          include: { aplicaciones: { where: { abono: { estado: EstadoAbono.ACTIVO } }, select: { valor: true } } },
+        },
+        abonos: {
+          orderBy: [{ fecha: 'asc' }, { createdAt: 'asc' }],
+          include: {
+            recibo: { select: { id: true, numeroTexto: true, esHistorico: true } },
+            cuentaDestino: { select: { id: true, banco: true, alias: true } },
+            registradoPor: { select: { nombre: true } },
+            anuladoPor: { select: { nombre: true } },
+          },
+        },
         cliente: true,
         lote: { include: { proyecto: true, manzana: true } },
         vendedor: true,
@@ -279,9 +302,15 @@ export class VentasService {
       throw new NotFoundException(`No existe la venta ${id}`);
     }
 
+    // Lo pagado sale solo de abonos ACTIVOS; los anulados se muestran en el historial pero no cuentan.
+    const abonosActivos = venta.abonos.filter((abono) => abono.estado === EstadoAbono.ACTIVO);
     return {
       ...venta,
-      estadoCuenta: calcularEstadoCuenta(venta),
+      cuotas: venta.cuotas.map(({ aplicaciones, ...cuota }) => ({
+        ...cuota,
+        pagado: aplicaciones.reduce((total, aplicacion) => total.plus(aplicacion.valor), new Prisma.Decimal(0)),
+      })),
+      estadoCuenta: calcularEstadoCuenta({ valorTotal: venta.valorTotal, cuotas: venta.cuotas, abonos: abonosActivos }),
     };
   }
 
@@ -301,7 +330,7 @@ export class VentasService {
     return this.prisma.$transaction(async (tx) => {
       const venta = await tx.venta.findFirst({
         where: { id, ...filtroVenta(usuario) },
-        include: { lote: true, abonos: true },
+        include: { lote: true, abonos: { where: { estado: EstadoAbono.ACTIVO } } },
       });
       if (!venta) {
         throw new NotFoundException(`No existe la venta ${id}`);
@@ -404,6 +433,11 @@ export class VentasService {
     }
     const buffer = await this.storage.leer(documento.ruta);
     return { buffer, contentType: documento.tipoMime, nombre: documento.nombreOriginal };
+  }
+
+  // Datos de la empresa y de quien recibe, con los que se emite el recibo de la cuota inicial.
+  private async construirContextoRecibo(usuario: UsuarioAutenticado): Promise<ContextoRecibo> {
+    return this.configuracion.contextoRecibo(usuario.nombre);
   }
 
   listarVendedores() {

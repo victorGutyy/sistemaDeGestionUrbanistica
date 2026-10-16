@@ -47,6 +47,12 @@ enum FormaPago {
 }
 
 // ACTIVA: el lote está apartado. CONVERTIDA: terminó en una venta. LIBERADA: se canceló la separación.
+// ACTIVO cuenta en saldos y caja. ANULADO se conserva visible pero ya no cuenta (nunca se borra).
+enum EstadoAbono {
+  ACTIVO
+  ANULADO
+}
+
 enum EstadoSeparacion {
   ACTIVA
   CONVERTIDA
@@ -155,6 +161,8 @@ model Usuario {
   todosLosProyectos         Boolean           @default(true)
   proyectosPermitidos       UsuarioProyecto[]
   historialLotes            LoteHistorial[]
+  abonosRegistrados         Abono[]           @relation("AbonosRegistrados")
+  abonosAnulados            Abono[]           @relation("AbonosAnulados")
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -398,20 +406,20 @@ model Venta {
 
 // Una fila del plan de pagos de una Venta financiada.
 model Cuota {
-  id                    String      @id @default(uuid())
+  id                    String            @id @default(uuid())
   ventaId               String
-  venta                 Venta       @relation(fields: [ventaId], references: [id])
+  venta                 Venta             @relation(fields: [ventaId], references: [id])
   numero                Int
   fechaVencimiento      DateTime
-  valor                 Decimal     @db.Decimal(14, 2)
-  estado                EstadoCuota @default(PENDIENTE)
-  abonos                Abono[]
+  valor                 Decimal           @db.Decimal(14, 2)
+  estado                EstadoCuota       @default(PENDIENTE)
+  aplicaciones          AplicacionAbono[]
   // Cuándo se envió el recordatorio de pago de esta cuota (null = todavía
   // no se ha enviado). Evita que el proceso diario le avise dos veces al
   // mismo cliente por la misma cuota.
   recordatorioEnviadoEn DateTime?
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   @@unique([ventaId, numero])
 }
@@ -420,18 +428,76 @@ model Cuota {
 // indica a qué Cuota corresponde (cuotaId) para poder marcarla PAGADA o
 // PARCIAL; en una venta de contado, o en un abono todavía sin asignar,
 // cuotaId queda nulo y el pago solo cuenta hacia el total de la venta.
+// Pago de un cliente. Es inmutable: no se edita ni se borra, solo se anula (con motivo). El efecto sobre
+// las cuotas está en AplicacionAbono y el comprobante de caja en Recibo. Los triggers de la migración
+// impiden cambiar o borrar un abono por cualquier camino.
 model Abono {
-  id             String    @id @default(uuid())
-  ventaId        String
-  venta          Venta     @relation(fields: [ventaId], references: [id])
-  cuotaId        String?
-  cuota          Cuota?    @relation(fields: [cuotaId], references: [id])
-  fecha          DateTime
-  valor          Decimal   @db.Decimal(14, 2)
-  medioPago      MedioPago
-  comprobanteUrl String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              String            @id @default(uuid())
+  ventaId         String
+  venta           Venta             @relation(fields: [ventaId], references: [id])
+  fecha           DateTime
+  valor           Decimal           @db.Decimal(14, 2)
+  medioPago       MedioPago
+  // Cuenta donde entró el dinero (obligatoria si no es efectivo) y referencia de la transacción.
+  cuentaDestinoId String?
+  cuentaDestino   CuentaBancaria?   @relation(fields: [cuentaDestinoId], references: [id])
+  referencia      String?
+  // Soporte de pago del cliente (foto o PDF). El nombre de la columna es histórico.
+  comprobanteUrl  String?
+  estado          EstadoAbono       @default(ACTIVO)
+  // Quién lo registró (nulo en abonos anteriores al control por usuario).
+  registradoPorId String?
+  registradoPor   Usuario?          @relation("AbonosRegistrados", fields: [registradoPorId], references: [id])
+  anuladoPorId    String?
+  anuladoPor      Usuario?          @relation("AbonosAnulados", fields: [anuladoPorId], references: [id])
+  anuladoEn       DateTime?
+  motivoAnulacion String?
+  aplicaciones    AplicacionAbono[]
+  recibo          Recibo?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([ventaId, estado])
+}
+
+// Cuánto de un abono se aplicó a cada cuota (un abono puede cubrir varias cuotas, o solo parte de una).
+// Solo se inserta: al anular el abono estas filas se conservan y dejan de contar.
+model AplicacionAbono {
+  id      String  @id @default(uuid())
+  abonoId String
+  abono   Abono   @relation(fields: [abonoId], references: [id])
+  cuotaId String
+  cuota   Cuota   @relation(fields: [cuotaId], references: [id])
+  valor   Decimal @db.Decimal(14, 2)
+
+  @@index([abonoId])
+  @@index([cuotaId])
+}
+
+// Contador por serie (recibos de caja, recibos históricos, luego nómina). El número se toma dentro de la
+// transacción que lo usa: dos operaciones simultáneas nunca reciben el mismo número y, si la operación
+// falla, el número no se consume (sin huecos).
+model Consecutivo {
+  serie  String @id
+  ultimo Int    @default(0)
+}
+
+// Recibo de caja emitido por un abono. El contenido es una "fotografía" de lo que se emitió: si luego cambia
+// el nombre del cliente o la configuración, el recibo no cambia. No se edita ni se borra (trigger en la base).
+// Si el abono se anula, el recibo se muestra con la marca ANULADO (el estado vive en Abono).
+model Recibo {
+  id          String   @id @default(uuid())
+  serie       String
+  numero      Int
+  numeroTexto String   @unique
+  abonoId     String   @unique
+  abono       Abono    @relation(fields: [abonoId], references: [id])
+  // true para los recibos de abonos importados o anteriores al sistema (serie H-), que no mezclan la numeración real.
+  esHistorico Boolean  @default(false)
+  contenido   Json
+  createdAt   DateTime @default(now())
+
+  @@unique([serie, numero])
 }
 
 // Gasto o ingreso general de la empresa, no ligado necesariamente a un
@@ -527,6 +593,7 @@ model ConfiguracionEmpresa {
   tasaMoraMensual         Decimal? @db.Decimal(5, 2)
   diasGraciaMora          Int      @default(0)
   diasSemaforoAmarillo    Int      @default(5)
+  prefijoRecibo           String   @default("RC-")
   diasAntesRecordatorio   Int      @default(3)
   // Seguridad de sesión: bloqueo tras intentos fallidos y cierre por inactividad.
   intentosMaximosLogin    Int      @default(5)
@@ -546,6 +613,7 @@ model CuentaBancaria {
   numero    String
   alias     String
   activa    Boolean    @default(true)
+  abonos    Abono[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 

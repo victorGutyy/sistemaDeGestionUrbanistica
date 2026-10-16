@@ -5,7 +5,8 @@
 //    datos de la empresa, parámetros, cuentas, categorías, medios de pago y
 //    comisiones.
 // 2) Roles del sistema (Gerente, Administrador, Consulta) con sus permisos.
-// 3) Primera cuenta con rol GERENTE, solo si
+// 3) Recibos históricos (serie H-) para los abonos que todavía no tienen recibo.
+// 4) Primera cuenta con rol GERENTE, solo si
 //    están SEED_ADMIN_NOMBRE/EMAIL/PASSWORD en .env. No hay registro público:
 //    esta es la única forma de crear el primer usuario; el resto se crean
 //    desde la sección "Usuarios" de la app. Después de correrlo borra esas
@@ -15,6 +16,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
+import { emitirRecibosHistoricosFaltantes } from '../src/abonos/recibos-historicos.js';
 import { CLAVE_GERENTE, ROLES_SISTEMA } from '../src/auth/permisos.js';
 import { MEDIOS_ACTIVOS_POR_DEFECTO } from '../src/configuracion/configuracion.service.js';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
@@ -71,6 +73,11 @@ async function sembrarRoles() {
   console.log('Roles del sistema listos.');
 }
 
+async function sembrarRecibosHistoricos() {
+  const emitidos = await emitirRecibosHistoricosFaltantes(prisma);
+  console.log(`Recibos históricos emitidos: ${emitidos}.`);
+}
+
 async function sembrarUsuarioInicial() {
   const nombre = process.env.SEED_ADMIN_NOMBRE;
   const email = process.env.SEED_ADMIN_EMAIL;
@@ -100,6 +107,7 @@ async function sembrarUsuarioInicial() {
 try {
   await sembrarConfiguracion();
   await sembrarRoles();
+  await sembrarRecibosHistoricos();
   await sembrarUsuarioInicial();
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

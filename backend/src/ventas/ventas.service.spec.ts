@@ -6,7 +6,12 @@ import { EstadoLote, EstadoVenta, FormaPago, MedioPago, TipoVendedor } from '../
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
+import { crearAbonoEnTx } from '../abonos/crear-abono-tx.js';
 import type { CrearVentaDto } from './dto/crear-venta.dto.js';
+
+// El abono de la cuota inicial lo crea crearAbonoEnTx (probado aparte en abonos.service.spec.ts):
+// aquí solo se comprueba que la venta lo invoque con los datos correctos.
+vi.mock('../abonos/crear-abono-tx.js', () => ({ crearAbonoEnTx: vi.fn() }));
 
 // Forma plana del DTO, para poder copiarla con ... en las pruebas.
 type DatosVenta = { [Clave in keyof CrearVentaDto]: CrearVentaDto[Clave] };
@@ -29,6 +34,7 @@ function crearPrismaFalso() {
     },
     cuota: { create: vi.fn(), createMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
     abono: { create: vi.fn(), findMany: vi.fn() },
+    cuentaBancaria: { findUnique: vi.fn() },
     separacion: { updateMany: vi.fn() },
     desistimiento: { create: vi.fn() },
     documentoVenta: { create: vi.fn(), findFirst: vi.fn() },
@@ -60,7 +66,11 @@ const BASE_CONTADO: DatosVenta = { loteId: 'lote-1', clienteId: 'cliente-1', for
 describe('VentasService.crear', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>['prisma'];
   let tx: ReturnType<typeof crearPrismaFalso>['tx'];
-  let configuracion: { obtenerEmpresa: ReturnType<typeof vi.fn>; exigirMedioPagoActivo: ReturnType<typeof vi.fn> };
+  let configuracion: {
+    obtenerEmpresa: ReturnType<typeof vi.fn>;
+    exigirMedioPagoActivo: ReturnType<typeof vi.fn>;
+    contextoRecibo: ReturnType<typeof vi.fn>;
+  };
   let service: VentasService;
 
   beforeEach(() => {
@@ -68,7 +78,9 @@ describe('VentasService.crear', () => {
     configuracion = {
       obtenerEmpresa: vi.fn().mockResolvedValue(CONFIG),
       exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined),
+      contextoRecibo: vi.fn().mockResolvedValue({ prefijoRecibo: 'RC-', recibidoPor: 'Usuario Prueba', empresa: {} }),
     };
+    vi.mocked(crearAbonoEnTx).mockReset();
     service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO());
 
     tx.lote.findUnique.mockResolvedValue(LOTE);
@@ -198,19 +210,47 @@ describe('VentasService.crear', () => {
       });
     });
 
-    it('si la cuota inicial se recibió, registra su abono en la misma transacción y deja la cuota 0 pagada', async () => {
-      await service.crear({ ...BASE_CONTADO, cuotaInicialRecibida: true, medioPago: MedioPago.TRANSFERENCIA }, USUARIO);
+    it('si la cuota inicial se recibió, registra su abono (con su recibo) en la misma transacción, aplicado a la cuota 0', async () => {
+      tx.cuentaBancaria.findUnique.mockResolvedValue({ id: 'cuenta-1', alias: 'Ahorros', activa: true });
+      prisma.cuentaBancaria = tx.cuentaBancaria;
+
+      await service.crear(
+        { ...BASE_CONTADO, cuotaInicialRecibida: true, medioPago: MedioPago.TRANSFERENCIA, cuentaDestinoId: 'cuenta-1', referencia: 'REF-1' },
+        USUARIO,
+      );
 
       expect(configuracion.exigirMedioPagoActivo).toHaveBeenCalledWith(MedioPago.TRANSFERENCIA);
-      expect(tx.abono.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ ventaId: 'venta-1', cuotaId: 'cuota-0', medioPago: MedioPago.TRANSFERENCIA }),
+      expect(crearAbonoEnTx).toHaveBeenCalledTimes(1);
+      const [txUsada, datos, contexto] = vi.mocked(crearAbonoEnTx).mock.calls[0];
+      expect(txUsada).toBe(tx);
+      expect(datos).toMatchObject({
+        ventaId: 'venta-1',
+        soloCuotaId: 'cuota-0',
+        medioPago: MedioPago.TRANSFERENCIA,
+        cuentaDestinoId: 'cuenta-1',
+        referencia: 'REF-1',
+        registradoPorId: USUARIO.id,
       });
-      expect(tx.cuota.update).toHaveBeenCalledWith({ where: { id: 'cuota-0' }, data: { estado: 'PAGADA' } });
+      expect(datos.valor.toString()).toBe('80000000');
+      expect(contexto.recibidoPor).toBe('Usuario Prueba');
+    });
+
+    it('una cuota inicial recibida por transferencia exige la cuenta donde entró el dinero y no crea nada', async () => {
+      await expect(
+        service.crear({ ...BASE_CONTADO, cuotaInicialRecibida: true, medioPago: MedioPago.TRANSFERENCIA }, USUARIO),
+      ).rejects.toThrow(/cuenta donde entró/);
+      expect(tx.venta.create).not.toHaveBeenCalled();
+      expect(crearAbonoEnTx).not.toHaveBeenCalled();
+    });
+
+    it('en efectivo no pide cuenta destino', async () => {
+      await service.crear({ ...BASE_CONTADO, cuotaInicialRecibida: true, medioPago: MedioPago.EFECTIVO }, USUARIO);
+      expect(vi.mocked(crearAbonoEnTx).mock.calls[0][1]).toMatchObject({ cuentaDestinoId: null });
     });
 
     it('sin marcar la cuota inicial como recibida no se crea ningún abono: queda pendiente', async () => {
       await service.crear(BASE_CONTADO, USUARIO);
-      expect(tx.abono.create).not.toHaveBeenCalled();
+      expect(crearAbonoEnTx).not.toHaveBeenCalled();
     });
   });
 

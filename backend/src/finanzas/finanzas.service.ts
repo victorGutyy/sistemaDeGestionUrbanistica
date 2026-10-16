@@ -3,7 +3,7 @@ import { exigirAlcanceTotal, exigirProyecto, filtroMovimiento, filtroProyecto, f
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoVenta, TipoMovimiento } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoVenta, TipoMovimiento } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { calcularConsolidado, fechaEnRango } from './consolidado.js';
 import { CrearMovimientoDto } from './dto/crear-movimiento.dto.js';
@@ -63,7 +63,8 @@ export class FinanzasService {
       this.prisma.venta.findMany({
         // Una venta desistida conserva sus abonos: ese dinero se recibió y consta en la caja.
         where: { estado: { in: [EstadoVenta.ACTIVA, EstadoVenta.DESISTIDA] }, ...filtroVenta(usuario) },
-        include: { lote: true, abonos: true },
+        // Un abono anulado no entra a la caja (su recibo se conserva, pero el dinero se revirtió).
+        include: { lote: true, abonos: { where: { estado: EstadoAbono.ACTIVO } } },
       }),
       // La nómina no pertenece a ningún proyecto: con alcance restringido no se incluye.
       tieneAlcanceTotal(usuario) ? this.prisma.pagoNomina.findMany() : Promise.resolve([]),

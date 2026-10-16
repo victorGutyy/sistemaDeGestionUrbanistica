@@ -88,6 +88,17 @@ export class CrearVentaDto {
   @IsEnum(MedioPago)
   medioPago?: MedioPago;
 
+  // Cuenta donde entró la cuota inicial (obligatoria si el medio de pago no es efectivo).
+  @IsOptional()
+  @IsUUID()
+  cuentaDestinoId?: string;
+
+  // Referencia de la transacción bancaria (no se puede repetir en la misma cuenta).
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  referencia?: string;
+
   // Obligatorio cuando la venta es una excepción (cuota inicial baja o plazo largo).
   @IsOptional()
   @IsString()

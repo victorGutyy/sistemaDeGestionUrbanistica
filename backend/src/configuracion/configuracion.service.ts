@@ -1,8 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
+import { ETIQUETA_MEDIO_PAGO } from '../common/medio-pago.js';
 import { MedioPago, TipoVendedor } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import type { ContextoRecibo } from '../abonos/crear-abono-tx.js';
+import { empresaParaRecibo } from '../abonos/recibo-contenido.js';
 import { ActualizarEmpresaDto } from './dto/actualizar-empresa.dto.js';
 import { ActualizarParametrosDto } from './dto/actualizar-parametros.dto.js';
 import { ActualizarCategoriaGastoDto, CrearCategoriaGastoDto } from './dto/categoria-gasto.dto.js';
@@ -23,15 +26,6 @@ export const MEDIOS_ACTIVOS_POR_DEFECTO: Record<MedioPago, boolean> = {
   TARJETA: false,
 };
 
-const ETIQUETA_MEDIO_PAGO: Record<MedioPago, string> = {
-  EFECTIVO: 'Efectivo',
-  CONSIGNACION: 'Consignación',
-  TRANSFERENCIA: 'Transferencia',
-  NEQUI: 'Nequi',
-  DAVIPLATA: 'Daviplata',
-  CHEQUE: 'Cheque',
-  TARJETA: 'Tarjeta',
-};
 
 export type TipoImagen = 'png' | 'jpg' | 'webp';
 
@@ -108,6 +102,16 @@ export class ConfiguracionService {
     return { empresa, cuentas, mediosPago, categoriasGasto, comisiones };
   }
 
+  // Datos con los que se emite un recibo: la empresa tal como está HOY y quién recibió el dinero.
+  async contextoRecibo(recibidoPor: string): Promise<ContextoRecibo> {
+    const empresa = await this.obtenerEmpresa();
+    return {
+      prefijoRecibo: empresa.prefijoRecibo,
+      recibidoPor,
+      empresa: empresaParaRecibo(empresa),
+    };
+  }
+
   async actualizarEmpresa(dto: ActualizarEmpresaDto) {
     await this.obtenerEmpresa();
     return this.prisma.configuracionEmpresa.update({
@@ -121,6 +125,7 @@ export class ConfiguracionService {
         correo: dto.correo ?? null,
         colorPrimario: dto.colorPrimario.toLowerCase(),
         textoLegalRecibo: dto.textoLegalRecibo ?? null,
+        ...(dto.prefijoRecibo ? { prefijoRecibo: dto.prefijoRecibo } : {}),
       },
     });
   }

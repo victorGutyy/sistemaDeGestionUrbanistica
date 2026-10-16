@@ -16,6 +16,7 @@ export const PERMISOS = {
   VENTAS_DESISTIR: 'ventas.desistir', // registrar el desistimiento de una venta
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
+  ABONOS_ANULAR: 'abonos.anular', // anular un abono y su recibo (solo gerente)
   CARTERA_VER: 'cartera.ver',
   FINANZAS_VER: 'finanzas.ver',
   FINANZAS_REGISTRAR: 'finanzas.registrar',
@@ -68,6 +69,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.USUARIOS_GESTIONAR &&
         permiso !== PERMISOS.VENTAS_AUTORIZAR &&
         permiso !== PERMISOS.VENTAS_DESISTIR &&
+        permiso !== PERMISOS.ABONOS_ANULAR &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,

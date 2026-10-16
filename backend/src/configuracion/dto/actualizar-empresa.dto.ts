@@ -36,4 +36,9 @@ export class ActualizarEmpresaDto {
   @IsString()
   @MaxLength(1000)
   textoLegalRecibo?: string;
+
+  // Prefijo de los recibos de caja, p. ej. "RC-" → RC-000001.
+  @IsOptional()
+  @Matches(/^[A-Z0-9-]{1,10}$/, { message: 'prefijoRecibo admite de 1 a 10 caracteres: mayúsculas, números y guion' })
+  prefijoRecibo?: string;
 }

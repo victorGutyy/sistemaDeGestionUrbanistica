@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { filtroCliente, filtroProyecto, filtroVenta } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoCuota, EstadoVenta } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoCuota, EstadoVenta } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -12,6 +12,9 @@ import {
   type ParametrosMora,
   type Semaforo,
 } from './mora.js';
+
+// Solo cuenta lo aplicado por abonos ACTIVOS: un abono anulado ya no reduce lo que se debe.
+const APLICACIONES_ACTIVAS = { where: { abono: { estado: EstadoAbono.ACTIVO } }, select: { valor: true } } as const;
 
 @Injectable()
 export class CarteraService {
@@ -39,7 +42,7 @@ export class CarteraService {
         ventas: {
           // Un cliente con ventas en varios proyectos solo muestra las del alcance del usuario.
           where: { estado: EstadoVenta.ACTIVA, ...filtroVenta(usuario) },
-          include: { cuotas: { include: { abonos: true } }, lote: { include: { proyecto: true } } },
+          include: { cuotas: { include: { aplicaciones: APLICACIONES_ACTIVAS } }, lote: { include: { proyecto: true } } },
         },
       },
       orderBy: { nombre: 'asc' },
@@ -58,7 +61,7 @@ export class CarteraService {
         let interesMora = new Prisma.Decimal(0);
 
         for (const cuota of cuotasPendientes) {
-          const evaluacion = evaluarCuotaPendiente(cuota, cuota.abonos, hoy, mora);
+          const evaluacion = evaluarCuotaPendiente(cuota, cuota.aplicaciones, hoy, mora);
           if (evaluacion?.vencida) {
             saldoVencido = saldoVencido.plus(evaluacion.saldo);
             interesMora = interesMora.plus(evaluacion.interesMora);
@@ -104,7 +107,7 @@ export class CarteraService {
           include: {
             ventas: {
               where: { estado: EstadoVenta.ACTIVA },
-              include: { cuotas: { include: { abonos: true } } },
+              include: { cuotas: { include: { aplicaciones: APLICACIONES_ACTIVAS } } },
             },
           },
         },
@@ -125,7 +128,7 @@ export class CarteraService {
       for (const lote of proyecto.lotes) {
         for (const venta of lote.ventas) {
           for (const cuota of venta.cuotas) {
-            const evaluacion = evaluarCuotaPendiente(cuota, cuota.abonos, hoy, mora);
+            const evaluacion = evaluarCuotaPendiente(cuota, cuota.aplicaciones, hoy, mora);
             if (!evaluacion) continue;
 
             if (evaluacion.vencida) {
