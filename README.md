@@ -80,7 +80,7 @@ La base genérica Urbanix (v1.0) está completa y funcionando; ahora se adapta a
 Ya existe en la base:
 - ✅ Login con JWT, roles con permisos (Gerente, Administrador, Consulta; se pueden agregar más sin tocar el código), bloqueo tras intentos fallidos, cierre de sesión por inactividad, gestión de usuarios y alcance por proyecto (un usuario de Consulta puede limitarse a ciertos proyectos y no ve datos de los demás).
 - ✅ Proyectos de lotes, remodelación y maquinaria; manzanas opcionales; lotes con ficha, estados (disponible, separado, vendido, escriturado, desistido) con historial de cambios de estado y de precio, área disponible y finalizar/reactivar proyectos.
-- ✅ Ventas de contado y financiadas: cuota inicial como cuota 0 pagada con abonos, plan de cuotas en pesos enteros, parámetros del negocio desde Configuración, excepciones (cuota inicial baja o plazo largo) con aprobación del gerente, y vendedor (asesor o referido).
+- ✅ Ventas de contado y financiadas: cuota inicial como cuota 0 pagada con abonos, plan de cuotas en pesos enteros, parámetros del negocio desde Configuración, excepciones (cuota inicial baja o plazo largo) con aprobación del gerente, vendedor (asesor o referido), separación del lote con valor y fecha límite, documentos firmados de la venta y desistimiento (solo gerente).
 - ✅ Abonos con comprobante adjunto y estado de las cuotas.
 - ✅ Cartera con semáforo e interés de mora (informativo).
 - ✅ Ingresos y gastos manuales con consolidado de caja.
@@ -88,7 +88,7 @@ Ya existe en la base:
 - ✅ Panel general con exportación a PDF y Excel, y recordatorios de pago por correo.
 
 En adaptación (ver `docs/requerimientos.md`):
-- ⏳ Etapa 1: separación con valor, documentos firmados y desistimiento de ventas, recibo de caja con consecutivo y anulación, cierre de caja, egresos por categoría, auditoría e importador de Excel.
+- ⏳ Etapa 1: recibo de caja con consecutivo y anulación, cierre de caja, egresos por categoría, auditoría e importador de Excel.
 - ⏳ Etapa 2: notificaciones (correo y WhatsApp), verificación de consignaciones, comisiones, panel y reportes ampliados, recuperación de contraseña.
 - ⏳ Etapa 3: módulo de personal.
 
