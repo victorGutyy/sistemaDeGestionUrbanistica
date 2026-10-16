@@ -12,6 +12,7 @@ export const PERMISOS = {
   CLIENTES_CREAR: 'clientes.crear',
   VENTAS_VER: 'ventas.ver',
   VENTAS_CREAR: 'ventas.crear',
+  VENTAS_AUTORIZAR: 'ventas.autorizar', // aprobar o rechazar ventas con excepción
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
   CARTERA_VER: 'cartera.ver',
@@ -64,6 +65,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
       (permiso) =>
         permiso !== PERMISOS.CONFIGURACION_EDITAR &&
         permiso !== PERMISOS.USUARIOS_GESTIONAR &&
+        permiso !== PERMISOS.VENTAS_AUTORIZAR &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,

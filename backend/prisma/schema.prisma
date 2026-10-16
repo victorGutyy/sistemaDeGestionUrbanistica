@@ -46,9 +46,13 @@ enum FormaPago {
   FINANCIADO
 }
 
+// PENDIENTE_APROBACION: venta con excepción (cuota inicial baja o plazo largo) que espera al gerente.
+// RECHAZADA: el gerente no la autorizó. DESISTIDA: el cliente desistió (se conserva todo el historial).
 enum EstadoVenta {
+  PENDIENTE_APROBACION
   ACTIVA
-  CANCELADA
+  RECHAZADA
+  DESISTIDA
 }
 
 enum EstadoCuota {
@@ -144,6 +148,8 @@ model Usuario {
   todosLosProyectos    Boolean           @default(true)
   proyectosPermitidos  UsuarioProyecto[]
   historialLotes       LoteHistorial[]
+  ventasRegistradas    Venta[]           @relation("VentasRegistradas")
+  ventasResueltas      Venta[]           @relation("VentasResueltas")
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
@@ -258,27 +264,63 @@ model Cliente {
   updatedAt DateTime @updatedAt
 }
 
+// Persona que trajo la venta (asesor inmobiliario o referido). Se reutiliza entre
+// ventas y la Etapa 2 la usa para calcular comisiones.
+model Vendedor {
+  id        String       @id @default(uuid())
+  tipo      TipoVendedor
+  nombre    String
+  documento String       @unique
+  telefono  String?
+  ventas    Venta[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
 // Transacción de venta de un Lote a un Cliente. Se guarda como historial:
-// si una venta se cancela, queda marcada CANCELADA en vez de borrarse, para
-// no perder el rastro de por qué el lote volvió a estar disponible.
+// si una venta se rechaza o el cliente desiste, queda marcada en vez de borrarse,
+// para no perder el rastro de por qué el lote volvió a estar disponible.
+// La cuota inicial es la cuota número 0 del plan (ver Cuota); se paga con abonos como cualquier cuota.
 model Venta {
-  id           String      @id @default(uuid())
-  loteId       String
-  lote         Lote        @relation(fields: [loteId], references: [id])
-  clienteId    String
-  cliente      Cliente     @relation(fields: [clienteId], references: [id])
-  valorTotal   Decimal     @db.Decimal(14, 2)
-  cuotaInicial Decimal     @db.Decimal(14, 2)
+  id                String      @id @default(uuid())
+  loteId            String
+  lote              Lote        @relation(fields: [loteId], references: [id])
+  clienteId         String
+  cliente           Cliente     @relation(fields: [clienteId], references: [id])
+  vendedorId        String?
+  vendedor          Vendedor?   @relation(fields: [vendedorId], references: [id])
+  valorTotal        Decimal     @db.Decimal(14, 2)
+  cuotaInicial      Decimal     @db.Decimal(14, 2)
   // numeroCuotas y tasaInteres solo aplican cuando formaPago = FINANCIADO.
-  numeroCuotas Int?
-  tasaInteres  Decimal?    @db.Decimal(5, 2)
-  formaPago    FormaPago
-  fechaVenta   DateTime    @default(now())
-  estado       EstadoVenta @default(ACTIVA)
-  cuotas       Cuota[]
-  abonos       Abono[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  numeroCuotas      Int?
+  tasaInteres       Decimal?    @db.Decimal(5, 2)
+  formaPago         FormaPago
+  fechaVenta        DateTime    @default(now())
+  // Hasta cuándo se espera la cuota inicial (cuota 0); por defecto, el día de la venta.
+  fechaCuotaInicial DateTime?
+  estado            EstadoVenta @default(ACTIVA)
+  // Quién registró la venta (nulo en ventas anteriores al control por usuario).
+  registradaPorId   String?
+  registradaPor     Usuario?    @relation("VentasRegistradas", fields: [registradaPorId], references: [id])
+  // Excepción: cuota inicial menor a la configurada o plazo mayor al máximo. Exige motivo y
+  // la autorización de un gerente (quien tenga el permiso ventas.autorizar).
+  esExcepcion       Boolean     @default(false)
+  motivoExcepcion   String?
+  // Quién autorizó o rechazó la excepción, cuándo y, si se rechazó, por qué.
+  resueltaPorId     String?
+  resueltaPor       Usuario?    @relation("VentasResueltas", fields: [resueltaPorId], references: [id])
+  resueltaEn        DateTime?
+  motivoRechazo     String?
+  // true si esta venta fue la que dejó el lote SEPARADO mientras esperaba aprobación
+  // (para liberarlo si se rechaza).
+  separoElLote      Boolean     @default(false)
+  cuotas            Cuota[]
+  abonos            Abono[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([loteId])
+  @@index([estado])
 }
 
 // Una fila del plan de pagos de una Venta financiada.

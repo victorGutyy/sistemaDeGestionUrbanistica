@@ -61,7 +61,7 @@ export function generarHtmlRecordatorio(datos: DatosRecordatorio): string {
       <h2 style="color: ${colorSeguro(empresa.colorPrimario)}; margin-top: 0;">Recordatorio de pago</h2>
       <p>Hola ${escaparHtml(datos.nombreCliente)},</p>
       <p>
-        Te recordamos que la cuota <strong>#${datos.numeroCuota}</strong> del lote
+        Te recordamos que ${datos.numeroCuota === 0 ? 'la <strong>cuota inicial</strong>' : `la cuota <strong>#${datos.numeroCuota}</strong>`} del lote
         <strong>${escaparHtml(datos.numeroLote)}</strong> en <strong>${escaparHtml(datos.nombreProyecto)}</strong>
         vence el <strong>${formatearFecha(datos.fechaVencimiento)}</strong>.
       </p>

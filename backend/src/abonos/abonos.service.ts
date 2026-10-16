@@ -1,12 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { filtroVenta } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoCuota } from '../generated/prisma/enums.js';
+import { EstadoVenta } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { crearAbonoEnTx } from './crear-abono-tx.js';
 import { CrearAbonoDto } from './dto/crear-abono.dto.js';
 
 function detectarContentType(rutaRelativa: string): string {
@@ -29,6 +30,9 @@ export class AbonosService {
     if (!venta) {
       throw new NotFoundException(`No existe la venta ${dto.ventaId}`);
     }
+    if (venta.estado !== EstadoVenta.ACTIVA) {
+      throw new ConflictException('Solo se pueden registrar abonos en una venta activa');
+    }
 
     await this.configuracion.exigirMedioPagoActivo(dto.medioPago);
 
@@ -49,40 +53,16 @@ export class AbonosService {
       comprobanteUrl = rutaRelativa;
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const abono = await tx.abono.create({
-        data: {
-          ventaId: dto.ventaId,
-          cuotaId: dto.cuotaId,
-          fecha: parsearFechaLocal(dto.fecha),
-          valor: new Prisma.Decimal(dto.valor),
-          medioPago: dto.medioPago,
-          comprobanteUrl,
-        },
-      });
-
-      if (dto.cuotaId) {
-        await this.actualizarEstadoCuota(tx, dto.cuotaId);
-      }
-
-      return abono;
-    });
-  }
-
-  private async actualizarEstadoCuota(tx: Prisma.TransactionClient, cuotaId: string) {
-    const cuota = await tx.cuota.findUniqueOrThrow({ where: { id: cuotaId } });
-    const abonos = await tx.abono.findMany({ where: { cuotaId } });
-    const totalAbonado = abonos.reduce((acumulado, abono) => acumulado.plus(abono.valor), new Prisma.Decimal(0));
-
-    const nuevoEstado = totalAbonado.greaterThanOrEqualTo(cuota.valor)
-      ? EstadoCuota.PAGADA
-      : totalAbonado.greaterThan(0)
-        ? EstadoCuota.PARCIAL
-        : EstadoCuota.PENDIENTE;
-
-    if (nuevoEstado !== cuota.estado) {
-      await tx.cuota.update({ where: { id: cuotaId }, data: { estado: nuevoEstado } });
-    }
+    return this.prisma.$transaction((tx) =>
+      crearAbonoEnTx(tx, {
+        ventaId: dto.ventaId,
+        cuotaId: dto.cuotaId,
+        fecha: parsearFechaLocal(dto.fecha),
+        valor: new Prisma.Decimal(dto.valor),
+        medioPago: dto.medioPago,
+        comprobanteUrl,
+      }),
+    );
   }
 
   async listarPorVenta(ventaId: string, usuario: UsuarioAutenticado) {

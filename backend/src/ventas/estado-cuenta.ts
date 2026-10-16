@@ -19,24 +19,22 @@ interface CuotaParaEstadoCuenta extends ProximaCuota {
 
 interface ParametrosEstadoCuenta {
   valorTotal: Prisma.Decimal;
-  cuotaInicial: Prisma.Decimal;
   abonos: { valor: Prisma.Decimal }[];
   cuotas: CuotaParaEstadoCuenta[];
 }
 
-// La cuota inicial se paga en el momento de la venta y no queda registrada
-// como un Abono aparte, así que cuenta como ya pagada desde el día uno.
+// La cuota inicial es la cuota número 0 y se paga con abonos como cualquier otra, así que
+// lo pagado es simplemente la suma de los abonos (ya no se da por pagada de entrada).
 export function calcularEstadoCuenta(params: ParametrosEstadoCuenta): EstadoCuenta {
-  const totalAbonado = params.abonos.reduce(
+  const totalPagado = params.abonos.reduce(
     (acumulado, abono) => acumulado.plus(abono.valor),
     new Prisma.Decimal(0),
   );
-  const totalPagado = params.cuotaInicial.plus(totalAbonado);
   const saldoPendiente = params.valorTotal.minus(totalPagado);
 
   const cuotasPendientes = params.cuotas
     .filter((cuota) => cuota.estado !== EstadoCuota.PAGADA)
-    .sort((a, b) => a.fechaVencimiento.getTime() - b.fechaVencimiento.getTime());
+    .sort((a, b) => a.fechaVencimiento.getTime() - b.fechaVencimiento.getTime() || a.numero - b.numero);
 
   return {
     totalPagado,

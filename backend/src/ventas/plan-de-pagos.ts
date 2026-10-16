@@ -28,9 +28,9 @@ export function generarPlanDePagos(params: ParametrosPlanDePagos): CuotaPlanific
 
   const capitalFinanciado = valorTotal.minus(cuotaInicial);
   const interesPorCuota = tasaInteres
-    ? capitalFinanciado.mul(tasaInteres).div(100).toDecimalPlaces(2)
+    ? capitalFinanciado.mul(tasaInteres).div(100).toDecimalPlaces(0)
     : new Prisma.Decimal(0);
-  const capitalPorCuotaBase = capitalFinanciado.div(numeroCuotas).toDecimalPlaces(2);
+  const capitalPorCuotaBase = capitalFinanciado.div(numeroCuotas).toDecimalPlaces(0);
 
   const cuotas: CuotaPlanificada[] = [];
   let capitalAcumulado = new Prisma.Decimal(0);

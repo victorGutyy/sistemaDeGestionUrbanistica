@@ -54,3 +54,15 @@ describe('generarHtmlRecordatorio', () => {
     expect(html).toContain('#2563eb');
   });
 });
+
+describe('etiqueta de la cuota en el recordatorio', () => {
+  it('una cuota normal se nombra por su número', () => {
+    expect(generarHtmlRecordatorio(datos({ numeroCuota: 3 }))).toContain('la cuota <strong>#3</strong>');
+  });
+
+  it('la cuota 0 se nombra como cuota inicial, no como "cuota #0"', () => {
+    const html = generarHtmlRecordatorio(datos({ numeroCuota: 0 }));
+    expect(html).toContain('la <strong>cuota inicial</strong>');
+    expect(html).not.toContain('<strong>#0</strong>');
+  });
+});

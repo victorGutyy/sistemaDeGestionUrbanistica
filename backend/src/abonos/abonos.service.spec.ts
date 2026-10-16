@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota, MedioPago } from '../generated/prisma/enums.js';
@@ -25,7 +25,7 @@ function crearPrismaFalso() {
   return { prisma, tx };
 }
 
-const VENTA = { id: 'venta-1', clienteId: 'cliente-1' };
+const VENTA = { id: 'venta-1', clienteId: 'cliente-1', estado: 'ACTIVA' };
 const CUOTA = { id: 'cuota-1', ventaId: 'venta-1', valor: new Prisma.Decimal('5900000') };
 
 const USUARIO = usuarioDePrueba();
@@ -46,6 +46,15 @@ describe('AbonosService.crear', () => {
       storage as unknown as StorageService,
       configuracion as unknown as ConfiguracionService,
     );
+  });
+
+  it.each(['PENDIENTE_APROBACION', 'RECHAZADA', 'DESISTIDA'])('no se registran abonos en una venta %s', async (estado) => {
+    prisma.venta.findFirst.mockResolvedValue({ ...VENTA, estado });
+
+    await expect(
+      service.crear({ ventaId: 'venta-1', fecha: '2026-02-01', valor: '100', medioPago: MedioPago.EFECTIVO }, USUARIO),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.abono.create).not.toHaveBeenCalled();
   });
 
   it('rechaza un medio de pago que el gerente tiene deshabilitado, sin guardar nada', async () => {

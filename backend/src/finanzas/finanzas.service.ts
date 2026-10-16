@@ -61,7 +61,8 @@ export class FinanzasService {
         where: { fecha: construirRangoFechas(filtro), ...filtroMovimiento(usuario) },
       }),
       this.prisma.venta.findMany({
-        where: { estado: EstadoVenta.ACTIVA, ...filtroVenta(usuario) },
+        // Una venta desistida conserva sus abonos: ese dinero se recibió y consta en la caja.
+        where: { estado: { in: [EstadoVenta.ACTIVA, EstadoVenta.DESISTIDA] }, ...filtroVenta(usuario) },
         include: { lote: true, abonos: true },
       }),
       // La nómina no pertenece a ningún proyecto: con alcance restringido no se incluye.
@@ -69,14 +70,10 @@ export class FinanzasService {
       this.prisma.proyecto.findMany({ where: filtroProyecto(usuario), select: { id: true, nombre: true } }),
     ]);
 
-    // La cuota inicial se paga en el momento de la venta y no queda como
-    // un Abono aparte (igual que en el estado de cuenta de Ventas), así que
-    // hay que sumarla aquí también, fechada el día de la venta.
+    // La cuota inicial es la cuota 0 de la venta y se paga con abonos como las demás cuotas,
+    // así que basta con sumar los abonos.
     const abonos: { valor: Prisma.Decimal; proyectoId: string }[] = [];
     for (const venta of ventas) {
-      if (fechaEnRango(venta.fechaVenta, filtro)) {
-        abonos.push({ valor: venta.cuotaInicial, proyectoId: venta.lote.proyectoId });
-      }
       for (const abono of venta.abonos) {
         if (fechaEnRango(abono.fecha, filtro)) {
           abonos.push({ valor: abono.valor, proyectoId: venta.lote.proyectoId });
