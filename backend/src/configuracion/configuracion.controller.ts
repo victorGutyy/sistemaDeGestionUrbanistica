@@ -16,9 +16,10 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
+import { PERMISOS } from '../auth/permisos.js';
+import { Permiso } from '../auth/roles.decorator.js';
 import { Public } from '../auth/public.decorator.js';
-import { Roles } from '../auth/roles.decorator.js';
-import { MedioPago, Rol, TipoVendedor } from '../generated/prisma/enums.js';
+import { MedioPago, TipoVendedor } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from './configuracion.service.js';
 import { ActualizarComisionDto } from './dto/actualizar-comision.dto.js';
 import { ActualizarEmpresaDto } from './dto/actualizar-empresa.dto.js';
@@ -52,25 +53,25 @@ export class ConfiguracionController {
     res.send(buffer);
   }
 
-  @Roles(Rol.PROPIETARIO, Rol.ADMINISTRADOR)
+  @Permiso(PERMISOS.CONFIGURACION_VER)
   @Get()
   completa() {
     return this.configuracionService.obtenerCompleta();
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Put('empresa')
   actualizarEmpresa(@Body() dto: ActualizarEmpresaDto) {
     return this.configuracionService.actualizarEmpresa(dto);
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Put('parametros')
   actualizarParametros(@Body() dto: ActualizarParametrosDto) {
     return this.configuracionService.actualizarParametros(dto);
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Post('logo')
   @UseInterceptors(FileInterceptor('logo', { limits: { fileSize: TAMANO_MAXIMO_LOGO } }))
   subirLogo(@UploadedFile() archivo: Express.Multer.File | undefined) {
@@ -78,31 +79,31 @@ export class ConfiguracionController {
   }
 
   // No borra el archivo: solo deja de usarse (se vuelve a mostrar el logo genérico).
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Delete('logo')
   quitarLogo() {
     return this.configuracionService.quitarLogo();
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Post('cuentas')
   crearCuenta(@Body() dto: CrearCuentaBancariaDto) {
     return this.configuracionService.crearCuenta(dto);
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Patch('cuentas/:id')
   actualizarCuenta(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCuentaBancariaDto) {
     return this.configuracionService.actualizarCuenta(id, dto);
   }
 
-  @Roles(Rol.PROPIETARIO, Rol.ADMINISTRADOR)
+  @Permiso(PERMISOS.ABONOS_REGISTRAR)
   @Get('medios-pago')
   listarMediosPago() {
     return this.configuracionService.listarMediosPago();
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Patch('medios-pago/:medio')
   actualizarMedioPago(
     @Param('medio', new ParseEnumPipe(MedioPago)) medio: MedioPago,
@@ -111,19 +112,19 @@ export class ConfiguracionController {
     return this.configuracionService.actualizarMedioPago(medio, dto.activo);
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Post('categorias-gasto')
   crearCategoriaGasto(@Body() dto: CrearCategoriaGastoDto) {
     return this.configuracionService.crearCategoriaGasto(dto);
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Patch('categorias-gasto/:id')
   actualizarCategoriaGasto(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCategoriaGastoDto) {
     return this.configuracionService.actualizarCategoriaGasto(id, dto);
   }
 
-  @Roles(Rol.PROPIETARIO)
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Put('comisiones/:tipo')
   actualizarComision(
     @Param('tipo', new ParseEnumPipe(TipoVendedor)) tipo: TipoVendedor,

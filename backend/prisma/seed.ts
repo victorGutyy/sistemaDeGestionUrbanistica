@@ -4,7 +4,8 @@
 // 1) Configuración inicial de la empresa (prisma/semillas/empresa-balder.ts):
 //    datos de la empresa, parámetros, cuentas, categorías, medios de pago y
 //    comisiones.
-// 2) Primera cuenta de mayor nivel (PROPIETARIO, luego GERENTE), solo si
+// 2) Roles del sistema (Gerente, Administrador, Consulta) con sus permisos.
+// 3) Primera cuenta con rol GERENTE, solo si
 //    están SEED_ADMIN_NOMBRE/EMAIL/PASSWORD en .env. No hay registro público:
 //    esta es la única forma de crear el primer usuario; el resto se crean
 //    desde la sección "Usuarios" de la app. Después de correrlo borra esas
@@ -14,6 +15,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
+import { CLAVE_GERENTE, ROLES_SISTEMA } from '../src/auth/permisos.js';
 import { MEDIOS_ACTIVOS_POR_DEFECTO } from '../src/configuracion/configuracion.service.js';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
 import { MedioPago } from '../src/generated/prisma/enums.js';
@@ -61,6 +63,14 @@ async function sembrarConfiguracion() {
   console.log('Configuración inicial lista (empresa, parámetros, cuentas, categorías, medios de pago, comisiones).');
 }
 
+async function sembrarRoles() {
+  for (const rol of ROLES_SISTEMA) {
+    const datos = { ...rol, esSistema: true };
+    await prisma.rolUsuario.upsert({ where: { clave: rol.clave }, update: datos, create: datos });
+  }
+  console.log('Roles del sistema listos.');
+}
+
 async function sembrarUsuarioInicial() {
   const nombre = process.env.SEED_ADMIN_NOMBRE;
   const email = process.env.SEED_ADMIN_EMAIL;
@@ -80,15 +90,16 @@ async function sembrarUsuarioInicial() {
   const passwordHash = await bcrypt.hash(password, 12);
   const usuario = await prisma.usuario.upsert({
     where: { email },
-    update: { nombre, passwordHash, rol: 'PROPIETARIO', estado: 'ACTIVO' },
-    create: { nombre, email, passwordHash, rol: 'PROPIETARIO' },
-    select: { id: true, nombre: true, email: true, rol: true },
+    update: { nombre, passwordHash, rol: { connect: { clave: CLAVE_GERENTE } }, estado: 'ACTIVO', intentosFallidos: 0, bloqueadoHasta: null },
+    create: { nombre, email, passwordHash, rol: { connect: { clave: CLAVE_GERENTE } } },
+    select: { id: true, nombre: true, email: true, rol: { select: { clave: true } } },
   });
-  console.log('Usuario de mayor nivel listo:', usuario);
+  console.log('Usuario gerente listo:', usuario);
 }
 
 try {
   await sembrarConfiguracion();
+  await sembrarRoles();
   await sembrarUsuarioInicial();
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

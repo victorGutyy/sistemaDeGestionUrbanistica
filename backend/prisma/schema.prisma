@@ -81,28 +81,52 @@ enum TipoNovedad {
   INCAPACIDAD
 }
 
-enum Rol {
-  PROPIETARIO
-  ADMINISTRADOR
-  CONSULTA
-}
-
 enum EstadoUsuario {
   ACTIVO
   INACTIVO
 }
 
-// Cuenta de acceso a la app. No hay registro público: las crea el
-// propietario o un administrador desde la sección de Usuarios.
+// Rol de un usuario. Los permisos son textos tomados del catálogo fijo que
+// vive en el código (src/auth/permisos.ts): cada endpoint exige un permiso y
+// el rol dice cuáles tiene. Agregar un rol nuevo (p. ej. jurídico) es agregar
+// una fila aquí, sin tocar el código de los módulos.
+// Los roles esSistema (GERENTE, ADMINISTRADOR, CONSULTA) no se borran y sus
+// permisos se sincronizan desde el código al arrancar la app.
+model RolUsuario {
+  id                   String    @id @default(uuid())
+  clave                String    @unique
+  nombre               String
+  descripcion          String?
+  permisos             String[]
+  esSistema            Boolean   @default(false)
+  // Solo los roles limitables pueden restringirse a ciertos proyectos (paso 2.2b).
+  limitablePorProyecto Boolean   @default(false)
+  activo               Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  usuarios             Usuario[]
+}
+
+// Cuenta de acceso a la app. No hay registro público: las crea el gerente
+// desde la sección de Usuarios.
 model Usuario {
-  id           String        @id @default(uuid())
-  nombre       String
-  email        String        @unique
-  passwordHash String
-  rol          Rol
-  estado       EstadoUsuario @default(ACTIVO)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                   String        @id @default(uuid())
+  nombre               String
+  email                String        @unique
+  passwordHash         String
+  rolId                String
+  rol                  RolUsuario    @relation(fields: [rolId], references: [id])
+  estado               EstadoUsuario @default(ACTIVO)
+  // Bloqueo temporal por intentos fallidos de ingreso.
+  intentosFallidos     Int           @default(0)
+  bloqueadoHasta       DateTime?
+  ultimoIngreso        DateTime?
+  // Las sesiones (tokens) emitidas antes de esta fecha dejan de valer: se usa al restablecer la contraseña.
+  sesionesValidasDesde DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([rolId])
 }
 
 // Predio de mayor extensión que la empresa compra y subdivide en lotes.
@@ -304,6 +328,10 @@ model ConfiguracionEmpresa {
   diasGraciaMora          Int      @default(0)
   diasSemaforoAmarillo    Int      @default(5)
   diasAntesRecordatorio   Int      @default(3)
+  // Seguridad de sesión: bloqueo tras intentos fallidos y cierre por inactividad.
+  intentosMaximosLogin    Int      @default(5)
+  minutosBloqueoLogin     Int      @default(15)
+  minutosInactividad      Int      @default(30)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1,16 +1,17 @@
-import { IsEmail, IsEnum, MinLength } from 'class-validator';
-import { Rol } from '../../generated/prisma/enums.js';
+import { IsEmail, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class CrearUsuarioDto {
   @MinLength(3)
+  @MaxLength(120)
   nombre!: string;
 
   @IsEmail()
   email!: string;
 
   @MinLength(8)
+  @MaxLength(72) // bcrypt solo considera los primeros 72 bytes
   password!: string;
 
-  @IsEnum(Rol)
-  rol!: Rol;
+  @IsUUID()
+  rolId!: string;
 }

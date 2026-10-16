@@ -88,6 +88,8 @@ export class ConfiguracionService {
       nombreComercial: empresa.nombreComercial,
       nombreProducto: empresa.nombreProducto,
       colorPrimario: empresa.colorPrimario,
+      // La pantalla lo necesita para cerrar la sesión por inactividad.
+      minutosInactividad: empresa.minutosInactividad,
       tieneLogo: empresa.logoRuta !== null,
       // Cambia cada vez que se edita la configuración: sirve para que el
       // navegador no muestre un logo viejo desde su caché.
@@ -135,6 +137,9 @@ export class ConfiguracionService {
         diasGraciaMora: dto.diasGraciaMora,
         diasSemaforoAmarillo: dto.diasSemaforoAmarillo,
         diasAntesRecordatorio: dto.diasAntesRecordatorio,
+        intentosMaximosLogin: dto.intentosMaximosLogin,
+        minutosBloqueoLogin: dto.minutosBloqueoLogin,
+        minutosInactividad: dto.minutosInactividad,
       },
     });
   }

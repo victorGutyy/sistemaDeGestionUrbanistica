@@ -72,6 +72,7 @@ describe('ConfiguracionService', () => {
         ...EMPRESA,
         nombreProducto: 'Plataforma',
         colorPrimario: '#0f766e',
+        minutosInactividad: 30,
         logoRuta: 'empresa/logo.png',
       });
 
@@ -81,6 +82,7 @@ describe('ConfiguracionService', () => {
         nombreComercial: 'Empresa de Prueba',
         nombreProducto: 'Plataforma',
         colorPrimario: '#0f766e',
+        minutosInactividad: 30,
         tieneLogo: true,
         version: EMPRESA.updatedAt.getTime(),
       });
@@ -100,6 +102,9 @@ describe('ConfiguracionService', () => {
         diasGraciaMora: 3,
         diasSemaforoAmarillo: 5,
         diasAntesRecordatorio: 3,
+        intentosMaximosLogin: 5,
+        minutosBloqueoLogin: 15,
+        minutosInactividad: 30,
       });
 
       const { data } = prisma.configuracionEmpresa.update.mock.calls[0][0];
@@ -120,6 +125,9 @@ describe('ConfiguracionService', () => {
         diasGraciaMora: 0,
         diasSemaforoAmarillo: 5,
         diasAntesRecordatorio: 3,
+        intentosMaximosLogin: 5,
+        minutosBloqueoLogin: 15,
+        minutosInactividad: 30,
       });
 
       const { data } = prisma.configuracionEmpresa.update.mock.calls[0][0];

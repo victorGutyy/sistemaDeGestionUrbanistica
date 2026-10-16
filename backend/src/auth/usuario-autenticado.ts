@@ -1,10 +1,10 @@
-import { Rol } from '../generated/prisma/enums.js';
-
-// Forma del payload del JWT, y de lo que queda en request.user tras
-// pasar por JwtStrategy.
+// Lo que queda en request.user tras pasar por JwtStrategy. Se arma en cada
+// petición con datos frescos de la base: si el gerente cambia el rol o
+// desactiva a alguien, el cambio aplica de inmediato.
 export interface UsuarioAutenticado {
   id: string;
   email: string;
   nombre: string;
-  rol: Rol;
+  rol: { id: string; clave: string; nombre: string };
+  permisos: string[];
 }

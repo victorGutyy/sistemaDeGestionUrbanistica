@@ -38,4 +38,19 @@ export class ActualizarParametrosDto {
   @Min(0)
   @Max(60)
   diasAntesRecordatorio!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  intentosMaximosLogin!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(1440)
+  minutosBloqueoLogin!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(480)
+  minutosInactividad!: number;
 }

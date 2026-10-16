@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
+import { PERMISOS } from '../auth/permisos.js';
+import { Permiso } from '../auth/roles.decorator.js';
 import { AbonosService } from './abonos.service.js';
 import { CrearAbonoDto } from './dto/crear-abono.dto.js';
 
@@ -22,6 +24,7 @@ const TAMANO_MAXIMO_COMPROBANTE = 10 * 1024 * 1024;
 export class AbonosController {
   constructor(private readonly abonosService: AbonosService) {}
 
+  @Permiso(PERMISOS.ABONOS_REGISTRAR)
   @Post()
   @UseInterceptors(
     FileInterceptor('comprobante', {
@@ -39,11 +42,13 @@ export class AbonosController {
     return this.abonosService.crear(dto, comprobante);
   }
 
+  @Permiso(PERMISOS.ABONOS_VER)
   @Get()
   listar(@Query('ventaId') ventaId: string) {
     return this.abonosService.listarPorVenta(ventaId);
   }
 
+  @Permiso(PERMISOS.ABONOS_VER)
   @Get(':id/comprobante')
   async descargarComprobante(@Param('id') id: string, @Res() res: Response) {
     const { buffer, contentType } = await this.abonosService.obtenerComprobante(id);

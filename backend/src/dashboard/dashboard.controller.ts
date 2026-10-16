@@ -1,5 +1,7 @@
 import { Controller, Get, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { PERMISOS } from '../auth/permisos.js';
+import { Permiso } from '../auth/roles.decorator.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { FiltroPeriodoDto } from '../finanzas/dto/filtro-periodo.dto.js';
 import { DashboardService } from './dashboard.service.js';
@@ -14,11 +16,13 @@ export class DashboardController {
     private readonly configuracion: ConfiguracionService,
   ) {}
 
+  @Permiso(PERMISOS.DASHBOARD_VER)
   @Get()
   resumen(@Query() filtro: FiltroPeriodoDto) {
     return this.dashboardService.resumen(filtro);
   }
 
+  @Permiso(PERMISOS.DASHBOARD_VER)
   @Get('exportar')
   async exportar(@Query() query: ExportarDashboardDto, @Res() res: Response) {
     const [resumen, empresa] = await Promise.all([

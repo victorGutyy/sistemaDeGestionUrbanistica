@@ -1,47 +1,35 @@
 import { ForbiddenException, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Rol } from '../generated/prisma/enums.js';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
-import { ROLES_KEY } from './roles.decorator.js';
+import { PERMISOS_KEY, SOLO_SESION_KEY } from './roles.decorator.js';
 import type { UsuarioAutenticado } from './usuario-autenticado.js';
 
 // Guard global (ver AppModule), corre después de JwtAuthGuard.
 //
-// Reglas:
+// Reglas, en orden:
 // - Ruta @Public(): pasa sin más.
-// - Ruta con @Roles(...): el rol del usuario debe estar en esa lista.
-// - Cualquier otra ruta: el rol CONSULTA solo puede hacer GET (solo
-//   lectura en toda la app); propietario y administrador pasan siempre.
+// - Ruta @SoloSesion(): pasa con cualquier sesión válida.
+// - Ruta con @Permiso(...): el rol del usuario debe tener todos esos permisos.
+// - Cualquier otra ruta: se rechaza (cerrado por defecto).
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const esPublica = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (esPublica) return true;
+    const destinos = [context.getHandler(), context.getClass()];
 
-    const rolesPermitidos = this.reflector.getAllAndOverride<Rol[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, destinos)) return true;
+    if (this.reflector.getAllAndOverride<boolean>(SOLO_SESION_KEY, destinos)) return true;
 
-    const request = context.switchToHttp().getRequest();
-    const usuario: UsuarioAutenticado = request.user;
-
-    if (rolesPermitidos && rolesPermitidos.length > 0) {
-      if (!rolesPermitidos.includes(usuario.rol)) {
-        throw new ForbiddenException('No tienes permiso para realizar esta acción');
-      }
-      return true;
+    const requeridos = this.reflector.getAllAndOverride<string[]>(PERMISOS_KEY, destinos);
+    if (!requeridos || requeridos.length === 0) {
+      throw new ForbiddenException('Esta ruta no tiene un permiso asignado');
     }
 
-    if (usuario.rol === Rol.CONSULTA && request.method !== 'GET') {
-      throw new ForbiddenException('Tu rol solo tiene acceso de lectura');
+    const usuario: UsuarioAutenticado = context.switchToHttp().getRequest().user;
+    if (!requeridos.every((permiso) => usuario.permisos.includes(permiso))) {
+      throw new ForbiddenException('No tienes permiso para realizar esta acción');
     }
-
     return true;
   }
 }
