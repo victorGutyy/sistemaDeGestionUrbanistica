@@ -11,6 +11,7 @@ import { ContabilidadPage } from './pages/ContabilidadPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { EditarUsuarioPage } from './pages/EditarUsuarioPage'
 import { LoginPage } from './pages/LoginPage'
+import { LoteDetallePage } from './pages/LoteDetallePage'
 import { NominaPage } from './pages/NominaPage'
 import { ProyectoDetallePage } from './pages/ProyectoDetallePage'
 import { ProyectosPage } from './pages/ProyectosPage'
@@ -43,6 +44,7 @@ function App() {
               <Route path="/proyectos/nuevo" element={<RegistrarProyectoPage />} />
               <Route path="/proyectos/:id/lotes/nuevo" element={<RegistrarLotePage />} />
               <Route path="/proyectos/:id" element={<ProyectoDetallePage />} />
+              <Route path="/lotes/:id" element={<LoteDetallePage />} />
               <Route path="/ventas/nueva" element={<RegistrarVentaPage />} />
               <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />
               <Route path="/ventas/:id" element={<VentaDetallePage />} />

@@ -17,6 +17,18 @@ export function borrarToken() {
 // desactivado, contraseña restablecida, sesión vencida): AuthContext lo escucha.
 export const EVENTO_SESION_INVALIDA = 'sesion-invalida'
 
+export class ErrorApi extends Error {
+  estado: number
+  // Código de negocio que manda el servidor en algunos errores (p. ej. AREA_EXCEDIDA).
+  codigo?: string
+
+  constructor(mensaje: string, estado: number, codigo?: string) {
+    super(mensaje)
+    this.estado = estado
+    this.codigo = codigo
+  }
+}
+
 async function lanzarErrorHttp(respuesta: Response, path: string): Promise<never> {
   const cuerpo = await respuesta.json().catch(() => null)
   const mensaje = Array.isArray(cuerpo?.message) ? cuerpo.message.join(', ') : cuerpo?.message
@@ -26,7 +38,7 @@ async function lanzarErrorHttp(respuesta: Response, path: string): Promise<never
     // Un 401 sin sesión previa es un intento de ingreso fallido, no una sesión caída.
     if (habiaSesion) window.dispatchEvent(new Event(EVENTO_SESION_INVALIDA))
   }
-  throw new Error(mensaje ?? `Error ${respuesta.status} al llamar ${path}`)
+  throw new ErrorApi(mensaje ?? `Error ${respuesta.status} al llamar ${path}`, respuesta.status, cuerpo?.codigo)
 }
 
 async function solicitar<T>(path: string, options?: RequestInit): Promise<T> {
@@ -97,7 +109,9 @@ async function abrirArchivo(path: string) {
   }
 }
 
-export type EstadoLote = 'DISPONIBLE' | 'RESERVADO' | 'VENDIDO'
+export type EstadoLote = 'DISPONIBLE' | 'SEPARADO' | 'VENDIDO' | 'ESCRITURADO' | 'DESISTIDO'
+export type TipoProyecto = 'LOTES' | 'REMODELACION' | 'MAQUINARIA'
+export type AccionLote = 'SEPARAR' | 'LIBERAR' | 'VENDER' | 'ESCRITURAR' | 'DESISTIR' | 'REPONER'
 export type FormaPago = 'CONTADO' | 'FINANCIADO'
 
 export interface Lote {
@@ -106,7 +120,14 @@ export interface Lote {
   area: string
   valorVenta: string
   estado: EstadoLote
+  linderos: string | null
   proyecto: { id: string; nombre: string }
+  manzana: Manzana | null
+}
+
+export interface Manzana {
+  id: string
+  nombre: string
 }
 
 export interface Cliente {
@@ -119,6 +140,8 @@ export interface Proyecto {
   id: string
   nombre: string
   ubicacion: string | null
+  municipio: string | null
+  tipo: TipoProyecto
   areaTotal: string
   estado: 'ACTIVO' | 'FINALIZADO'
   // Solo viene en la respuesta de listarProyectos, no en obtenerProyecto.
@@ -131,7 +154,9 @@ export function listarProyectos() {
 
 export interface CrearProyectoPayload {
   nombre: string
+  tipo?: TipoProyecto
   ubicacion?: string
+  municipio?: string
   areaTotal: string
   valorCompra?: string
   fechaCompra?: string
@@ -150,10 +175,24 @@ export interface LoteDeProyecto {
   area: string
   valorVenta: string
   estado: EstadoLote
+  manzana: Manzana | null
+}
+
+// Los valores de área llegan como texto decimal ("1200", "-200").
+export interface ResumenAreas {
+  areaTotal: string
+  areaSubdividida: string
+  areaDisponible: string
 }
 
 export interface ProyectoConLotes extends Proyecto {
+  manzanas: Manzana[]
   lotes: LoteDeProyecto[]
+  resumenAreas: ResumenAreas
+}
+
+export function crearManzana(proyectoId: string, nombre: string) {
+  return solicitar<Manzana>(`/proyectos/${proyectoId}/manzanas`, { method: 'POST', body: JSON.stringify({ nombre }) })
 }
 
 export function obtenerProyecto(id: string) {
@@ -169,9 +208,14 @@ export function actualizarEstadoProyecto(id: string, estado: 'ACTIVO' | 'FINALIZ
 
 export interface CrearLotePayload {
   proyectoId: string
+  manzanaId?: string
   numero: string
   area: string
+  linderos?: string
+  valorPorM2?: string
   valorVenta: string
+  // Confirma crear el lote aunque supere el área disponible del proyecto.
+  confirmarExcesoArea?: boolean
 }
 
 export function crearLote(payload: CrearLotePayload) {
@@ -181,8 +225,92 @@ export function crearLote(payload: CrearLotePayload) {
   })
 }
 
-export function listarLotesDisponibles() {
-  return solicitar<Lote[]>('/lotes?estado=DISPONIBLE')
+export interface FiltroLotes {
+  proyectoId?: string
+  manzanaId?: string
+  estado?: EstadoLote
+  buscar?: string
+}
+
+export function listarLotes(filtro: FiltroLotes = {}) {
+  const params = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(filtro)) {
+    if (valor) params.set(clave, valor)
+  }
+  const consulta = params.toString()
+  return solicitar<Lote[]>(`/lotes${consulta ? `?${consulta}` : ''}`)
+}
+
+// Lotes que se pueden vender: disponibles y separados.
+export async function listarLotesVendibles() {
+  const [disponibles, separados] = await Promise.all([
+    listarLotes({ estado: 'DISPONIBLE' }),
+    listarLotes({ estado: 'SEPARADO' }),
+  ])
+  return [...disponibles, ...separados]
+}
+
+export interface EventoLote {
+  id: string
+  tipo: 'CREACION' | 'CAMBIO_ESTADO' | 'CAMBIO_PRECIO'
+  estadoAnterior: EstadoLote | null
+  estadoNuevo: EstadoLote | null
+  valorAnterior: string | null
+  valorNuevo: string | null
+  motivo: string | null
+  createdAt: string
+  usuario: { nombre: string }
+}
+
+export interface FichaLote {
+  id: string
+  numero: string
+  area: string
+  linderos: string | null
+  valorPorM2: string | null
+  valorVenta: string
+  estado: EstadoLote
+  escrituraNumero: string | null
+  escrituraNotaria: string | null
+  escrituraFecha: string | null
+  proyecto: Proyecto
+  manzana: Manzana | null
+  historial: EventoLote[]
+  // Acciones manuales que aplican al estado actual.
+  acciones: AccionLote[]
+}
+
+export function obtenerLote(id: string) {
+  return solicitar<FichaLote>(`/lotes/${id}`)
+}
+
+export interface ActualizarLotePayload {
+  area?: string
+  linderos?: string
+  valorPorM2?: string
+  valorVenta?: string
+  motivo?: string
+  confirmarExcesoArea?: boolean
+}
+
+export function actualizarLote(id: string, payload: ActualizarLotePayload) {
+  return solicitar<Lote>(`/lotes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export function separarLote(id: string, motivo?: string) {
+  return solicitar<Lote>(`/lotes/${id}/separar`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
+export function liberarLote(id: string, motivo?: string) {
+  return solicitar<Lote>(`/lotes/${id}/liberar`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
+export function escriturarLote(id: string, datos: { numero: string; notaria?: string; fecha: string }) {
+  return solicitar<Lote>(`/lotes/${id}/escriturar`, { method: 'POST', body: JSON.stringify(datos) })
+}
+
+export function reponerLote(id: string, motivo: string) {
+  return solicitar<Lote>(`/lotes/${id}/reponer`, { method: 'POST', body: JSON.stringify({ motivo }) })
 }
 
 export function listarClientes() {

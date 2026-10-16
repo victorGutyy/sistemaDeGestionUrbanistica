@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   crearVenta,
   listarClientes,
-  listarLotesDisponibles,
+  listarLotesVendibles,
   type Cliente,
   type FormaPago,
   type Lote,
@@ -37,7 +37,7 @@ export function RegistrarVentaPage() {
   const [fechaVenta, setFechaVenta] = useState(() => hoyEnBogota())
 
   useEffect(() => {
-    Promise.all([listarLotesDisponibles(), listarClientes()])
+    Promise.all([listarLotesVendibles(), listarClientes()])
       .then(([lotesRecibidos, clientesRecibidos]) => {
         setLotes(lotesRecibidos)
         setClientes(clientesRecibidos)
@@ -141,7 +141,7 @@ export function RegistrarVentaPage() {
             </option>
             {lotes.map((lote) => (
               <option key={lote.id} value={lote.id}>
-                {lote.proyecto.nombre} — Lote {lote.numero} ({lote.area} m², {formatearCOP(lote.valorVenta)})
+                {lote.proyecto.nombre} — {lote.manzana ? `Mz. ${lote.manzana.nombre} · ` : ''}Lote {lote.numero}{lote.estado === 'SEPARADO' ? ' (separado)' : ''} ({lote.area} m², {formatearCOP(lote.valorVenta)})
               </option>
             ))}
           </select>

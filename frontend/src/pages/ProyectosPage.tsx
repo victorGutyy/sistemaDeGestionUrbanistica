@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
 import { listarProyectos, type Proyecto } from '../lib/api'
+import { ETIQUETA_TIPO_PROYECTO } from '../lib/estadoLote'
 
 export function ProyectosPage() {
   const { tiene } = useAuth()
@@ -22,7 +23,7 @@ export function ProyectosPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Proyectos</h1>
-          <p className="text-sm text-slate-500">Predios y su subdivisión en lotes.</p>
+          <p className="text-sm text-slate-500">Predios en lotes, remodelaciones y maquinaria.</p>
         </div>
         {tiene(PERMISOS.PROYECTOS_GESTIONAR) && (
           <div className="flex gap-2">
@@ -53,6 +54,7 @@ export function ProyectosPage() {
           <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Nombre</th>
+              <th className="px-4 py-3 font-medium">Tipo</th>
               <th className="px-4 py-3 font-medium">Ubicación</th>
               <th className="px-4 py-3 font-medium">Área total</th>
               <th className="px-4 py-3 font-medium">Lotes</th>
@@ -62,7 +64,7 @@ export function ProyectosPage() {
           <tbody>
             {!cargando && proyectos.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
                   Todavía no hay proyectos registrados.
                 </td>
               </tr>
@@ -74,9 +76,10 @@ export function ProyectosPage() {
                     {proyecto.nombre}
                   </Link>
                 </td>
-                <td className="px-4 py-3">{proyecto.ubicacion ?? '—'}</td>
+                <td className="px-4 py-3">{ETIQUETA_TIPO_PROYECTO[proyecto.tipo]}</td>
+                <td className="px-4 py-3">{[proyecto.municipio, proyecto.ubicacion].filter(Boolean).join(' · ') || '—'}</td>
                 <td className="px-4 py-3">{proyecto.areaTotal} m²</td>
-                <td className="px-4 py-3">{proyecto._count?.lotes ?? 0}</td>
+                <td className="px-4 py-3">{proyecto.tipo === 'LOTES' ? (proyecto._count?.lotes ?? 0) : '—'}</td>
                 <td className="px-4 py-3">{proyecto.estado}</td>
               </tr>
             ))}
