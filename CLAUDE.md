@@ -79,6 +79,7 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 
 ## Deuda técnica conocida (quitar de aquí cuando se resuelva)
 - Hoy no hay auditoría general, edición de datos ni búsqueda de clientes (la auditoría llega en el paso 2.8).
+- Cierre de caja: la semana (lunes a domingo) y la quincena (1 al 15 y 16 al fin de mes) son definiciones PROVISIONALES a confirmar con el cliente (viven en `backend/src/cierres-caja/periodo.ts`). Los cierres son de toda la empresa y no hay cierre por proyecto. El PDF del cierre se verificó por contenido y número de hojas, pero no se vio renderizado.
 - Las categorías de gasto del sistema (Nómina, Comisiones, Devolución por desistimiento) también aparecen en el formulario manual de egresos; elegir "Devolución por desistimiento" a mano no la liga a una venta. Decidir si se ocultan en el formulario.
 - Los archivos de pantalla conservan su nombre original aunque cambió el texto (`ContabilidadPage.tsx` ahora es "Finanzas", ruta `/finanzas`; `/contabilidad` redirige). Renombrar el archivo requiere mover/borrar: pedir confirmación.
 - Al anular un abono, lo que aplicaron los demás abonos no se reacomoda: la anulación devuelve el valor a las cuotas donde ese abono cayó. El total pagado y el saldo siempre cuadran, pero pueden quedar cuotas posteriores parcialmente pagadas con una anterior pendiente. Decidir con el cliente si prefiere reaplicar en orden.

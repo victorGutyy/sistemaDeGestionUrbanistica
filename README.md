@@ -89,7 +89,8 @@ Ya existe en la base:
 
 En adaptación (ver `docs/requerimientos.md`):
 - ✅ Finanzas: egresos e ingresos con categoría (de gasto o de ingreso, administrables por el gerente), medio de pago y cuenta, tercero y número de factura, soporte adjunto o motivo de no tenerlo, anulación solo por el gerente (el movimiento se conserva y no suma), movimientos inmutables en la base de datos, finanzas por proyecto (ingresos, egresos, utilidad, vendido, recaudado y saldo por cobrar) y la devolución de un desistimiento registrada como egreso. El pago de nómina guarda medio y cuenta.
-- ⏳ Etapa 1: cierre de caja, auditoría e importador de Excel.
+- ✅ Cierre de caja: diario, semanal o quincenal, con períodos consecutivos y sin huecos, totales por medio de pago y por cuenta, efectivo esperado contra contado con la diferencia explicada, flujo borrador → cerrado → aprobado o devuelto por el gerente, las anulaciones aparecen en el cierre del período en que se anularon, un día ya cerrado no admite registros nuevos y exportación a PDF.
+- ⏳ Etapa 1: auditoría general e importador de Excel.
 - ⏳ Etapa 2: notificaciones (correo y WhatsApp), verificación de consignaciones, comisiones, panel y reportes ampliados, recuperación de contraseña.
 - ⏳ Etapa 3: módulo de personal.
 
