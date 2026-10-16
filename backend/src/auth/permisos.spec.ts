@@ -51,6 +51,10 @@ describe('catálogo de permisos y roles del sistema', () => {
     expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.ABONOS_ANULAR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
   });
 
+  it('solo el gerente anula egresos e ingresos (RF-EGR-04)', () => {
+    expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.FINANZAS_ANULAR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
+  });
+
   it('solo el gerente registra desistimientos', () => {
     expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.VENTAS_DESISTIR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
   });

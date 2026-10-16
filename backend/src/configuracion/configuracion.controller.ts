@@ -25,7 +25,12 @@ import { ActualizarComisionDto } from './dto/actualizar-comision.dto.js';
 import { ActualizarEmpresaDto } from './dto/actualizar-empresa.dto.js';
 import { ActualizarMedioPagoDto } from './dto/actualizar-medio-pago.dto.js';
 import { ActualizarParametrosDto } from './dto/actualizar-parametros.dto.js';
-import { ActualizarCategoriaGastoDto, CrearCategoriaGastoDto } from './dto/categoria-gasto.dto.js';
+import {
+  ActualizarCategoriaGastoDto,
+  ActualizarCategoriaIngresoDto,
+  CrearCategoriaGastoDto,
+  CrearCategoriaIngresoDto,
+} from './dto/categoria-gasto.dto.js';
 import { ActualizarCuentaBancariaDto, CrearCuentaBancariaDto } from './dto/cuenta-bancaria.dto.js';
 
 const TAMANO_MAXIMO_LOGO = 2 * 1024 * 1024;
@@ -126,6 +131,18 @@ export class ConfiguracionController {
   @Patch('categorias-gasto/:id')
   actualizarCategoriaGasto(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCategoriaGastoDto) {
     return this.configuracionService.actualizarCategoriaGasto(id, dto);
+  }
+
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
+  @Post('categorias-ingreso')
+  crearCategoriaIngreso(@Body() dto: CrearCategoriaIngresoDto) {
+    return this.configuracionService.crearCategoriaIngreso(dto);
+  }
+
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
+  @Patch('categorias-ingreso/:id')
+  actualizarCategoriaIngreso(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCategoriaIngresoDto) {
+    return this.configuracionService.actualizarCategoriaIngreso(id, dto);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)

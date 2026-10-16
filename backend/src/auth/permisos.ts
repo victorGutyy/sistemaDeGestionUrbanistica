@@ -20,6 +20,7 @@ export const PERMISOS = {
   CARTERA_VER: 'cartera.ver',
   FINANZAS_VER: 'finanzas.ver',
   FINANZAS_REGISTRAR: 'finanzas.registrar',
+  FINANZAS_ANULAR: 'finanzas.anular', // anular un egreso o ingreso (solo gerente)
   NOMINA_VER: 'nomina.ver',
   NOMINA_GESTIONAR: 'nomina.gestionar', // trabajadores y pagos
   DASHBOARD_VER: 'dashboard.ver',
@@ -70,6 +71,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.VENTAS_AUTORIZAR &&
         permiso !== PERMISOS.VENTAS_DESISTIR &&
         permiso !== PERMISOS.ABONOS_ANULAR &&
+        permiso !== PERMISOS.FINANZAS_ANULAR &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,

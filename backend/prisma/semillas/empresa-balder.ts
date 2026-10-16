@@ -32,15 +32,23 @@ export const CUENTAS = [
   { banco: 'Davivienda', tipo: 'AHORROS' as const, numero: 'POR CONFIGURAR', alias: 'Davivienda (por configurar)' },
 ];
 
-// "Nómina" y "Comisiones" son del sistema: otros módulos las usan y no se pueden quitar.
+// "Nómina", "Comisiones" y "Devolución por desistimiento" son del sistema: otros módulos las usan y no se pueden quitar.
 export const CATEGORIAS_GASTO = [
   { nombre: 'Nómina', esSistema: true },
   { nombre: 'Comisiones', esSistema: true },
+  { nombre: 'Devolución por desistimiento', esSistema: true },
   { nombre: 'Materiales', esSistema: false },
   { nombre: 'Servicios públicos', esSistema: false },
   { nombre: 'Transporte', esSistema: false },
   { nombre: 'Trámites y legales', esSistema: false },
   { nombre: 'Publicidad', esSistema: false },
+  { nombre: 'Otros', esSistema: false },
+];
+
+// Los ingresos por cuotas y abonos de lotes no llevan categoría: se suman solos desde los abonos.
+export const CATEGORIAS_INGRESO = [
+  { nombre: 'Anticipo de remodelación', esSistema: false },
+  { nombre: 'Otros servicios', esSistema: false },
   { nombre: 'Otros', esSistema: false },
 ];
 

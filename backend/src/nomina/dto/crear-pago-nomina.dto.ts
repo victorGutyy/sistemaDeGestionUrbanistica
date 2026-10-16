@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsOptional, IsUUID, Matches, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsUUID, Matches, ValidateNested } from 'class-validator';
+import { MedioPago } from '../../generated/prisma/enums.js';
 import { CrearNovedadDto } from './crear-novedad.dto.js';
 
 export class CrearPagoNominaDto {
@@ -15,6 +16,14 @@ export class CrearPagoNominaDto {
 
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'fechaPago debe tener el formato YYYY-MM-DD' })
   fechaPago!: string;
+
+  // Con qué se pagó y, si no fue en efectivo, de qué cuenta salió el dinero.
+  @IsEnum(MedioPago)
+  medioPago!: MedioPago;
+
+  @IsOptional()
+  @IsUUID()
+  cuentaId?: string;
 
   @IsOptional()
   @IsArray()

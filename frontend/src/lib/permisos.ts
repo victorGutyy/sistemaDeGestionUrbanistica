@@ -17,6 +17,7 @@ export const PERMISOS = {
   CARTERA_VER: 'cartera.ver',
   FINANZAS_VER: 'finanzas.ver',
   FINANZAS_REGISTRAR: 'finanzas.registrar',
+  FINANZAS_ANULAR: 'finanzas.anular',
   NOMINA_VER: 'nomina.ver',
   NOMINA_GESTIONAR: 'nomina.gestionar',
   DASHBOARD_VER: 'dashboard.ver',

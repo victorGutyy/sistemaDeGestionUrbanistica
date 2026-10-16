@@ -103,6 +103,18 @@ enum TipoMovimiento {
   GASTO
 }
 
+// Un movimiento anulado se conserva (con quién, cuándo y por qué) pero no suma en ningún total.
+enum EstadoMovimiento {
+  ACTIVO
+  ANULADO
+}
+
+// De dónde viene el movimiento: lo escribió una persona o lo generó el sistema.
+enum OrigenMovimiento {
+  MANUAL
+  DEVOLUCION_DESISTIMIENTO
+}
+
 enum EstadoTrabajador {
   ACTIVO
   INACTIVO
@@ -143,33 +155,35 @@ model RolUsuario {
 // Cuenta de acceso a la app. No hay registro público: las crea el gerente
 // desde la sección de Usuarios.
 model Usuario {
-  id                        String            @id @default(uuid())
+  id                        String                 @id @default(uuid())
   nombre                    String
-  email                     String            @unique
+  email                     String                 @unique
   passwordHash              String
   rolId                     String
-  rol                       RolUsuario        @relation(fields: [rolId], references: [id])
-  estado                    EstadoUsuario     @default(ACTIVO)
+  rol                       RolUsuario             @relation(fields: [rolId], references: [id])
+  estado                    EstadoUsuario          @default(ACTIVO)
   // Bloqueo temporal por intentos fallidos de ingreso.
-  intentosFallidos          Int               @default(0)
+  intentosFallidos          Int                    @default(0)
   bloqueadoHasta            DateTime?
   ultimoIngreso             DateTime?
   // Las sesiones (tokens) emitidas antes de esta fecha dejan de valer: se usa al restablecer la contraseña.
   sesionesValidasDesde      DateTime?
   // Alcance por proyecto: true = ve todos los proyectos. Si es false, solo ve
   // los de proyectosPermitidos (solo se permite en roles limitablePorProyecto).
-  todosLosProyectos         Boolean           @default(true)
+  todosLosProyectos         Boolean                @default(true)
   proyectosPermitidos       UsuarioProyecto[]
   historialLotes            LoteHistorial[]
-  abonosRegistrados         Abono[]           @relation("AbonosRegistrados")
-  abonosAnulados            Abono[]           @relation("AbonosAnulados")
+  abonosRegistrados         Abono[]                @relation("AbonosRegistrados")
+  abonosAnulados            Abono[]                @relation("AbonosAnulados")
+  movimientosRegistrados    MovimientoFinanciero[] @relation("MovimientosRegistrados")
+  movimientosAnulados       MovimientoFinanciero[] @relation("MovimientosAnulados")
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
-  ventasRegistradas         Venta[]           @relation("VentasRegistradas")
-  ventasResueltas           Venta[]           @relation("VentasResueltas")
-  createdAt                 DateTime          @default(now())
-  updatedAt                 DateTime          @updatedAt
+  ventasRegistradas         Venta[]                @relation("VentasRegistradas")
+  ventasResueltas           Venta[]                @relation("VentasResueltas")
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
 
   @@index([rolId])
 }
@@ -360,45 +374,46 @@ model Vendedor {
 // para no perder el rastro de por qué el lote volvió a estar disponible.
 // La cuota inicial es la cuota número 0 del plan (ver Cuota); se paga con abonos como cualquier cuota.
 model Venta {
-  id                String           @id @default(uuid())
+  id                String                 @id @default(uuid())
   loteId            String
-  lote              Lote             @relation(fields: [loteId], references: [id])
+  lote              Lote                   @relation(fields: [loteId], references: [id])
   clienteId         String
-  cliente           Cliente          @relation(fields: [clienteId], references: [id])
+  cliente           Cliente                @relation(fields: [clienteId], references: [id])
   vendedorId        String?
-  vendedor          Vendedor?        @relation(fields: [vendedorId], references: [id])
-  valorTotal        Decimal          @db.Decimal(14, 2)
-  cuotaInicial      Decimal          @db.Decimal(14, 2)
+  vendedor          Vendedor?              @relation(fields: [vendedorId], references: [id])
+  valorTotal        Decimal                @db.Decimal(14, 2)
+  cuotaInicial      Decimal                @db.Decimal(14, 2)
   // numeroCuotas y tasaInteres solo aplican cuando formaPago = FINANCIADO.
   numeroCuotas      Int?
-  tasaInteres       Decimal?         @db.Decimal(5, 2)
+  tasaInteres       Decimal?               @db.Decimal(5, 2)
   formaPago         FormaPago
-  fechaVenta        DateTime         @default(now())
+  fechaVenta        DateTime               @default(now())
   // Hasta cuándo se espera la cuota inicial (cuota 0); por defecto, el día de la venta.
   fechaCuotaInicial DateTime?
-  estado            EstadoVenta      @default(ACTIVA)
+  estado            EstadoVenta            @default(ACTIVA)
   // Quién registró la venta (nulo en ventas anteriores al control por usuario).
   registradaPorId   String?
-  registradaPor     Usuario?         @relation("VentasRegistradas", fields: [registradaPorId], references: [id])
+  registradaPor     Usuario?               @relation("VentasRegistradas", fields: [registradaPorId], references: [id])
   // Excepción: cuota inicial menor a la configurada o plazo mayor al máximo. Exige motivo y
   // la autorización de un gerente (quien tenga el permiso ventas.autorizar).
-  esExcepcion       Boolean          @default(false)
+  esExcepcion       Boolean                @default(false)
   motivoExcepcion   String?
   // Quién autorizó o rechazó la excepción, cuándo y, si se rechazó, por qué.
   resueltaPorId     String?
-  resueltaPor       Usuario?         @relation("VentasResueltas", fields: [resueltaPorId], references: [id])
+  resueltaPor       Usuario?               @relation("VentasResueltas", fields: [resueltaPorId], references: [id])
   resueltaEn        DateTime?
   motivoRechazo     String?
   // true si esta venta fue la que dejó el lote SEPARADO mientras esperaba aprobación
   // (para liberarlo si se rechaza).
-  separoElLote      Boolean          @default(false)
+  separoElLote      Boolean                @default(false)
   cuotas            Cuota[]
   abonos            Abono[]
   documentos        DocumentoVenta[]
   desistimiento     Desistimiento?
+  movimientos       MovimientoFinanciero[]
   separacion        Separacion?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
   @@index([loteId])
   @@index([estado])
@@ -500,20 +515,54 @@ model Recibo {
   @@unique([serie, numero])
 }
 
-// Gasto o ingreso general de la empresa, no ligado necesariamente a un
-// proyecto (arriendo de oficina, venta de un excedente, etc.). Los pagos
-// de clientes por la venta de lotes ya se registran como Abono; no se
-// duplican aquí, el consolidado de caja los suma desde su propia tabla.
+// Egreso o ingreso que no viene de un abono de cliente (arriendo, materiales, otros servicios, la
+// devolución de un desistimiento...). Los pagos de clientes por lotes ya son Abono y no se duplican
+// aquí: los totales y el detalle de finanzas los suman desde su propia tabla.
+//
+// Es inmutable (la base lo impide): si hay un error se anula con motivo y se registra uno nuevo.
+// Los egresos exigen soporte adjunto o el motivo por el que no hay.
 model MovimientoFinanciero {
-  id         String         @id @default(uuid())
-  tipo       TipoMovimiento
-  fecha      DateTime
-  valor      Decimal        @db.Decimal(14, 2)
-  concepto   String
-  proyectoId String?
-  proyecto   Proyecto?      @relation(fields: [proyectoId], references: [id])
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  id                 String            @id @default(uuid())
+  tipo               TipoMovimiento
+  fecha              DateTime
+  valor              Decimal           @db.Decimal(14, 2)
+  descripcion        String
+  // Sin proyecto = gasto o ingreso general de la empresa.
+  proyectoId         String?
+  proyecto           Proyecto?         @relation(fields: [proyectoId], references: [id])
+  // Un egreso lleva categoría de gasto y un ingreso categoría de ingreso (lo exige la base).
+  categoriaGastoId   String?
+  categoriaGasto     CategoriaGasto?   @relation(fields: [categoriaGastoId], references: [id])
+  categoriaIngresoId String?
+  categoriaIngreso   CategoriaIngreso? @relation(fields: [categoriaIngresoId], references: [id])
+  medioPago          MedioPago
+  // Cuenta de donde salió (egreso) o a donde entró (ingreso) el dinero; obligatoria si no es efectivo.
+  cuentaId           String?
+  cuenta             CuentaBancaria?   @relation(fields: [cuentaId], references: [id])
+  referencia         String?
+  // Quién recibió o pagó, y el número de su factura o recibo (RF-EGR-09).
+  terceroNombre      String?
+  terceroDocumento   String?
+  numeroDocumento    String?
+  soporteRuta        String?
+  motivoSinSoporte   String?
+  origen             OrigenMovimiento  @default(MANUAL)
+  // Venta de la que viene (solo la devolución de un desistimiento).
+  ventaId            String?
+  venta              Venta?            @relation(fields: [ventaId], references: [id])
+  estado             EstadoMovimiento  @default(ACTIVO)
+  registradoPorId    String?
+  registradoPor      Usuario?          @relation("MovimientosRegistrados", fields: [registradoPorId], references: [id])
+  anuladoPorId       String?
+  anuladoPor         Usuario?          @relation("MovimientosAnulados", fields: [anuladoPorId], references: [id])
+  anuladoEn          DateTime?
+  motivoAnulacion    String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([proyectoId, fecha])
+  @@index([fecha])
+  @@index([estado])
 }
 
 // Empleado de la empresa (no de un proyecto en particular).
@@ -545,6 +594,10 @@ model PagoNomina {
   salarioBase   Decimal         @db.Decimal(14, 2)
   valorPagado   Decimal         @db.Decimal(14, 2)
   fechaPago     DateTime
+  // Con qué se pagó y de qué cuenta salió el dinero: el cierre de caja necesita saber cuánto salió en efectivo.
+  medioPago     MedioPago
+  cuentaId      String?
+  cuenta        CuentaBancaria? @relation(fields: [cuentaId], references: [id])
   novedades     NovedadNomina[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
@@ -607,15 +660,17 @@ model ConfiguracionEmpresa {
 // Cuenta de recaudo. Se desactiva, no se borra: un recibo viejo puede
 // haberse pagado a esta cuenta.
 model CuentaBancaria {
-  id        String     @id @default(uuid())
-  banco     String
-  tipo      TipoCuenta
-  numero    String
-  alias     String
-  activa    Boolean    @default(true)
-  abonos    Abono[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id          String                 @id @default(uuid())
+  banco       String
+  tipo        TipoCuenta
+  numero      String
+  alias       String
+  activa      Boolean                @default(true)
+  abonos      Abono[]
+  movimientos MovimientoFinanciero[]
+  pagosNomina PagoNomina[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
   @@unique([banco, numero])
 }
@@ -623,12 +678,25 @@ model CuentaBancaria {
 // Categoría de gasto. Las marcadas esSistema (Nómina, Comisiones) las usan
 // procesos automáticos de etapas posteriores y no se pueden desactivar.
 model CategoriaGasto {
-  id        String   @id @default(uuid())
-  nombre    String   @unique
-  activa    Boolean  @default(true)
-  esSistema Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String                 @id @default(uuid())
+  nombre      String                 @unique
+  activa      Boolean                @default(true)
+  esSistema   Boolean                @default(false)
+  movimientos MovimientoFinanciero[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+// Categoría de ingreso (RF-CFG-11): para los ingresos que no son cuotas ni abonos de lotes (esos se
+// suman solos desde los abonos), por ejemplo un anticipo de remodelación u otros servicios.
+model CategoriaIngreso {
+  id          String                 @id @default(uuid())
+  nombre      String                 @unique
+  activa      Boolean                @default(true)
+  esSistema   Boolean                @default(false)
+  movimientos MovimientoFinanciero[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 }
 
 // Una fila por valor de MedioPago: dice si está habilitado para registrar

@@ -8,7 +8,12 @@ import type { ContextoRecibo } from '../abonos/crear-abono-tx.js';
 import { empresaParaRecibo } from '../abonos/recibo-contenido.js';
 import { ActualizarEmpresaDto } from './dto/actualizar-empresa.dto.js';
 import { ActualizarParametrosDto } from './dto/actualizar-parametros.dto.js';
-import { ActualizarCategoriaGastoDto, CrearCategoriaGastoDto } from './dto/categoria-gasto.dto.js';
+import {
+  ActualizarCategoriaGastoDto,
+  ActualizarCategoriaIngresoDto,
+  CrearCategoriaGastoDto,
+  CrearCategoriaIngresoDto,
+} from './dto/categoria-gasto.dto.js';
 import { ActualizarCuentaBancariaDto, CrearCuentaBancariaDto } from './dto/cuenta-bancaria.dto.js';
 
 // La configuración es una sola fila; el CHECK de la migración impide otro id.
@@ -49,6 +54,20 @@ const CONTENT_TYPE_IMAGEN: Record<TipoImagen, string> = {
   jpg: 'image/jpeg',
   webp: 'image/webp',
 };
+
+export interface FilaCategoria {
+  id: string;
+  nombre: string;
+  activa: boolean;
+  esSistema: boolean;
+}
+
+interface TablaCategoria {
+  findUnique(args: { where: { id: string } }): Promise<FilaCategoria | null>;
+  findFirst(args: { where: { nombre: { equals: string; mode: 'insensitive' } } }): Promise<FilaCategoria | null>;
+  create(args: { data: { nombre: string } }): Promise<FilaCategoria>;
+  update(args: { where: { id: string }; data: { nombre?: string; activa?: boolean } }): Promise<FilaCategoria>;
+}
 
 @Injectable()
 export class ConfiguracionService {
@@ -92,14 +111,15 @@ export class ConfiguracionService {
   }
 
   async obtenerCompleta() {
-    const [empresa, cuentas, mediosPago, categoriasGasto, comisiones] = await Promise.all([
+    const [empresa, cuentas, mediosPago, categoriasGasto, categoriasIngreso, comisiones] = await Promise.all([
       this.obtenerEmpresa(),
       this.listarCuentas(),
       this.listarMediosPago(),
       this.listarCategoriasGasto(),
+      this.listarCategoriasIngreso(),
       this.listarComisiones(),
     ]);
-    return { empresa, cuentas, mediosPago, categoriasGasto, comisiones };
+    return { empresa, cuentas, mediosPago, categoriasGasto, categoriasIngreso, comisiones };
   }
 
   // Datos con los que se emite un recibo: la empresa tal como está HOY y quién recibió el dinero.
@@ -261,20 +281,48 @@ export class ConfiguracionService {
     }
   }
 
-  // ---------- Categorías de gasto ----------
+  // ---------- Categorías de gasto y de ingreso ----------
+  // Las dos listas se administran igual: nombre único, se desactivan en vez de borrarse y las "del sistema"
+  // (las que usan procesos automáticos) no se pueden renombrar ni desactivar.
 
   listarCategoriasGasto() {
     return this.prisma.categoriaGasto.findMany({ orderBy: [{ esSistema: 'desc' }, { nombre: 'asc' }] });
   }
 
-  async crearCategoriaGasto(dto: CrearCategoriaGastoDto) {
-    const nombre = dto.nombre.trim();
-    await this.exigirNombreDeCategoriaLibre(nombre);
-    return this.prisma.categoriaGasto.create({ data: { nombre } });
+  listarCategoriasIngreso() {
+    return this.prisma.categoriaIngreso.findMany({ orderBy: [{ esSistema: 'desc' }, { nombre: 'asc' }] });
   }
 
-  async actualizarCategoriaGasto(id: string, dto: ActualizarCategoriaGastoDto) {
-    const categoria = await this.prisma.categoriaGasto.findUnique({ where: { id } });
+  crearCategoriaGasto(dto: CrearCategoriaGastoDto) {
+    return this.crearCategoria('gasto', dto);
+  }
+
+  crearCategoriaIngreso(dto: CrearCategoriaIngresoDto) {
+    return this.crearCategoria('ingreso', dto);
+  }
+
+  actualizarCategoriaGasto(id: string, dto: ActualizarCategoriaGastoDto) {
+    return this.actualizarCategoria('gasto', id, dto);
+  }
+
+  actualizarCategoriaIngreso(id: string, dto: ActualizarCategoriaIngresoDto) {
+    return this.actualizarCategoria('ingreso', id, dto);
+  }
+
+  // Las dos tablas tienen la misma forma: se tratan con una sola interfaz.
+  private tablaCategoria(tipo: 'gasto' | 'ingreso'): TablaCategoria {
+    return (tipo === 'gasto' ? this.prisma.categoriaGasto : this.prisma.categoriaIngreso) as unknown as TablaCategoria;
+  }
+
+  private async crearCategoria(tipo: 'gasto' | 'ingreso', dto: CrearCategoriaGastoDto) {
+    const nombre = dto.nombre.trim();
+    await this.exigirNombreDeCategoriaLibre(tipo, nombre);
+    return this.tablaCategoria(tipo).create({ data: { nombre } });
+  }
+
+  private async actualizarCategoria(tipo: 'gasto' | 'ingreso', id: string, dto: ActualizarCategoriaGastoDto) {
+    const tabla = this.tablaCategoria(tipo);
+    const categoria = await tabla.findUnique({ where: { id } });
     if (!categoria) {
       throw new NotFoundException(`No existe la categoría ${id}`);
     }
@@ -286,14 +334,14 @@ export class ConfiguracionService {
       );
     }
     if (nombre !== undefined && nombre !== categoria.nombre) {
-      await this.exigirNombreDeCategoriaLibre(nombre, id);
+      await this.exigirNombreDeCategoriaLibre(tipo, nombre, id);
     }
 
-    return this.prisma.categoriaGasto.update({ where: { id }, data: { nombre, activa: dto.activa } });
+    return tabla.update({ where: { id }, data: { nombre, activa: dto.activa } });
   }
 
-  private async exigirNombreDeCategoriaLibre(nombre: string, ignorarId?: string) {
-    const existente = await this.prisma.categoriaGasto.findFirst({
+  private async exigirNombreDeCategoriaLibre(tipo: 'gasto' | 'ingreso', nombre: string, ignorarId?: string) {
+    const existente = await this.tablaCategoria(tipo).findFirst({
       where: { nombre: { equals: nombre, mode: 'insensitive' } },
     });
     if (existente && existente.id !== ignorarId) {

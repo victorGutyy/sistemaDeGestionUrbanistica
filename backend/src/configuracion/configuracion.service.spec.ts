@@ -23,6 +23,7 @@ function crearPrismaFalso() {
     cuentaBancaria: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     medioPagoConfig: { findMany: vi.fn(), createMany: vi.fn(), update: vi.fn(), count: vi.fn() },
     categoriaGasto: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    categoriaIngreso: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     comisionTipoVendedor: { findMany: vi.fn(), createMany: vi.fn(), update: vi.fn() },
   };
 }
@@ -268,6 +269,34 @@ describe('ConfiguracionService', () => {
         where: { id: 'k2' },
         data: { nombre: undefined, activa: false },
       });
+    });
+  });
+
+  describe('categorías de ingreso (RF-CFG-11)', () => {
+    it('se crean con nombre único, sin distinguir mayúsculas, y no se mezclan con las de gasto', async () => {
+      prisma.categoriaIngreso.findFirst.mockResolvedValue({ id: 'i1', nombre: 'Otros servicios' });
+      await expect(service.crearCategoriaIngreso({ nombre: 'otros SERVICIOS' })).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.categoriaGasto.findFirst).not.toHaveBeenCalled();
+
+      prisma.categoriaIngreso.findFirst.mockResolvedValue(null);
+      prisma.categoriaIngreso.create.mockResolvedValue({ id: 'i2' });
+      await service.crearCategoriaIngreso({ nombre: '  Anticipo de remodelación ' });
+      expect(prisma.categoriaIngreso.create).toHaveBeenCalledWith({ data: { nombre: 'Anticipo de remodelación' } });
+      expect(prisma.categoriaGasto.create).not.toHaveBeenCalled();
+    });
+
+    it('se pueden desactivar en vez de borrarse, y una del sistema no', async () => {
+      prisma.categoriaIngreso.findUnique.mockResolvedValue({ id: 'i2', nombre: 'Otros', esSistema: false });
+      await service.actualizarCategoriaIngreso('i2', { activa: false });
+      expect(prisma.categoriaIngreso.update).toHaveBeenCalledWith({ where: { id: 'i2' }, data: { nombre: undefined, activa: false } });
+
+      prisma.categoriaIngreso.findUnique.mockResolvedValue({ id: 'i3', nombre: 'Del sistema', esSistema: true });
+      await expect(service.actualizarCategoriaIngreso('i3', { activa: false })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('una categoría que no existe responde 404', async () => {
+      prisma.categoriaIngreso.findUnique.mockResolvedValue(null);
+      await expect(service.actualizarCategoriaIngreso('x', { activa: false })).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

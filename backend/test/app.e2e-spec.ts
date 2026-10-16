@@ -56,6 +56,10 @@ const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch', ruta: string]
   ['get', '/cartera/reporte'],
   ['get', '/finanzas/movimientos'],
   ['post', '/finanzas/movimientos'],
+  ['get', `/finanzas/movimientos/${ID}`],
+  ['post', `/finanzas/movimientos/${ID}/anular`],
+  ['get', `/finanzas/movimientos/${ID}/soporte`],
+  ['get', `/finanzas/proyectos/${ID}`],
   ['get', '/finanzas/consolidado'],
   ['get', '/trabajadores'],
   ['post', '/trabajadores'],
@@ -74,6 +78,8 @@ const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch', ruta: string]
   ['get', '/configuracion/medios-pago'],
   ['patch', '/configuracion/medios-pago/EFECTIVO'],
   ['post', '/configuracion/categorias-gasto'],
+  ['post', '/configuracion/categorias-ingreso'],
+  ['patch', `/configuracion/categorias-ingreso/${ID}`],
   ['put', '/configuracion/comisiones/REFERIDO'],
 ];
 

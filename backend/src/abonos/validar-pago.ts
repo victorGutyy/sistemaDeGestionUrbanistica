@@ -10,12 +10,14 @@ export async function validarCuentaDestino(
   prisma: Pick<PrismaService, 'cuentaBancaria'>,
   medioPago: MedioPago,
   cuentaDestinoId: string | undefined | null,
+  // Para los egresos: 'de donde salió el dinero'.
+  donde = 'donde entró el dinero',
 ): Promise<string | null> {
   if (medioPago === MedioPago.EFECTIVO) {
     return null;
   }
   if (!cuentaDestinoId) {
-    throw new BadRequestException('Indica la cuenta donde entró el dinero (obligatoria cuando el pago no es en efectivo)');
+    throw new BadRequestException(`Indica la cuenta ${donde} (obligatoria cuando el pago no es en efectivo)`);
   }
   const cuenta = await prisma.cuentaBancaria.findUnique({ where: { id: cuentaDestinoId } });
   if (!cuenta) {

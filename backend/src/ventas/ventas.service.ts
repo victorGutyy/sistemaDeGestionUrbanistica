@@ -1,15 +1,16 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { basename } from 'node:path';
 import { crearAbonoEnTx, type ContextoRecibo } from '../abonos/crear-abono-tx.js';
-import { validarCuentaDestino } from '../abonos/validar-pago.js';
+import { exigirFechaNoFutura, validarCuentaDestino } from '../abonos/validar-pago.js';
 import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
 import { PERMISOS } from '../auth/permisos.js';
+import { categoriaDevolucionDesistimientoEnTx, crearMovimientoEnTx } from '../finanzas/crear-movimiento-tx.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento } from '../common/tipo-archivo.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoAbono, EstadoLote, EstadoVenta, FormaPago } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoLote, EstadoVenta, FormaPago, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
 import { aplicarAccionLote } from '../lotes/aplicar-accion.js';
 import { puedeAplicar } from '../lotes/estado-lote.js';
 import { convertirSeparacionEnTx } from '../lotes/separacion.js';
@@ -327,10 +328,22 @@ export class VentasService {
   async desistir(id: string, dto: DesistirVentaDto, usuario: UsuarioAutenticado) {
     const fecha = parsearFechaLocal(dto.fecha);
 
+    // La devolución es un egreso real: necesita medio y cuenta de salida, que se validan antes de abrir la transacción.
+    const valorADevolver = dto.valorDevolver ? new Prisma.Decimal(dto.valorDevolver) : null;
+    let cuentaDevolucionId: string | null = null;
+    if (valorADevolver?.greaterThan(0)) {
+      if (!dto.medioPagoDevolucion) {
+        throw new BadRequestException('Indica con qué medio de pago se devuelve el dinero');
+      }
+      exigirFechaNoFutura(fecha);
+      await this.configuracion.exigirMedioPagoActivo(dto.medioPagoDevolucion);
+      cuentaDevolucionId = await validarCuentaDestino(this.prisma, dto.medioPagoDevolucion, dto.cuentaDevolucionId, 'de donde sale el dinero');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const venta = await tx.venta.findFirst({
         where: { id, ...filtroVenta(usuario) },
-        include: { lote: true, abonos: { where: { estado: EstadoAbono.ACTIVO } } },
+        include: { lote: true, cliente: true, abonos: { where: { estado: EstadoAbono.ACTIVO } } },
       });
       if (!venta) {
         throw new NotFoundException(`No existe la venta ${id}`);
@@ -370,6 +383,28 @@ export class VentasService {
           registradoPorId: usuario.id,
         },
       });
+
+      // La devolución queda como egreso del proyecto, en la misma transacción: si algo falla, no se guarda nada.
+      if (valorADevolver?.greaterThan(0) && dto.medioPagoDevolucion) {
+        const categoria = await categoriaDevolucionDesistimientoEnTx(tx);
+        await crearMovimientoEnTx(tx, {
+          tipo: TipoMovimiento.GASTO,
+          fecha,
+          valor: valorADevolver,
+          descripcion: `Devolución por desistimiento · Lote ${venta.lote.numero} · ${venta.cliente.nombre}`,
+          proyectoId: venta.lote.proyectoId,
+          categoriaId: categoria.id,
+          medioPago: dto.medioPagoDevolucion,
+          cuentaId: cuentaDevolucionId,
+          referencia: dto.referenciaDevolucion,
+          terceroNombre: venta.cliente.nombre,
+          terceroDocumento: venta.cliente.documento,
+          motivoSinSoporte: 'Devolución registrada junto con el desistimiento de la venta',
+          origen: OrigenMovimiento.DEVOLUCION_DESISTIMIENTO,
+          ventaId: id,
+          registradoPorId: usuario.id,
+        });
+      }
 
       return tx.venta.findUniqueOrThrow({ where: { id }, include: { cliente: true, lote: true, desistimiento: true } });
     });

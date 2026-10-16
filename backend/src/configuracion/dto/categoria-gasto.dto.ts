@@ -7,6 +7,9 @@ export class CrearCategoriaGastoDto {
   nombre!: string;
 }
 
+// Las categorías de ingreso (RF-CFG-11) se administran igual que las de gasto.
+export class CrearCategoriaIngresoDto extends CrearCategoriaGastoDto {}
+
 export class ActualizarCategoriaGastoDto {
   @IsOptional()
   @IsString()
@@ -18,3 +21,4 @@ export class ActualizarCategoriaGastoDto {
   @IsBoolean()
   activa?: boolean;
 }
+export class ActualizarCategoriaIngresoDto extends ActualizarCategoriaGastoDto {}

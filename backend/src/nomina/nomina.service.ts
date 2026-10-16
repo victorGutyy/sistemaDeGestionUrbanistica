@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { validarCuentaDestino } from '../abonos/validar-pago.js';
+import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -7,13 +9,20 @@ import { CrearPagoNominaDto } from './dto/crear-pago-nomina.dto.js';
 
 @Injectable()
 export class NominaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configuracion: ConfiguracionService,
+  ) {}
 
   async crearPago(dto: CrearPagoNominaDto) {
     const trabajador = await this.prisma.trabajador.findUnique({ where: { id: dto.trabajadorId } });
     if (!trabajador) {
       throw new NotFoundException(`No existe el trabajador ${dto.trabajadorId}`);
     }
+
+    // El medio y la cuenta de salida quedan registrados: el cierre de caja necesita saber cuánto salió en efectivo.
+    await this.configuracion.exigirMedioPagoActivo(dto.medioPago);
+    const cuentaId = await validarCuentaDestino(this.prisma, dto.medioPago, dto.cuentaId, 'de donde salió el dinero');
 
     const novedades = (dto.novedades ?? []).map((novedad) => ({
       tipo: novedad.tipo,
@@ -31,6 +40,8 @@ export class NominaService {
         fechaPago: parsearFechaLocal(dto.fechaPago),
         salarioBase: trabajador.salarioBase,
         valorPagado,
+        medioPago: dto.medioPago,
+        cuentaId,
         novedades: { create: novedades },
       },
       include: { novedades: true, trabajador: true },

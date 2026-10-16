@@ -7,11 +7,17 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 import { crearAbonoEnTx } from '../abonos/crear-abono-tx.js';
+import { crearMovimientoEnTx } from '../finanzas/crear-movimiento-tx.js';
 import type { CrearVentaDto } from './dto/crear-venta.dto.js';
 
 // El abono de la cuota inicial lo crea crearAbonoEnTx (probado aparte en abonos.service.spec.ts):
 // aquí solo se comprueba que la venta lo invoque con los datos correctos.
 vi.mock('../abonos/crear-abono-tx.js', () => ({ crearAbonoEnTx: vi.fn() }));
+// El egreso de la devolución del desistimiento lo crea crearMovimientoEnTx (probado en crear-movimiento-tx.spec.ts).
+vi.mock('../finanzas/crear-movimiento-tx.js', () => ({
+  crearMovimientoEnTx: vi.fn(),
+  categoriaDevolucionDesistimientoEnTx: vi.fn().mockResolvedValue({ id: 'cat-devolucion' }),
+}));
 
 // Forma plana del DTO, para poder copiarla con ... en las pruebas.
 type DatosVenta = { [Clave in keyof CrearVentaDto]: CrearVentaDto[Clave] };
@@ -508,20 +514,30 @@ describe('VentasService.desistir (RF-VEN-08)', () => {
   const VENTA = {
     id: 'venta-1',
     estado: EstadoVenta.ACTIVA,
-    lote: { id: 'lote-1', numero: 'L-1', estado: EstadoLote.VENDIDO },
+    lote: { id: 'lote-1', numero: 'L-1', estado: EstadoLote.VENDIDO, proyectoId: 'p-1' },
+    cliente: { nombre: 'Cliente de Prueba', documento: '1000000001' },
     abonos: [{ valor: D('30000000') }, { valor: D('5000000') }],
   };
   const DTO = { fecha: '2026-10-16', motivo: 'El cliente no pudo continuar con los pagos' };
 
   beforeEach(() => {
     ({ prisma, tx } = crearPrismaFalso());
-    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService, STORAGE_FALSO());
+    vi.mocked(crearMovimientoEnTx).mockReset();
+    service = new VentasService(
+      prisma as unknown as PrismaService,
+      { exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined) } as unknown as ConfiguracionService,
+      STORAGE_FALSO(),
+    );
     tx.venta.findFirst.mockResolvedValue(VENTA);
     tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
   });
 
   it('deja la venta DESISTIDA, el lote DESISTIDO y registra el desistimiento sin tocar los abonos', async () => {
-    await service.desistir('venta-1', { ...DTO, valorDevolver: '20000000', valorRetener: '15000000' }, GERENTE);
+    await service.desistir(
+      'venta-1',
+      { ...DTO, valorDevolver: '20000000', valorRetener: '15000000', medioPagoDevolucion: MedioPago.EFECTIVO },
+      GERENTE,
+    );
 
     expect(tx.venta.updateMany).toHaveBeenCalledWith({
       where: { id: 'venta-1', estado: EstadoVenta.ACTIVA },
@@ -540,6 +556,48 @@ describe('VentasService.desistir (RF-VEN-08)', () => {
     expect(data.valorRetener.toString()).toBe('15000000');
     // No existe ninguna operación que borre o modifique abonos.
     expect(tx.abono.create).not.toHaveBeenCalled();
+  });
+
+  it('la devolución queda como un egreso del proyecto, en la misma transacción (RF-EGR-01)', async () => {
+    await service.desistir('venta-1', { ...DTO, valorDevolver: '20000000', medioPagoDevolucion: MedioPago.EFECTIVO, referenciaDevolucion: 'ACTA-1' }, GERENTE);
+
+    expect(crearMovimientoEnTx).toHaveBeenCalledTimes(1);
+    const [txUsada, datos] = vi.mocked(crearMovimientoEnTx).mock.calls[0];
+    expect(txUsada).toBe(tx);
+    expect(datos).toMatchObject({
+      tipo: 'GASTO',
+      proyectoId: 'p-1',
+      categoriaId: 'cat-devolucion',
+      medioPago: MedioPago.EFECTIVO,
+      cuentaId: null,
+      referencia: 'ACTA-1',
+      origen: 'DEVOLUCION_DESISTIMIENTO',
+      ventaId: 'venta-1',
+      registradoPorId: GERENTE.id,
+    });
+    expect(datos.valor.toString()).toBe('20000000');
+    expect(datos.descripcion).toContain('Cliente de Prueba');
+  });
+
+  it('con valor a devolver exige el medio de pago de la devolución y, si no es efectivo, la cuenta de salida', async () => {
+    await expect(service.desistir('venta-1', { ...DTO, valorDevolver: '1000' }, GERENTE)).rejects.toThrow(/medio de pago/);
+    await expect(
+      service.desistir('venta-1', { ...DTO, valorDevolver: '1000', medioPagoDevolucion: MedioPago.TRANSFERENCIA }, GERENTE),
+    ).rejects.toThrow(/de donde sale el dinero/);
+    expect(tx.desistimiento.create).not.toHaveBeenCalled();
+    expect(crearMovimientoEnTx).not.toHaveBeenCalled();
+  });
+
+  it('si el egreso de la devolución no se puede crear, el error sube y la transacción se revierte', async () => {
+    vi.mocked(crearMovimientoEnTx).mockRejectedValue(new BadRequestException('falla'));
+    await expect(
+      service.desistir('venta-1', { ...DTO, valorDevolver: '1000', medioPagoDevolucion: MedioPago.EFECTIVO }, GERENTE),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('sin valor a devolver no se crea ningún egreso', async () => {
+    await service.desistir('venta-1', { ...DTO, valorRetener: '1000' }, GERENTE);
+    expect(crearMovimientoEnTx).not.toHaveBeenCalled();
   });
 
   it('los valores a devolver y retener son opcionales', async () => {

@@ -193,23 +193,39 @@ describe('alcance por proyecto en los servicios', () => {
   });
 
   describe('finanzas', () => {
+    const crearFinanzas = () => new FinanzasService(p(), STORAGE_FALSO, CONFIGURACION_VENTAS);
+
     it('lista solo movimientos de sus proyectos', async () => {
-      await new FinanzasService(p()).listar({}, SOCIO);
+      await crearFinanzas().listar({}, SOCIO);
       expect(prisma.movimientoFinanciero.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ AND: [{ proyectoId: { in: ['p-floresta'] } }] }) }),
       );
     });
 
-    it('no puede registrar movimientos generales ni de un proyecto ajeno', () => {
-      const servicio = new FinanzasService(p());
-      const base = { tipo: 'GASTO', fecha: '2026-01-01', valor: '100', concepto: 'x' } as const;
-      expect(() => servicio.crear({ ...base }, SOCIO)).toThrow(ForbiddenException);
-      expect(() => servicio.crear({ ...base, proyectoId: 'p-arboleda' }, SOCIO)).toThrow(NotFoundException);
+    it('no puede registrar movimientos generales ni de un proyecto ajeno', async () => {
+      const servicio = crearFinanzas();
+      const base = { tipo: 'GASTO', fecha: '2026-01-01', valor: '100', descripcion: 'x', categoriaId: 'c-1', medioPago: 'EFECTIVO' } as const;
+      await expect(servicio.crear({ ...base }, SOCIO)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(servicio.crear({ ...base, proyectoId: 'p-arboleda' }, SOCIO)).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.movimientoFinanciero.create).not.toHaveBeenCalled();
     });
 
+    it('no ve, no descarga el soporte ni anula un movimiento de un proyecto ajeno', async () => {
+      const servicio = crearFinanzas();
+      await expect(servicio.obtener('m-1', SOCIO)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(servicio.obtenerSoporte('m-1', SOCIO)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(servicio.anular('m-1', { motivo: 'Error de digitación' }, SOCIO)).rejects.toBeInstanceOf(NotFoundException);
+      for (const llamada of [prisma.movimientoFinanciero.findFirst]) {
+        expect(llamada).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ AND: [{ proyectoId: { in: ['p-floresta'] } }] }) }));
+      }
+    });
+
+    it('las finanzas de un proyecto ajeno responden 404', async () => {
+      await expect(crearFinanzas().finanzasDeProyecto('p-arboleda', {}, SOCIO)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
     it('el consolidado no incluye la nómina (no es de ningún proyecto) y filtra todo por alcance', async () => {
-      await new FinanzasService(p()).consolidado({}, SOCIO);
+      await crearFinanzas().consolidado({}, SOCIO);
 
       expect(prisma.pagoNomina.findMany).not.toHaveBeenCalled();
       expect(prisma.movimientoFinanciero.findMany).toHaveBeenCalledWith({
@@ -222,7 +238,7 @@ describe('alcance por proyecto en los servicios', () => {
     });
 
     it('con alcance total el consolidado sí incluye la nómina y no filtra nada', async () => {
-      await new FinanzasService(p()).consolidado({}, TOTAL);
+      await crearFinanzas().consolidado({}, TOTAL);
 
       expect(prisma.pagoNomina.findMany).toHaveBeenCalled();
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));

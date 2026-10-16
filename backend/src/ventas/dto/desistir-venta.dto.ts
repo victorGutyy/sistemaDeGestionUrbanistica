@@ -1,4 +1,5 @@
-import { IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { MedioPago } from '../../generated/prisma/enums.js';
 
 const SOLO_PESOS = /^\d{1,12}$/;
 
@@ -21,4 +22,19 @@ export class DesistirVentaDto {
   @IsOptional()
   @Matches(SOLO_PESOS, { message: 'valorRetener debe ser un valor en pesos enteros' })
   valorRetener?: string;
+
+  // Con qué se devuelve el dinero y de qué cuenta sale: obligatorio si hay valor a devolver, porque la
+  // devolución queda registrada como un egreso (RF-EGR-01).
+  @IsOptional()
+  @IsEnum(MedioPago)
+  medioPagoDevolucion?: MedioPago;
+
+  @IsOptional()
+  @IsUUID()
+  cuentaDevolucionId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  referenciaDevolucion?: string;
 }

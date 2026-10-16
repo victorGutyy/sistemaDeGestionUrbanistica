@@ -1,13 +1,15 @@
 import { NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
-import { TipoNovedad } from '../generated/prisma/enums.js';
+import type { ConfiguracionService } from '../configuracion/configuracion.service.js';
+import { MedioPago, TipoNovedad } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { NominaService } from './nomina.service.js';
 
 function crearPrismaFalso() {
   return {
     trabajador: { findUnique: vi.fn() },
+    cuentaBancaria: { findUnique: vi.fn() },
     pagoNomina: { create: vi.fn(), findMany: vi.fn() },
   };
 }
@@ -20,7 +22,9 @@ describe('NominaService.crearPago', () => {
 
   beforeEach(() => {
     prisma = crearPrismaFalso();
-    service = new NominaService(prisma as unknown as PrismaService);
+    service = new NominaService(prisma as unknown as PrismaService, {
+      exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ConfiguracionService);
   });
 
   it('rechaza si el trabajador no existe', async () => {
@@ -32,6 +36,7 @@ describe('NominaService.crearPago', () => {
         periodoInicio: '2026-09-01',
         periodoFin: '2026-09-30',
         fechaPago: '2026-09-30',
+        medioPago: MedioPago.EFECTIVO,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
@@ -45,6 +50,7 @@ describe('NominaService.crearPago', () => {
       periodoInicio: '2026-09-01',
       periodoFin: '2026-09-30',
       fechaPago: '2026-09-30',
+      medioPago: MedioPago.EFECTIVO,
       novedades: [
         { tipo: TipoNovedad.HORAS_EXTRA, valor: '100000' },
         { tipo: TipoNovedad.DESCUENTO, valor: '20000' },
@@ -55,5 +61,38 @@ describe('NominaService.crearPago', () => {
     expect(llamada.data.salarioBase.toString()).toBe('1500000');
     expect(llamada.data.valorPagado.toString()).toBe('1580000');
     expect(llamada.data.novedades.create).toHaveLength(2);
+    expect(llamada.data).toMatchObject({ medioPago: MedioPago.EFECTIVO, cuentaId: null });
+  });
+
+  it('un pago por transferencia exige la cuenta de donde salió el dinero y no guarda nada sin ella', async () => {
+    prisma.trabajador.findUnique.mockResolvedValue(TRABAJADOR);
+
+    await expect(
+      service.crearPago({
+        trabajadorId: 'trabajador-1',
+        periodoInicio: '2026-09-01',
+        periodoFin: '2026-09-30',
+        fechaPago: '2026-09-30',
+        medioPago: MedioPago.TRANSFERENCIA,
+      }),
+    ).rejects.toThrow(/de donde salió el dinero/);
+    expect(prisma.pagoNomina.create).not.toHaveBeenCalled();
+  });
+
+  it('guarda la cuenta de salida cuando el pago no es en efectivo', async () => {
+    prisma.trabajador.findUnique.mockResolvedValue(TRABAJADOR);
+    prisma.cuentaBancaria.findUnique.mockResolvedValue({ id: 'cuenta-1', alias: 'Ahorros', activa: true });
+    prisma.pagoNomina.create.mockResolvedValue({ id: 'pago-1' });
+
+    await service.crearPago({
+      trabajadorId: 'trabajador-1',
+      periodoInicio: '2026-09-01',
+      periodoFin: '2026-09-30',
+      fechaPago: '2026-09-30',
+      medioPago: MedioPago.TRANSFERENCIA,
+      cuentaId: 'cuenta-1',
+    });
+
+    expect(prisma.pagoNomina.create.mock.calls[0][0].data).toMatchObject({ medioPago: MedioPago.TRANSFERENCIA, cuentaId: 'cuenta-1' });
   });
 });
