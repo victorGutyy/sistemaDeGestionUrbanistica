@@ -8,6 +8,8 @@ const D = (v: string) => new Prisma.Decimal(v);
 
 function crearTxFalso() {
   return {
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
     categoriaGasto: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     categoriaIngreso: { findUnique: vi.fn() },
     movimientoFinanciero: { create: vi.fn().mockImplementation(({ data }: { data: object }) => Promise.resolve({ id: 'm-1', ...data })) },
@@ -53,6 +55,12 @@ describe('crearMovimientoEnTx', () => {
     await ejecutar({ ...EGRESO, tipo: TipoMovimiento.INGRESO, categoriaId: 'cat-ingreso', motivoSinSoporte: undefined });
     expect(tx.categoriaIngreso.findUnique).toHaveBeenCalled();
     expect(tx.movimientoFinanciero.create.mock.calls[0][0].data).toMatchObject({ categoriaIngresoId: 'cat-ingreso', categoriaGastoId: null });
+  });
+
+  it('un movimiento con fecha dentro de un cierre de caja cerrado o aprobado se rechaza (RF-CAJ-05)', async () => {
+    tx.cierreCaja.findFirst.mockResolvedValue({ numeroTexto: 'CC-000002', desde: new Date('2026-10-01T00:00:00Z'), hasta: new Date('2026-10-07T00:00:00Z') });
+    await expect(ejecutar(EGRESO)).rejects.toThrow(/cierre de caja CC-000002/);
+    expect(tx.movimientoFinanciero.create).not.toHaveBeenCalled();
   });
 
   it('un egreso sin soporte exige el motivo (RF-EGR-02)', async () => {

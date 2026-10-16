@@ -55,6 +55,15 @@ describe('catálogo de permisos y roles del sistema', () => {
     expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.FINANZAS_ANULAR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
   });
 
+  it('el administrador ve y cierra la caja, pero solo el gerente aprueba los cierres (RF-CAJ-04)', () => {
+    const { permisos } = rol('ADMINISTRADOR');
+    expect(permisos).toContain(PERMISOS.CAJA_VER);
+    expect(permisos).toContain(PERMISOS.CAJA_CERRAR);
+    expect(permisos).not.toContain(PERMISOS.CAJA_APROBAR);
+    expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.CAJA_APROBAR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
+    expect(rol('CONSULTA').permisos.some((p) => p.startsWith('caja.'))).toBe(false);
+  });
+
   it('solo el gerente registra desistimientos', () => {
     expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.VENTAS_DESISTIR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
   });

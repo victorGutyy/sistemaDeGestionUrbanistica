@@ -61,6 +61,8 @@ function ventaConCuotas(pagadoPorCuota: Record<number, string> = {}) {
 function crearPrismaFalso() {
   const tx = {
     $queryRaw: vi.fn().mockResolvedValue([{ ultimo: 1 }]),
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
     venta: { findUnique: vi.fn() },
     cuentaBancaria: { findUnique: vi.fn() },
     abono: { create: vi.fn(), findFirst: vi.fn().mockResolvedValue(null), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
@@ -179,6 +181,18 @@ describe('AbonosService.crear', () => {
     expect(tx.abono.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ comprobanteUrl: 'cliente-1/venta-1/soporte.png' }) }),
     );
+  });
+
+  it('no registra un abono con fecha dentro de un cierre de caja cerrado o aprobado (RF-CAJ-05)', async () => {
+    prisma.venta.findFirst.mockResolvedValue(VENTA_ACTIVA);
+    prepararAbonoExitoso();
+    tx.cierreCaja.findFirst.mockResolvedValue({ numeroTexto: 'CC-000007', desde: new Date('2026-02-01T00:00:00Z'), hasta: new Date('2026-02-07T00:00:00Z') });
+
+    await expect(service.crear({ ...DTO_BASE, fecha: '2026-02-03' }, USUARIO)).rejects.toThrow(/CC-000007/);
+    expect(tx.abono.create).not.toHaveBeenCalled();
+    expect(tx.recibo.create).not.toHaveBeenCalled();
+    // Antes de revisar se toma el bloqueo compartido que ordena los registros con el cierre.
+    expect(tx.$executeRaw).toHaveBeenCalled();
   });
 
   it('abono parcial: se aplica a la primera cuota pendiente y el recibo muestra saldo anterior y nuevo', async () => {

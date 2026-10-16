@@ -7,11 +7,15 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import { NominaService } from './nomina.service.js';
 
 function crearPrismaFalso() {
-  return {
+  const base = {
     trabajador: { findUnique: vi.fn() },
     cuentaBancaria: { findUnique: vi.fn() },
     pagoNomina: { create: vi.fn(), findMany: vi.fn() },
+    // El pago se crea en una transacción que primero revisa que el día no esté en un cierre de caja cerrado.
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
   };
+  return { ...base, $transaction: vi.fn((callback: (tx: typeof base) => unknown) => callback(base)) };
 }
 
 const TRABAJADOR = { id: 'trabajador-1', salarioBase: new Prisma.Decimal('1500000') };
@@ -62,6 +66,22 @@ describe('NominaService.crearPago', () => {
     expect(llamada.data.valorPagado.toString()).toBe('1580000');
     expect(llamada.data.novedades.create).toHaveLength(2);
     expect(llamada.data).toMatchObject({ medioPago: MedioPago.EFECTIVO, cuentaId: null });
+  });
+
+  it('no registra un pago con fecha dentro de un cierre de caja cerrado o aprobado (RF-CAJ-05)', async () => {
+    prisma.trabajador.findUnique.mockResolvedValue(TRABAJADOR);
+    prisma.cierreCaja.findFirst.mockResolvedValue({ numeroTexto: 'CC-000003', desde: new Date('2026-09-01T00:00:00Z'), hasta: new Date('2026-09-30T00:00:00Z') });
+
+    await expect(
+      service.crearPago({
+        trabajadorId: 'trabajador-1',
+        periodoInicio: '2026-09-01',
+        periodoFin: '2026-09-30',
+        fechaPago: '2026-09-30',
+        medioPago: MedioPago.EFECTIVO,
+      }),
+    ).rejects.toThrow(/CC-000003/);
+    expect(prisma.pagoNomina.create).not.toHaveBeenCalled();
   });
 
   it('un pago por transferencia exige la cuenta de donde salió el dinero y no guarda nada sin ella', async () => {

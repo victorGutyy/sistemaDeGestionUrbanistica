@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { validarCuentaDestino } from '../abonos/validar-pago.js';
+import { exigirFechaAbiertaEnTx } from '../cierres-caja/fecha-abierta.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -32,19 +33,24 @@ export class NominaService {
 
     const valorPagado = calcularValorPagado(trabajador.salarioBase, novedades);
 
-    return this.prisma.pagoNomina.create({
-      data: {
-        trabajadorId: dto.trabajadorId,
-        periodoInicio: parsearFechaLocal(dto.periodoInicio),
-        periodoFin: parsearFechaLocal(dto.periodoFin),
-        fechaPago: parsearFechaLocal(dto.fechaPago),
-        salarioBase: trabajador.salarioBase,
-        valorPagado,
-        medioPago: dto.medioPago,
-        cuentaId,
-        novedades: { create: novedades },
-      },
-      include: { novedades: true, trabajador: true },
+    const fechaPago = parsearFechaLocal(dto.fechaPago);
+    return this.prisma.$transaction(async (tx) => {
+      // Un día que ya pertenece a un cierre de caja cerrado o aprobado no admite pagos nuevos.
+      await exigirFechaAbiertaEnTx(tx, fechaPago);
+      return tx.pagoNomina.create({
+        data: {
+          trabajadorId: dto.trabajadorId,
+          periodoInicio: parsearFechaLocal(dto.periodoInicio),
+          periodoFin: parsearFechaLocal(dto.periodoFin),
+          fechaPago,
+          salarioBase: trabajador.salarioBase,
+          valorPagado,
+          medioPago: dto.medioPago,
+          cuentaId,
+          novedades: { create: novedades },
+        },
+        include: { novedades: true, trabajador: true },
+      });
     });
   }
 

@@ -5,6 +5,9 @@ import type { Prisma } from '../generated/prisma/client.js';
 export const SERIE_RECIBO_CAJA = 'RECIBO_CAJA';
 export const SERIE_RECIBO_HISTORICO = 'RECIBO_HISTORICO';
 export const PREFIJO_RECIBO_HISTORICO = 'H-';
+// Los cierres de caja llevan su propia numeración (CC-000001), asignada al cerrar por primera vez.
+export const SERIE_CIERRE_CAJA = 'CIERRE_CAJA';
+export const PREFIJO_CIERRE_CAJA = 'CC-';
 
 // Entrega el siguiente número de la serie, sin repetidos y sin huecos:
 //

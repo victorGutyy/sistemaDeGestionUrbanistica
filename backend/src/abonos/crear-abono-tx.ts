@@ -8,6 +8,7 @@ import {
 } from '../consecutivos/consecutivo.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoCuota, MedioPago } from '../generated/prisma/enums.js';
+import { exigirFechaAbiertaEnTx } from '../cierres-caja/fecha-abierta.js';
 import { construirContenidoRecibo, type EmpresaRecibo } from './recibo-contenido.js';
 import { repartirAbono, type ParteAplicada } from './repartir-abono.js';
 
@@ -46,6 +47,8 @@ const MENSAJE_REFERENCIA_REPETIDA = (numeroRecibo?: string) =>
 // Si cualquier paso falla, no queda nada guardado y el consecutivo no se consume.
 export async function crearAbonoEnTx(tx: Prisma.TransactionClient, datos: DatosAbono, contexto: ContextoRecibo) {
   await tx.$queryRaw`SELECT "id" FROM "Venta" WHERE "id" = ${datos.ventaId} FOR UPDATE`;
+  // Un día que ya pertenece a un cierre de caja cerrado o aprobado no admite abonos nuevos.
+  await exigirFechaAbiertaEnTx(tx, datos.fecha);
 
   const venta = await tx.venta.findUnique({
     where: { id: datos.ventaId },

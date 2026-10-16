@@ -14,6 +14,8 @@ const USUARIO = usuarioDePrueba();
 
 function crearPrismaFalso() {
   const tx = {
+    $executeRaw: vi.fn().mockResolvedValue(0),
+    cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
     categoriaGasto: { findUnique: vi.fn().mockResolvedValue({ id: 'cat-gasto', nombre: 'Materiales', activa: true }) },
     categoriaIngreso: { findUnique: vi.fn().mockResolvedValue({ id: 'cat-ingreso', nombre: 'Otros servicios', activa: true }) },
     movimientoFinanciero: { create: vi.fn().mockResolvedValue({ id: 'm-1' }) },

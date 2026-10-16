@@ -18,6 +18,9 @@ export const PERMISOS = {
   ABONOS_REGISTRAR: 'abonos.registrar',
   ABONOS_ANULAR: 'abonos.anular', // anular un abono y su recibo (solo gerente)
   CARTERA_VER: 'cartera.ver',
+  CAJA_VER: 'caja.ver', // ver los cierres de caja
+  CAJA_CERRAR: 'caja.cerrar', // generar y cerrar cierres de caja
+  CAJA_APROBAR: 'caja.aprobar', // aprobar o devolver un cierre (solo gerente)
   FINANZAS_VER: 'finanzas.ver',
   FINANZAS_REGISTRAR: 'finanzas.registrar',
   FINANZAS_ANULAR: 'finanzas.anular', // anular un egreso o ingreso (solo gerente)
@@ -72,6 +75,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.VENTAS_DESISTIR &&
         permiso !== PERMISOS.ABONOS_ANULAR &&
         permiso !== PERMISOS.FINANZAS_ANULAR &&
+        permiso !== PERMISOS.CAJA_APROBAR &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,

@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { exigirFechaAbiertaEnTx } from '../cierres-caja/fecha-abierta.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { MedioPago, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
 
@@ -35,6 +36,9 @@ export async function crearMovimientoEnTx(tx: Prisma.TransactionClient, datos: D
   if (datos.valor.lessThanOrEqualTo(0) || !datos.valor.isInteger()) {
     throw new BadRequestException('El valor debe ser un número entero de pesos mayor a cero');
   }
+
+  // Un día que ya pertenece a un cierre de caja cerrado o aprobado no admite movimientos nuevos.
+  await exigirFechaAbiertaEnTx(tx, datos.fecha);
 
   const esGasto = datos.tipo === TipoMovimiento.GASTO;
   const categoria = esGasto

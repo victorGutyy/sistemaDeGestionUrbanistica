@@ -10,7 +10,7 @@ import { AppModule } from '../src/app.module.js';
 
 const ID = '00000000-0000-0000-0000-000000000000';
 
-const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch', ruta: string][] = [
+const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch' | 'delete', ruta: string][] = [
   ['get', '/'],
   ['get', '/auth/me'],
   ['get', '/usuarios'],
@@ -53,6 +53,14 @@ const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch', ruta: string]
   ['post', `/abonos/${ID}/anular`],
   ['get', '/recibos'],
   ['get', '/cartera'],
+  ['get', '/cierres-caja'],
+  ['get', '/cierres-caja/proximo'],
+  ['get', `/cierres-caja/${ID}`],
+  ['post', '/cierres-caja'],
+  ['post', `/cierres-caja/${ID}/cerrar`],
+  ['post', `/cierres-caja/${ID}/aprobar`],
+  ['post', `/cierres-caja/${ID}/devolver`],
+  ['delete', `/cierres-caja/${ID}`],
   ['get', '/cartera/reporte'],
   ['get', '/finanzas/movimientos'],
   ['post', '/finanzas/movimientos'],

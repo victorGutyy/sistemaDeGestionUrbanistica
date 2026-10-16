@@ -104,6 +104,22 @@ enum TipoMovimiento {
 }
 
 // Un movimiento anulado se conserva (con quién, cuándo y por qué) pero no suma en ningún total.
+// Un cierre de caja cubre un período calendario completo de la empresa (diario, semanal o quincenal).
+enum TipoCierre {
+  DIARIO
+  SEMANAL
+  QUINCENAL
+}
+
+// BORRADOR: se arma y se recalcula en vivo. CERRADO: el administrador lo congeló y espera al gerente.
+// APROBADO: definitivo, no cambia nunca. DEVUELTO: el gerente pidió corregirlo; el administrador lo vuelve a cerrar.
+enum EstadoCierre {
+  BORRADOR
+  CERRADO
+  APROBADO
+  DEVUELTO
+}
+
 enum EstadoMovimiento {
   ACTIVO
   ANULADO
@@ -177,6 +193,10 @@ model Usuario {
   abonosAnulados            Abono[]                @relation("AbonosAnulados")
   movimientosRegistrados    MovimientoFinanciero[] @relation("MovimientosRegistrados")
   movimientosAnulados       MovimientoFinanciero[] @relation("MovimientosAnulados")
+  cierresCreados            CierreCaja[]           @relation("CierresCreados")
+  cierresCerrados           CierreCaja[]           @relation("CierresCerrados")
+  cierresResueltos          CierreCaja[]           @relation("CierresResueltos")
+  historialCierres          CierreCajaHistorial[]
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -563,6 +583,64 @@ model MovimientoFinanciero {
   @@index([proyectoId, fecha])
   @@index([fecha])
   @@index([estado])
+}
+
+// Cierre de caja (RF-CAJ-01 a 06): resume lo que entró y salió de la caja de la empresa en un período, compara el
+// efectivo esperado con el contado y pasa por la aprobación del gerente.
+//
+// - Los períodos son consecutivos y no se solapan (lo exige la base de datos): cada cierre empieza el día
+//   siguiente al anterior, así que ningún movimiento queda sin cubrir.
+// - El número se asigna al cerrar por primera vez (un borrador que se descarta no gasta número).
+// - "contenido" es la fotografía de los totales y movimientos al cerrar: un cierre cerrado o aprobado no cambia
+//   aunque después se anule algo (esa anulación aparece en el cierre siguiente).
+// - Un cierre aprobado es inmutable y solo un borrador se puede descartar (lo hace la base de datos).
+model CierreCaja {
+  id                    String                @id @default(uuid())
+  // Se asigna al cerrar por primera vez.
+  numero                Int?                  @unique
+  numeroTexto           String?               @unique
+  tipo                  TipoCierre
+  // Días calendario, ambos incluidos.
+  desde                 DateTime              @db.Date
+  hasta                 DateTime              @db.Date
+  estado                EstadoCierre          @default(BORRADOR)
+  // El efectivo contado del cierre aprobado anterior; en el primer cierre lo escribe el administrador.
+  efectivoInicial       Decimal               @db.Decimal(14, 2)
+  efectivoEsperado      Decimal?              @db.Decimal(14, 2)
+  efectivoContado       Decimal?              @db.Decimal(14, 2)
+  diferencia            Decimal?              @db.Decimal(14, 2)
+  explicacionDiferencia String?
+  contenido             Json?
+  creadoPorId           String
+  creadoPor             Usuario               @relation("CierresCreados", fields: [creadoPorId], references: [id])
+  cerradoPorId          String?
+  cerradoPor            Usuario?              @relation("CierresCerrados", fields: [cerradoPorId], references: [id])
+  cerradoEn             DateTime?
+  resueltoPorId         String?
+  resueltoPor           Usuario?              @relation("CierresResueltos", fields: [resueltoPorId], references: [id])
+  resueltoEn            DateTime?
+  observacionGerente    String?
+  historial             CierreCajaHistorial[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([estado])
+  @@index([desde, hasta])
+}
+
+// Quién hizo cada paso de un cierre y cuándo. Solo se agrega: no se edita ni se borra.
+model CierreCajaHistorial {
+  id             String        @id @default(uuid())
+  cierreId       String
+  cierre         CierreCaja    @relation(fields: [cierreId], references: [id])
+  estadoAnterior EstadoCierre?
+  estadoNuevo    EstadoCierre
+  usuarioId      String
+  usuario        Usuario       @relation(fields: [usuarioId], references: [id])
+  observacion    String?
+  createdAt      DateTime      @default(now())
+
+  @@index([cierreId])
 }
 
 // Empleado de la empresa (no de un proyecto en particular).
