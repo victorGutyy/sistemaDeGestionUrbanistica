@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { EstadoLoteBadge } from '../components/EstadoLoteBadge'
+import { SeccionEquipos } from '../components/SeccionEquipos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   actualizarEstadoProyecto,
@@ -175,7 +176,9 @@ export function ProyectoDetallePage() {
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      {!esDeLotes && (
+      {proyecto.tipo === 'MAQUINARIA' && <SeccionEquipos proyectoId={proyecto.id} finalizado={finalizado} />}
+
+      {!esDeLotes && proyecto.tipo !== 'MAQUINARIA' && (
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
           Este proyecto es de tipo <strong>{ETIQUETA_TIPO_PROYECTO[proyecto.tipo].toLowerCase()}</strong>: no tiene manzanas ni lotes. Sus
           ingresos y egresos se llevarán por separado en las finanzas del proyecto.

@@ -1,6 +1,6 @@
 # Cobertura de la Etapa 1
 
-Auditoría del paso 2.10a (18/10/2026): cada requerimiento de la Etapa 1 de `docs/requerimientos.md` contra lo que hay hoy en el código. Es una revisión de lectura (rutas, pantallas, esquema, pruebas); no cambia nada del sistema.
+Auditoría del paso 2.10a (18/10/2026), actualizada con los pasos 2.10b y 2.10c (19/10/2026): cada requerimiento de la Etapa 1 de `docs/requerimientos.md` contra lo que hay hoy en el código. Es una revisión de lectura (rutas, pantallas, esquema, pruebas); no cambia nada del sistema.
 
 **Estados:** ✅ construido y verificado · 🟡 parcial (qué falta en la columna de evidencia) · ❌ falta · ⏸ pospuesto a propósito · ⏳ no depende del código (se mide o se hace al desplegar).
 
@@ -10,32 +10,20 @@ La Etapa 1 se acepta cuando están todos sus **Debe**. Los "Debería" y "Podría
 
 | | Total | ✅ | 🟡 | ❌ | ⏸ |
 |---|---|---|---|---|---|
-| Debe | 75 | 71 | 1 | 3 | 0 |
-| Debería | 12 | 7 | 1 | 4 | 0 |
+| Debe | 75 | 75 | 0 | 0 | 0 |
+| Debería | 12 | 10 | 1 | 1 | 0 |
 | Podría | 1 | 0 | 0 | 0 | 1 |
 
-Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignados a esta etapa están incluidos). Para aceptar la etapa faltan 4 "Debe" (todos de maquinaria: RF-PRY-12, RF-MAQ-01, RF-MAQ-03 y RF-MAQ-07).
+Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignados a esta etapa están incluidos). Están los 75 "Debe" de la Etapa 1: la etapa se puede aceptar (quedan algunos "Debería" y el "Podría").
 
-## Lo que falta para cerrar la Etapa 1
+## Lo que falta de la Etapa 1
 
-**Debe**
-
-| ID | Qué falta | Se resuelve en |
-|---|---|---|
-| RF-PRY-12 | El tipo de proyecto Maquinaria existe, pero sin equipos no sirve. | 2.10c |
-| RF-MAQ-01 | **Catálogo de equipos** (nombre, tipo, marca, modelo, año, placa o serie, estado). | 2.10c |
-| RF-MAQ-03 | Asignar cada ingreso o egreso de un proyecto de maquinaria a un equipo o a la flota. | 2.10c |
-| RF-MAQ-07 | Dar de baja un equipo conservando sus movimientos. | 2.10c |
-
-**Debería**
+Ningún "Debe". Solo quedan dos "Debería" y el "Podría":
 
 | ID | Qué falta | Se resuelve en |
 |---|---|---|
-| RF-MAQ-02 | Administrar los tipos de equipo. | 2.10c |
-| RF-MAQ-04 | El ingreso por alquiler registra cliente, período y valor. | 2.10c |
-| RF-MAQ-06 | Categorías de gasto propias de maquinaria. | 2.10c |
-| RF-USR-08 | Los roles son filas de una tabla con permisos de un catálogo, pero no hay pantalla ni endpoint para **crear roles nuevos** (hoy solo `GET /roles`). | por decidir |
-| RF-CAR-06 | Pago del interés de mora separado del abono. Depende de lo que confirme el cliente sobre cómo se cobra la mora. | fuera de la Etapa 1 mientras tanto |
+| RF-USR-08 (Debería) | Los roles son filas de una tabla con permisos de un catálogo, pero no hay pantalla ni endpoint para **crear roles nuevos** (hoy solo `GET /roles`). | por decidir |
+| RF-CAR-06 (Debería) | Pago del interés de mora separado del abono. Depende de lo que confirme el cliente sobre cómo se cobra la mora. | fuera de la Etapa 1 mientras tanto |
 **Podría:** RF-VEN-09 (varios compradores por venta) queda ⏸ para el final, como se acordó.
 
 ## Requerimientos funcionales
@@ -83,7 +71,7 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 | RF-PRY-09 | Debe | ✅ | `GET /lotes` con filtros de proyecto, manzana, estado y búsqueda. |
 | RF-PRY-10 | Debería | ✅ | `POST /lotes/:id/escriturar` con datos de la escritura. |
 | RF-PRY-11 | Debe | ✅ | `TipoProyecto.REMODELACION` (CC-01); sin manzanas ni lotes. |
-| RF-PRY-12 | Debe | 🟡 | `TipoProyecto.MAQUINARIA` existe; faltan los equipos (ver RF-MAQ). |
+| RF-PRY-12 | Debe | ✅ | `TipoProyecto.MAQUINARIA` (CC-02): su pantalla muestra los equipos en vez de lotes y manzanas. |
 
 ### Clientes (CLI)
 
@@ -181,12 +169,12 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 | ID | Prio. | Estado | Evidencia |
 |---|---|---|---|
 | RF-REP-03 | Debe | ✅ | `GET /clientes/:id/estado-cuenta` (PDF multipágina) y botón en la ficha. |
-| RF-MAQ-01 | Debe | ❌ | No hay tabla de equipos. |
-| RF-MAQ-02 | Debería | ❌ | Sin tipos de equipo. |
-| RF-MAQ-03 | Debe | ❌ | Los movimientos no se asignan a un equipo. |
-| RF-MAQ-04 | Debería | ❌ | Sin cliente ni período de alquiler. |
-| RF-MAQ-06 | Debería | ❌ | Sin categorías propias de maquinaria. |
-| RF-MAQ-07 | Debe | ❌ | Sin baja de equipos. |
+| RF-MAQ-01 | Debe | ✅ | Tabla `Equipo` y módulo `equipos/`: nombre, tipo, marca, modelo, año, placa o serie (única) y estado; pantallas Nuevo equipo y ficha. |
+| RF-MAQ-02 | Debería | ✅ | Tabla `TipoEquipo`; `POST/PATCH /configuracion/tipos-equipo` (solo gerente); sección "Tipos de equipo" en Configuración; se desactivan, no se borran. |
+| RF-MAQ-03 | Debe | ✅ | `reglas-maquinaria.ts` y `crearMovimientoEnTx`: equipo o "general de la flota" y soporte o motivo (también en ingresos); CHECKs y trigger en la base. |
+| RF-MAQ-04 | Debería | ✅ | El ingreso en maquinaria exige cliente (nombre y documento) y período alquilado (`periodoDesde` y `periodoHasta`). |
+| RF-MAQ-06 | Debería | ✅ | `CategoriaGasto.soloMaquinaria`; la semilla trae combustible, mantenimiento, repuestos, operario y transporte del equipo; el gerente las administra. |
+| RF-MAQ-07 | Debe | ✅ | Trigger que impide borrar equipos; baja con motivo (`POST /equipos/:id/baja`), conserva los movimientos y no recibe nuevos; el gerente reactiva. |
 
 ## Requerimientos no funcionales
 

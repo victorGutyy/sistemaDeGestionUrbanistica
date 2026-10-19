@@ -7,6 +7,7 @@ import { EmpresaProvider } from './contexts/EmpresaContext'
 import { PERMISOS } from './lib/permisos'
 import { AuditoriaPage } from './pages/AuditoriaPage'
 import { CajaPage } from './pages/CajaPage'
+import { EquipoDetallePage } from './pages/EquipoDetallePage'
 import { ClienteDetallePage } from './pages/ClienteDetallePage'
 import { ClientesPage } from './pages/ClientesPage'
 import { ImportacionPage } from './pages/ImportacionPage'
@@ -26,6 +27,7 @@ import { ProyectosPage } from './pages/ProyectosPage'
 import { RecibosPage } from './pages/RecibosPage'
 import { RegistrarAbonoPage } from './pages/RegistrarAbonoPage'
 import { RegistrarClientePage } from './pages/RegistrarClientePage'
+import { RegistrarEquipoPage } from './pages/RegistrarEquipoPage'
 import { RegistrarLotePage } from './pages/RegistrarLotePage'
 import { RegistrarMovimientoPage } from './pages/RegistrarMovimientoPage'
 import { RegistrarPagoNominaPage } from './pages/RegistrarPagoNominaPage'
@@ -56,6 +58,10 @@ function App() {
               <Route path="/proyectos/:id/lotes/nuevo" element={<RegistrarLotePage />} />
               <Route path="/proyectos/:id" element={<ProyectoDetallePage />} />
               <Route path="/lotes/:id" element={<LoteDetallePage />} />
+              <Route path="/equipos/:id" element={<EquipoDetallePage />} />
+              <Route element={<ProtectedRoute permiso={PERMISOS.EQUIPOS_GESTIONAR} />}>
+                <Route path="/proyectos/:id/equipos/nuevo" element={<RegistrarEquipoPage />} />
+              </Route>
               <Route path="/ventas" element={<VentasPage />} />
               <Route path="/ventas/nueva" element={<RegistrarVentaPage />} />
               <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />

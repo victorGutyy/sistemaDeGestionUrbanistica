@@ -118,6 +118,7 @@ export function ProyectoFinanzasPage() {
                       {formatearFecha(fila.fecha)} · {fila.categoria}
                       {fila.recibo ? ` · ${fila.recibo}` : ''}
                       {fila.cuenta ? ` · ${fila.cuenta}` : ''}
+                      {fila.equipo ? ` · ${fila.equipo}` : ''}
                     </p>
                     {fila.registradoPor && <p className="text-xs text-slate-400">Registró {fila.registradoPor}</p>}
                   </div>

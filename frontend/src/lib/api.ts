@@ -801,6 +801,11 @@ export interface Movimiento {
   motivoSinSoporte: string | null
   origen: OrigenMovimiento
   ventaId: string | null
+  // Proyectos de maquinaria: el equipo (o "general de la flota") y, en el alquiler, el período alquilado.
+  equipo: { id: string; nombre: string; placaSerie: string | null } | null
+  flota: boolean
+  periodoDesde: string | null
+  periodoHasta: string | null
   estado: EstadoMovimiento
   registradoPor: { nombre: string } | null
   anuladoPor: { nombre: string } | null
@@ -862,6 +867,8 @@ export interface FilaFinanzaProyecto {
   estado: EstadoMovimiento
   recibo: string | null
   ventaId: string | null
+  // Solo en proyectos de maquinaria: el equipo del movimiento, o "Flota (general)".
+  equipo: string | null
 }
 
 export interface ResumenFinanzasProyecto {
@@ -887,6 +894,105 @@ export function obtenerFinanzasProyecto(id: string, filtro: { desde?: string; ha
   if (filtro.hasta) params.set('hasta', filtro.hasta)
   const query = params.toString()
   return solicitar<FinanzasProyecto>(`/finanzas/proyectos/${id}${query ? `?${query}` : ''}`)
+}
+
+// ---------- Maquinaria: equipos y tipos de equipo ----------
+
+export type EstadoEquipo = 'ACTIVO' | 'EN_MANTENIMIENTO' | 'FUERA_DE_SERVICIO'
+
+export interface TipoEquipo {
+  id: string
+  nombre: string
+  activo: boolean
+}
+
+export interface Equipo {
+  id: string
+  proyectoId: string
+  nombre: string
+  tipoEquipoId: string
+  tipoEquipo: { id: string; nombre: string }
+  proyecto: { id: string; nombre: string }
+  marca: string | null
+  modelo: string | null
+  anio: number | null
+  placaSerie: string | null
+  estado: EstadoEquipo
+  bajaEn: string | null
+  bajaMotivo: string | null
+  bajaPor: { nombre: string } | null
+  // Un equipo dado de baja se conserva con su historial, pero ya no recibe movimientos.
+  deBaja: boolean
+}
+
+export interface MovimientoDeEquipo {
+  id: string
+  fecha: string
+  tipo: TipoMovimiento
+  categoria: string
+  descripcion: string
+  valor: string
+  estado: EstadoMovimiento
+  tercero: string | null
+  periodoDesde: string | null
+  periodoHasta: string | null
+}
+
+export interface FichaEquipo extends Equipo {
+  totales: { ingresos: string; egresos: string; utilidad: string }
+  movimientos: MovimientoDeEquipo[]
+}
+
+export function listarEquipos(proyectoId?: string, incluirBajas = false) {
+  const params = new URLSearchParams()
+  if (proyectoId) params.set('proyectoId', proyectoId)
+  if (incluirBajas) params.set('incluirBajas', 'true')
+  const query = params.toString()
+  return solicitar<Equipo[]>(`/equipos${query ? `?${query}` : ''}`)
+}
+
+// Tipos de equipo activos, para elegir al registrar un equipo.
+export function listarTiposEquipoActivos() {
+  return solicitar<TipoEquipo[]>('/equipos/tipos')
+}
+
+export interface DatosEquipo {
+  nombre: string
+  tipoEquipoId: string
+  marca?: string
+  modelo?: string
+  anio?: number | null
+  placaSerie?: string
+  estado?: EstadoEquipo
+}
+
+export function crearEquipo(proyectoId: string, datos: DatosEquipo) {
+  return solicitar<Equipo>('/equipos', { method: 'POST', body: JSON.stringify({ proyectoId, ...datos }) })
+}
+
+export function obtenerEquipo(id: string) {
+  return solicitar<FichaEquipo>(`/equipos/${id}`)
+}
+
+// Solo se cambia lo que se envía; en marca, modelo y placa un texto vacío borra el dato y en el año null lo borra.
+export function actualizarEquipo(id: string, datos: Partial<DatosEquipo>) {
+  return solicitar<FichaEquipo>(`/equipos/${id}`, { method: 'PATCH', body: JSON.stringify(datos) })
+}
+
+export function darDeBajaEquipo(id: string, motivo: string) {
+  return solicitar<FichaEquipo>(`/equipos/${id}/baja`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
+export function reactivarEquipo(id: string) {
+  return solicitar<FichaEquipo>(`/equipos/${id}/reactivar`, { method: 'POST' })
+}
+
+export function crearTipoEquipo(nombre: string) {
+  return solicitar<TipoEquipo>('/configuracion/tipos-equipo', { method: 'POST', body: JSON.stringify({ nombre }) })
+}
+
+export function actualizarTipoEquipo(id: string, payload: { nombre?: string; activo?: boolean }) {
+  return solicitar<TipoEquipo>(`/configuracion/tipos-equipo/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
 // ---------- Auditoría ----------
@@ -1508,6 +1614,8 @@ export interface CategoriaGasto {
   nombre: string
   activa: boolean
   esSistema: boolean
+  // RF-MAQ-06: solo se ofrece en proyectos de maquinaria. Solo las categorías de gasto lo tienen.
+  soloMaquinaria?: boolean
 }
 
 export interface ComisionConfig {
@@ -1522,6 +1630,7 @@ export interface ConfiguracionCompleta {
   categoriasGasto: CategoriaGasto[]
   categoriasIngreso: CategoriaIngreso[]
   comisiones: ComisionConfig[]
+  tiposEquipo: TipoEquipo[]
 }
 
 export function obtenerConfiguracion() {
@@ -1603,8 +1712,8 @@ export function actualizarMedioPago(medio: MedioPago, activo: boolean) {
   })
 }
 
-export function crearCategoriaGasto(nombre: string) {
-  return solicitar<CategoriaGasto>('/configuracion/categorias-gasto', { method: 'POST', body: JSON.stringify({ nombre }) })
+export function crearCategoriaGasto(nombre: string, soloMaquinaria = false) {
+  return solicitar<CategoriaGasto>('/configuracion/categorias-gasto', { method: 'POST', body: JSON.stringify({ nombre, ...(soloMaquinaria ? { soloMaquinaria: true } : {}) }) })
 }
 
 export function actualizarCategoriaGasto(id: string, payload: { nombre?: string; activa?: boolean }) {

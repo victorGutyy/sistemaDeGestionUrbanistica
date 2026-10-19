@@ -113,6 +113,8 @@ export function MovimientoDetallePage() {
         <Dato etiqueta="Fecha" valor={formatearFecha(movimiento.fecha)} />
         <Dato etiqueta="Categoría" valor={movimiento.categoria?.nombre} />
         <Dato etiqueta="Proyecto" valor={movimiento.proyecto?.nombre ?? 'General de la empresa'} />
+        <Dato etiqueta="Equipo" valor={movimiento.equipo ? `${movimiento.equipo.nombre}${movimiento.equipo.placaSerie ? ` · ${movimiento.equipo.placaSerie}` : ''}` : movimiento.flota ? 'General de la flota' : null} />
+        <Dato etiqueta="Período alquilado" valor={movimiento.periodoDesde && movimiento.periodoHasta ? `${movimiento.periodoDesde.split('-').reverse().join('/')} al ${movimiento.periodoHasta.split('-').reverse().join('/')}` : null} />
         <Dato etiqueta="Medio de pago" valor={ETIQUETA_MEDIO_PAGO[movimiento.medioPago]} />
         <Dato etiqueta={esGasto ? 'Cuenta de salida' : 'Cuenta de entrada'} valor={movimiento.cuenta ? `${movimiento.cuenta.alias} — ${movimiento.cuenta.banco}` : null} />
         <Dato etiqueta="Referencia" valor={movimiento.referencia} />
@@ -133,6 +135,14 @@ export function MovimientoDetallePage() {
           </p>
         )}
       </div>
+
+      {movimiento.equipo && (
+        <p className="mt-3 text-sm">
+          <Link to={`/equipos/${movimiento.equipo.id}`} className="text-blue-600 hover:underline">
+            Ver la ficha del equipo
+          </Link>
+        </p>
+      )}
 
       {movimiento.ventaId && (
         <p className="mt-3 text-sm">

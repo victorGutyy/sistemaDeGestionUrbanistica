@@ -10,9 +10,11 @@ import {
   actualizarEmpresa,
   actualizarMedioPago,
   actualizarParametros,
+  actualizarTipoEquipo,
   crearCategoriaGasto,
   crearCategoriaIngreso,
   crearCuenta,
+  crearTipoEquipo,
   exportarTodosLosDatos,
   obtenerConfiguracion,
   quitarLogo,
@@ -24,6 +26,7 @@ import {
   type EmpresaConfig,
   type MedioPagoConfig,
   type TipoCuenta,
+  type TipoEquipo,
   type TipoVendedor,
 } from '../lib/api'
 import { formatearCOP } from '../lib/formato'
@@ -560,13 +563,16 @@ interface PropsCategorias {
   descripcion: string
   categorias: CategoriaGasto[]
   onCambio: (c: CategoriaGasto[]) => void
-  crear: (nombre: string) => Promise<CategoriaGasto>
+  crear: (nombre: string, soloMaquinaria?: boolean) => Promise<CategoriaGasto>
+  // Solo las categorías de gasto pueden ser propias de la maquinaria (RF-MAQ-06).
+  permiteSoloMaquinaria?: boolean
   actualizar: (id: string, payload: { activa?: boolean }) => Promise<CategoriaGasto>
 }
 
 // Las categorías de gasto y las de ingreso se administran igual (RF-CFG-08 y RF-CFG-11).
-function SeccionCategorias({ titulo, descripcion, categorias, onCambio, crear, actualizar }: PropsCategorias) {
+function SeccionCategorias({ titulo, descripcion, categorias, onCambio, crear, actualizar, permiteSoloMaquinaria }: PropsCategorias) {
   const [nombre, setNombre] = useState('')
+  const [soloMaquinaria, setSoloMaquinaria] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -575,9 +581,10 @@ function SeccionCategorias({ titulo, descripcion, categorias, onCambio, crear, a
     setError(null)
     setEnviando(true)
     try {
-      const nueva = await crear(nombre.trim())
+      const nueva = await crear(nombre.trim(), permiteSoloMaquinaria ? soloMaquinaria : false)
       onCambio([...categorias, nueva])
       setNombre('')
+      setSoloMaquinaria(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la categoría')
     } finally {
@@ -604,6 +611,7 @@ function SeccionCategorias({ titulo, descripcion, categorias, onCambio, crear, a
             <p className="min-w-0 truncate text-sm text-slate-800">
               {categoria.nombre}
               {categoria.esSistema && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">Del sistema</span>}
+              {categoria.soloMaquinaria && <span className="ml-2 rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">Solo maquinaria</span>}
               {!categoria.activa && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Inactiva</span>}
             </p>
             {!categoria.esSistema && (
@@ -614,8 +622,72 @@ function SeccionCategorias({ titulo, descripcion, categorias, onCambio, crear, a
           </li>
         ))}
       </ul>
-      <form onSubmit={handleCrear} className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row">
+      {permiteSoloMaquinaria && (
+        <label className="mt-4 flex items-start gap-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
+          <input type="checkbox" checked={soloMaquinaria} onChange={(e) => setSoloMaquinaria(e.target.checked)} className="mt-0.5" />
+          <span>La próxima categoría es propia de la maquinaria: solo se ofrece en proyectos de maquinaria (no se puede cambiar después).</span>
+        </label>
+      )}
+      <form onSubmit={handleCrear} className={`flex flex-col gap-2 sm:flex-row ${permiteSoloMaquinaria ? 'mt-2' : 'mt-4 border-t border-slate-100 pt-4'}`}>
         <input aria-label="Nueva categoría" placeholder="Nueva categoría" required minLength={2} maxLength={60} value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        <button type="submit" disabled={enviando} className={CLASE_BOTON}>
+          Agregar
+        </button>
+      </form>
+    </Seccion>
+  )
+}
+
+// Tipos de equipo de maquinaria (RF-MAQ-02): se desactivan, no se borran.
+function SeccionTiposEquipo({ tipos, onCambio }: { tipos: TipoEquipo[]; onCambio: (t: TipoEquipo[]) => void }) {
+  const [nombre, setNombre] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleCrear(event: FormEvent) {
+    event.preventDefault()
+    setError(null)
+    setEnviando(true)
+    try {
+      const nuevo = await crearTipoEquipo(nombre.trim())
+      onCambio([...tipos, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')))
+      setNombre('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el tipo de equipo')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  async function alternar(tipo: TipoEquipo) {
+    setError(null)
+    try {
+      const actualizado = await actualizarTipoEquipo(tipo.id, { activo: !tipo.activo })
+      onCambio(tipos.map((t) => (t.id === actualizado.id ? actualizado : t)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo actualizar el tipo de equipo')
+    }
+  }
+
+  return (
+    <Seccion titulo="Tipos de equipo" descripcion="Para clasificar los equipos de los proyectos de maquinaria (excavadora, retroexcavadora, volqueta…). Un tipo desactivado ya no se ofrece al registrar equipos nuevos, pero los equipos que lo tienen lo conservan.">
+      <Aviso error={error} ok={null} />
+      <ul className="divide-y divide-slate-100">
+        {tipos.map((tipo) => (
+          <li key={tipo.id} className="flex items-center justify-between gap-3 py-2.5">
+            <p className="min-w-0 truncate text-sm text-slate-800">
+              {tipo.nombre}
+              {!tipo.activo && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Inactivo</span>}
+            </p>
+            <button type="button" className={CLASE_BOTON_SECUNDARIO} onClick={() => void alternar(tipo)}>
+              {tipo.activo ? 'Desactivar' : 'Activar'}
+            </button>
+          </li>
+        ))}
+        {tipos.length === 0 && <li className="py-3 text-sm text-slate-400">Todavía no hay tipos de equipo.</li>}
+      </ul>
+      <form onSubmit={handleCrear} className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row">
+        <input aria-label="Nuevo tipo de equipo" placeholder="Nuevo tipo de equipo" required minLength={2} maxLength={60} value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
         <button type="submit" disabled={enviando} className={CLASE_BOTON}>
           Agregar
         </button>
@@ -747,6 +819,7 @@ export function ConfiguracionPage() {
         onCambio={(categoriasGasto) => setConfig({ ...config, categoriasGasto })}
         crear={crearCategoriaGasto}
         actualizar={actualizarCategoriaGasto}
+        permiteSoloMaquinaria
       />
       <SeccionCategorias
         titulo="Categorías de ingreso"
@@ -756,6 +829,7 @@ export function ConfiguracionPage() {
         crear={crearCategoriaIngreso}
         actualizar={actualizarCategoriaIngreso}
       />
+      <SeccionTiposEquipo tipos={config.tiposEquipo} onCambio={(tiposEquipo) => setConfig({ ...config, tiposEquipo })} />
       <SeccionComisiones comisiones={config.comisiones} onCambio={(comisiones) => setConfig({ ...config, comisiones })} />
       {tiene(PERMISOS.EXPORTACION_COMPLETA) && <SeccionExportacion />}
     </div>

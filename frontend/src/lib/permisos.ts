@@ -32,6 +32,8 @@ export const PERMISOS = {
   AUDITORIA_VER: 'auditoria.ver',
   IMPORTACION_GESTIONAR: 'importacion.gestionar',
   EXPORTACION_COMPLETA: 'exportacion.completa',
+  EQUIPOS_GESTIONAR: 'equipos.gestionar',
+  EQUIPOS_BAJA: 'equipos.baja',
 } as const
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS]
