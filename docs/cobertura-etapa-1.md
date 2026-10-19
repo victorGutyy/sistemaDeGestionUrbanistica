@@ -1,6 +1,6 @@
 # Cobertura de la Etapa 1
 
-Auditoría del paso 2.10a (18/10/2026), actualizada con los pasos 2.10b y 2.10c (19/10/2026): cada requerimiento de la Etapa 1 de `docs/requerimientos.md` contra lo que hay hoy en el código. Es una revisión de lectura (rutas, pantallas, esquema, pruebas); no cambia nada del sistema.
+Auditoría del paso 2.10a (18/10/2026), actualizada con los pasos 2.10b, 2.10c y 2.11 (19/10/2026): cada requerimiento de la Etapa 1 de `docs/requerimientos.md` contra lo que hay hoy en el código. Es una revisión de lectura (rutas, pantallas, esquema, pruebas); no cambia nada del sistema.
 
 **Estados:** ✅ construido y verificado · 🟡 parcial (qué falta en la columna de evidencia) · ❌ falta · ⏸ pospuesto a propósito · ⏳ no depende del código (se mide o se hace al desplegar).
 
@@ -192,7 +192,10 @@ Ningún "Debe". Solo quedan dos "Debería" y el "Podría":
 | RNF-INT-03 | ✅ | No hay borrado de información de negocio; todo se anula, desactiva o finaliza. |
 | RNF-INT-04 | ✅ | Transacciones en abonos, ventas, cierres e importación; pruebas de reversión. |
 | RNF-INT-05 | ✅ | Pruebas de plan de cuotas, abonos, anulación, mora, cierre e importación. |
-| RNF-REN-01 a 04 | ⏳ | Se miden con el modo volumen del paso 2.11. |
+| RNF-REN-01 | ✅ | Con 10 proyectos, 1.000 lotes y 5.439 abonos, todas las pantallas de consulta responden con p95 de 556 ms o menos (límite 2 s). Ver `docs/rendimiento.md`. |
+| RNF-REN-02 | ✅ | Buscar un cliente, abrir su ficha y bajar el estado de cuenta en PDF: 88 ms (límite 1 min). |
+| RNF-REN-03 | ✅ | Tablero en PDF/Excel: menos de 0,4 s; exportación completa a Excel: 3 s (límite 10 s). |
+| RNF-REN-04 | ✅ | 10 usuarios simultáneos: 0 errores y p95 de 452 ms con pausas de uso real (1,7 s sin pausas, prueba de esfuerzo). Con 30 sin pausas hay degradación (p95 5 s) pero sin errores. |
 | RNF-DIS-01 a 03 | ⏳ | Al desplegar (monitoreo, copias diarias y simulacro de restauración). |
 | RNF-USA-01 | ✅ | Español de Colombia, `$1.234.567` y dd/mm/aaaa. |
 | RNF-USA-02 | ✅ | Clientes, ficha del cliente y Registrar abono: tres pasos (pantalla `ClienteDetallePage`). |

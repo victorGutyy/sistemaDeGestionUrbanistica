@@ -73,6 +73,19 @@ cd backend
 npx prisma migrate dev
 ```
 
+## Demostración, volumen y limpieza
+
+Tres bases separadas: la de desarrollo (`sistema_urbanismo`), la de demostración (`sistema_urbanismo_demo`) y la de volumen (`sistema_urbanismo_volumen`). Las dos últimas se derivan del nombre de `DATABASE_URL`, así que ningún script de demostración toca la de desarrollo.
+
+```bash
+cd backend
+npm run demo:preparar -- --reiniciar   # crea y carga la demostración (La Floresta)
+npm run demo:api                       # API de la demostración en el puerto 3001
+cd ../frontend && npm run dev:demo     # pantallas en http://localhost:5174
+```
+
+Las contraseñas de la demostración (inventadas) quedan en `backend/.demo/demo/credenciales.txt`. Todo está explicado en `docs/DEMO.md`: escenarios, guion de presentación, base de volumen (`npm run demo:volumen`, `npm run demo:medir`) y `npm run db:limpiar`, que deja la base de desarrollo como instalación nueva con candados (base local, nombre escrito a mano y respaldo de los últimos 30 minutos).
+
 ## Estado actual
 
 La base genérica Urbanix (v1.0) está completa y funcionando; ahora se adapta al primer cliente real según `docs/requerimientos.md`.
@@ -95,7 +108,8 @@ En adaptación (ver `docs/requerimientos.md`):
 - ✅ Clientes: lista con búsqueda por nombre, documento o teléfono, registro de clientes con tipo de documento, ficha con sus ventas, saldo, cuotas vencidas, interés de mora y semáforo, edición auditada (el documento no se cambia), autorización de tratamiento de datos (Ley 1581 de 2012) con fecha y quién la registró, "Registrar abono" a tres pasos y estado de cuenta en PDF. El detalle de cada venta también muestra cuotas vencidas, saldo vencido y mora; todos usan el mismo cálculo de cartera.
 - ✅ Exportación completa a Excel (solo gerente, desde Configuración): un libro con una hoja por tipo de dato (la lista sale del propio esquema, así que una tabla nueva entra sola), sin contraseñas ni archivos adjuntos; cada exportación queda en la auditoría.
 - ✅ Maquinaria (CC-02): los proyectos de tipo Maquinaria llevan equipos (nombre, tipo, marca, modelo, año, placa o serie única y estado: activo, en mantenimiento o fuera de servicio) y tipos de equipo que administra el gerente. Un equipo nunca se borra (lo impide la base de datos): se da de baja con motivo, conserva todos sus movimientos y ya no recibe nuevos; el gerente puede reactivarlo. Cada ingreso o egreso de un proyecto de maquinaria se asigna a un equipo o se marca como general de la flota, lleva soporte o el motivo de no tenerlo, y el ingreso por alquiler registra cliente y período alquilado. Hay categorías de gasto propias de la maquinaria. La ficha del equipo muestra sus movimientos y totales; el reporte por rango de fechas y la comparación entre equipos son de la Etapa 2.
-- ⏳ Etapa 1: datos de demostración de La Floresta (base separada) y cierre de la etapa. Los 75 requerimientos "Debe" ya están; la matriz requerimiento por requerimiento está en `docs/cobertura-etapa-1.md`.
+- ✅ Demostración y rendimiento (paso 2.11): una base de demostración de La Floresta con escenarios para recorrer (contado, al día, por vencer, en mora, venta liquidada con recibos históricos, excepciones, desistimiento, separaciones, abono anulado, remodelación, maquinaria, nómina y cierres), una base de volumen con 1.000 lotes y más de 5.000 abonos para medir el rendimiento (RNF-REN-01 a 04 cumplen; ver `docs/rendimiento.md`) y la limpieza protegida de la base de desarrollo para cargar el Excel real. Cómo usarlas: `docs/DEMO.md`.
+- ⏳ Etapa 1, lo que falta para cerrarla: la plantilla de importación con el Excel real, el despliegue (HTTPS, almacenamiento S3, copias de seguridad), el manual y la capacitación. Los 75 requerimientos "Debe" ya están; la matriz requerimiento por requerimiento está en `docs/cobertura-etapa-1.md`.
 - ⏳ Etapa 2: notificaciones (correo y WhatsApp), verificación de consignaciones, comisiones, panel y reportes ampliados, recuperación de contraseña.
 - ⏳ Etapa 3: módulo de personal.
 
