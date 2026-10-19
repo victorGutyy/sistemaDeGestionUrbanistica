@@ -749,6 +749,60 @@ export function obtenerFinanzasProyecto(id: string, filtro: { desde?: string; ha
   return solicitar<FinanzasProyecto>(`/finanzas/proyectos/${id}${query ? `?${query}` : ''}`)
 }
 
+// ---------- Auditoría ----------
+
+export interface RegistroAuditoria {
+  id: string
+  createdAt: string
+  usuarioId: string
+  usuarioNombre: string
+  usuarioEmail: string
+  accion: string
+  entidad: string
+  entidadId: string | null
+  resumen: string
+  antes: unknown
+  despues: unknown
+}
+
+export interface FiltroAuditoria {
+  desde?: string
+  hasta?: string
+  usuarioId?: string
+  entidad?: string
+  accion?: string
+  buscar?: string
+  pagina?: number
+  limite?: number
+}
+
+export interface PaginaAuditoria {
+  registros: RegistroAuditoria[]
+  total: number
+  pagina: number
+  limite: number
+  paginas: number
+}
+
+export interface CatalogoAuditoria {
+  entidades: { valor: string; etiqueta: string }[]
+  acciones: { valor: string; etiqueta: string }[]
+  usuarios: { id: string; nombre: string; email: string }[]
+}
+
+export function listarAuditoria(filtro: FiltroAuditoria = {}) {
+  const params = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(filtro)) {
+    if (valor !== undefined && valor !== '') params.set(clave, String(valor))
+  }
+  const query = params.toString()
+  return solicitar<PaginaAuditoria>(`/auditoria${query ? `?${query}` : ''}`)
+}
+
+export function obtenerCatalogoAuditoria() {
+  return solicitar<CatalogoAuditoria>('/auditoria/catalogo')
+}
+
 // ---------- Cierres de caja ----------
 
 export type TipoCierre = 'DIARIO' | 'SEMANAL' | 'QUINCENAL'

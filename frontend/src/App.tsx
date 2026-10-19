@@ -5,6 +5,7 @@ import { RutaInicial } from './components/RutaInicial'
 import { AuthProvider } from './contexts/AuthContext'
 import { EmpresaProvider } from './contexts/EmpresaContext'
 import { PERMISOS } from './lib/permisos'
+import { AuditoriaPage } from './pages/AuditoriaPage'
 import { CajaPage } from './pages/CajaPage'
 import { CarteraPage } from './pages/CarteraPage'
 import { CierreDetallePage } from './pages/CierreDetallePage'
@@ -72,6 +73,10 @@ function App() {
                 <Route path="/trabajadores/nuevo" element={<RegistrarTrabajadorPage />} />
                 <Route path="/trabajadores/:id/pagos/nuevo" element={<RegistrarPagoNominaPage />} />
                 <Route path="/trabajadores/:id" element={<TrabajadorDetallePage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute permiso={PERMISOS.AUDITORIA_VER} />}>
+                <Route path="/auditoria" element={<AuditoriaPage />} />
               </Route>
 
               <Route element={<ProtectedRoute permiso={PERMISOS.USUARIOS_GESTIONAR} />}>
