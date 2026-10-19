@@ -198,6 +198,7 @@ model Usuario {
   cierresResueltos          CierreCaja[]           @relation("CierresResueltos")
   historialCierres          CierreCajaHistorial[]
   registrosAuditoria        RegistroAuditoria[]
+  importaciones             Importacion[]
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -207,6 +208,23 @@ model Usuario {
   updatedAt                 DateTime               @updatedAt
 
   @@index([rolId])
+}
+
+// Carga de datos desde Excel (RF-MIG-01 a 05). Solo se inserta: queda quién importó, qué archivo (por su huella,
+// para no cargar dos veces el mismo), cuánto se creó y el reporte de conciliación de saldos. La carga en sí es una
+// sola transacción: si algo falla no queda nada guardado y tampoco este registro.
+model Importacion {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  usuarioId     String
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+  nombreArchivo String
+  // SHA-256 del archivo: el mismo archivo no se importa dos veces.
+  huella        String   @unique
+  resumen       Json
+  conciliacion  Json
+
+  @@index([createdAt])
 }
 
 // Proyectos a los que puede acceder un usuario con alcance restringido.

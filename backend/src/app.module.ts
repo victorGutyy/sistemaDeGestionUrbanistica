@@ -15,6 +15,7 @@ import { ClientesModule } from './clientes/clientes.module.js';
 import { ConfiguracionModule } from './configuracion/configuracion.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { FinanzasModule } from './finanzas/finanzas.module.js';
+import { ImportacionModule } from './importacion/importacion.module.js';
 import { LotesModule } from './lotes/lotes.module.js';
 import { NominaModule } from './nomina/nomina.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -45,6 +46,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     FinanzasModule,
     CierresCajaModule,
     AuditoriaModule,
+    ImportacionModule,
     TrabajadoresModule,
     NominaModule,
     DashboardModule,

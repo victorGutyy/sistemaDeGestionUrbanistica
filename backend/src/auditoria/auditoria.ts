@@ -20,6 +20,7 @@ export const ENTIDADES_AUDITORIA = {
   CIERRE_CAJA: 'Cierre de caja',
   CONFIGURACION: 'Configuración',
   USUARIO: 'Usuario',
+  IMPORTACION: 'Importación de Excel',
 } as const;
 
 export type EntidadAuditoria = keyof typeof ENTIDADES_AUDITORIA;
@@ -64,6 +65,7 @@ export const ACCIONES_AUDITORIA = {
   USUARIO_CAMBIAR_ESTADO: 'Activó o desactivó un usuario',
   USUARIO_RESTABLECER_PASSWORD: 'Restableció la contraseña de un usuario',
   USUARIO_DESBLOQUEAR: 'Desbloqueó un usuario',
+  IMPORTACION_EJECUTAR: 'Importó datos desde Excel',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;

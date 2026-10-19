@@ -29,6 +29,7 @@ export const PERMISOS = {
   CONFIGURACION_EDITAR: 'configuracion.editar',
   USUARIOS_GESTIONAR: 'usuarios.gestionar',
   AUDITORIA_VER: 'auditoria.ver',
+  IMPORTACION_GESTIONAR: 'importacion.gestionar',
 } as const
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS]

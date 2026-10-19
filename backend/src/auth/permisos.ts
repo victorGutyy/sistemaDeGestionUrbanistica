@@ -32,6 +32,7 @@ export const PERMISOS = {
   CONFIGURACION_EDITAR: 'configuracion.editar',
   USUARIOS_GESTIONAR: 'usuarios.gestionar',
   AUDITORIA_VER: 'auditoria.ver', // consultar la auditoría (solo gerente)
+  IMPORTACION_GESTIONAR: 'importacion.gestionar', // cargar datos desde Excel (solo gerente)
 } as const;
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -78,6 +79,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.FINANZAS_ANULAR &&
         permiso !== PERMISOS.CAJA_APROBAR &&
         permiso !== PERMISOS.AUDITORIA_VER &&
+        permiso !== PERMISOS.IMPORTACION_GESTIONAR &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,
