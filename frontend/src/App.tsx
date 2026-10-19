@@ -7,6 +7,7 @@ import { EmpresaProvider } from './contexts/EmpresaContext'
 import { PERMISOS } from './lib/permisos'
 import { AuditoriaPage } from './pages/AuditoriaPage'
 import { CajaPage } from './pages/CajaPage'
+import { ImportacionPage } from './pages/ImportacionPage'
 import { CarteraPage } from './pages/CarteraPage'
 import { CierreDetallePage } from './pages/CierreDetallePage'
 import { ConfiguracionPage } from './pages/ConfiguracionPage'
@@ -77,6 +78,10 @@ function App() {
 
               <Route element={<ProtectedRoute permiso={PERMISOS.AUDITORIA_VER} />}>
                 <Route path="/auditoria" element={<AuditoriaPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute permiso={PERMISOS.IMPORTACION_GESTIONAR} />}>
+                <Route path="/importacion" element={<ImportacionPage />} />
               </Route>
 
               <Route element={<ProtectedRoute permiso={PERMISOS.USUARIOS_GESTIONAR} />}>

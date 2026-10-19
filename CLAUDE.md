@@ -75,6 +75,7 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 - Cómo se cobra el interés de mora: junto con la cuota o por separado (RF-CAR-06).
 - Software contable del contador y formato de reportes que necesita.
 - Logo de la empresa en buena calidad.
+- El Excel real de la empresa (la copia llega a más tardar el martes 20/10/2026): la plantilla de importación (paso 2.9) es un BORRADOR y hay que ajustarla a ese archivo. Todo vive en `backend/src/importacion/plantilla-definicion.ts` (hojas, columnas, alias de encabezado). Definir también si el plan de cuotas real se carga en la hoja opcional Cuotas, y si las escrituras se importan (hoy no).
 - Si CC-01 y CC-02 entran en el presupuesto o se cotiza adicional; si una remodelación guarda cliente de la obra y valor del contrato; si el préstamo se descuenta en una nómina o en cuotas y quién lo aprueba; definición de la quincena; concepto de la abogada sobre la carta de descuento; si el alquiler de maquinaria es siempre de contado y si se cobra el uso interno a proyectos propios.
 
 ## Deuda técnica conocida (quitar de aquí cuando se resuelva)
@@ -85,4 +86,5 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 - Al anular un abono, lo que aplicaron los demás abonos no se reacomoda: la anulación devuelve el valor a las cuotas donde ese abono cayó. El total pagado y el saldo siempre cuadran, pero pueden quedar cuotas posteriores parcialmente pagadas con una anterior pendiente. Decidir con el cliente si prefiere reaplicar en orden.
 - El PDF del recibo se probó por contenido y número de hojas (una), pero no se pudo ver renderizado en esta máquina (sin visor de PDF en el entorno); revisarlo a ojo una vez.
 - Los abonos antiguos de desarrollo con centavos (de antes del plan en pesos enteros) tienen su recibo histórico con los centavos dichos en letras; los abonos nuevos solo admiten pesos enteros.
+- Importador: los abonos históricos cuentan en caja y finanzas en su fecha de pago (no en la de importación); un cierre de caja ya cerrado bloquea importar pagos de sus fechas. No importa abonos a ventas que ya existen en el sistema (los abonos se cargan junto con su venta) ni escrituras.
 - El frontend no tiene corredor de pruebas (sin vitest): los formateadores de `lib/formato.ts` se verificaron a mano. Instalarlo requiere mi confirmación.

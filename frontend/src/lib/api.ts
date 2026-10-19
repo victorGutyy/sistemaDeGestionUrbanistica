@@ -803,6 +803,112 @@ export function obtenerCatalogoAuditoria() {
   return solicitar<CatalogoAuditoria>('/auditoria/catalogo')
 }
 
+// ---------- Importación desde Excel ----------
+
+export interface ProblemaImportacion {
+  hoja: string
+  // Fila del Excel (la 1 es el encabezado); null si el problema es de toda la hoja o del archivo.
+  fila: number | null
+  columna?: string
+  mensaje: string
+}
+
+export interface ResumenImportacion {
+  proyectos: { nuevos: number; existentes: number }
+  manzanas: { nuevas: number }
+  lotes: { nuevos: number; existentes: number }
+  clientes: { nuevos: number; existentes: number }
+  vendedores: { nuevos: number }
+  ventas: number
+  cuotas: number
+  abonos: number
+  recibosHistoricos: number
+  valorVentas: string
+  totalAbonado: string
+  totalSaldo: string
+  conDiferencia: number
+}
+
+export interface FilaConciliacion {
+  proyecto: string
+  manzana: string | null
+  lote: string
+  documentoCliente: string
+  cliente: string
+  formaPago: 'CONTADO' | 'FINANCIADO'
+  valorTotal: string
+  cuotaInicial: string
+  abonado: string
+  saldo: string
+  saldoSegunExcel: string | null
+  diferencia: string | null
+  estado: 'COINCIDE' | 'DIFERENCIA' | 'SIN_DATO'
+  cuotasPagadas: number
+  cuotasTotales: number
+  abonos: number
+}
+
+export interface ResultadoValidacionImportacion {
+  nombreArchivo: string
+  // Identifica el archivo validado: la confirmación debe mandar el mismo archivo con esta huella.
+  huella: string
+  puedeConfirmar: boolean
+  yaImportado: { fecha: string; por: string } | null
+  totalErrores: number
+  totalAvisos: number
+  errores: ProblemaImportacion[]
+  avisos: ProblemaImportacion[]
+  resumen: ResumenImportacion
+  conciliacion: FilaConciliacion[]
+}
+
+export interface ResultadoImportacion {
+  id: string
+  nombreArchivo: string
+  createdAt: string
+  resumen: ResumenImportacion & {
+    ejecucion: { recibosHistoricos: { cantidad: number; primero: string | null; ultimo: string | null } }
+  }
+  conciliacion: FilaConciliacion[]
+}
+
+export interface ImportacionHistorial {
+  id: string
+  createdAt: string
+  nombreArchivo: string
+  resumen: ResumenImportacion
+  usuario: { nombre: string }
+}
+
+export function descargarPlantillaImportacion() {
+  return descargarArchivo('/importacion/plantilla', 'plantilla-importacion.xlsx')
+}
+
+function formularioImportacion(archivo: File, huella?: string) {
+  const formData = new FormData()
+  formData.append('archivo', archivo)
+  if (huella) formData.append('huella', huella)
+  return formData
+}
+
+// Modo de prueba: el servidor valida todo el archivo y NO guarda nada.
+export function validarImportacion(archivo: File) {
+  return solicitar<ResultadoValidacionImportacion>('/importacion/validar', { method: 'POST', body: formularioImportacion(archivo) })
+}
+
+// Confirmación: se manda el mismo archivo y la huella de la validación; el servidor valida otra vez y lo guarda todo o nada.
+export function confirmarImportacion(archivo: File, huella: string) {
+  return solicitar<ResultadoImportacion>('/importacion/confirmar', { method: 'POST', body: formularioImportacion(archivo, huella) })
+}
+
+export function listarImportaciones() {
+  return solicitar<ImportacionHistorial[]>('/importacion')
+}
+
+export function descargarConciliacionImportacion(id: string) {
+  return descargarArchivo(`/importacion/${id}/conciliacion`, `conciliacion-importacion-${id.slice(0, 8)}.xlsx`)
+}
+
 // ---------- Cierres de caja ----------
 
 export type TipoCierre = 'DIARIO' | 'SEMANAL' | 'QUINCENAL'
