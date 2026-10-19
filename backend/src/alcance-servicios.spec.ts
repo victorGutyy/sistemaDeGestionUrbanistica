@@ -106,12 +106,15 @@ describe('alcance por proyecto en los servicios', () => {
 
   describe('clientes', () => {
     it('solo se ven los clientes con ventas en el alcance, y no se pueden crear clientes sueltos', async () => {
-      const servicio = new ClientesService(p());
+      const servicio = new ClientesService(p(), CONFIGURACION_VENTAS, STORAGE_FALSO);
       await servicio.listar(SOCIO);
       expect(prisma.cliente.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { ventas: { some: ALCANCE_VENTA } } }),
+        expect.objectContaining({ where: { AND: [{ ventas: { some: ALCANCE_VENTA } }, {}] } }),
       );
       await expect(servicio.buscarPorId('cliente-x', SOCIO)).rejects.toBeInstanceOf(NotFoundException);
+      // La ficha y el estado de cuenta de un cliente ajeno también responden 404.
+      await expect(servicio.ficha('cliente-x', SOCIO)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(servicio.estadoCuentaPdf('cliente-x', SOCIO)).rejects.toBeInstanceOf(NotFoundException);
       await expect(servicio.crear({ nombre: 'Ana', documento: '1' }, SOCIO)).rejects.toBeInstanceOf(ForbiddenException);
     });
   });

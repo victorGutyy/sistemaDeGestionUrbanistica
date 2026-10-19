@@ -4,6 +4,8 @@ import { crearAbonoEnTx, type ContextoRecibo } from '../abonos/crear-abono-tx.js
 import { exigirFechaNoFutura, validarCuentaDestino } from '../abonos/validar-pago.js';
 import { registrarAuditoria, soloCampos } from '../auditoria/auditoria.js';
 import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
+import { resumirCartera } from '../cartera/cartera-venta.js';
+import { datosDeAutorizacion } from '../clientes/autorizacion.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { categoriaDevolucionDesistimientoEnTx, crearMovimientoEnTx } from '../finanzas/crear-movimiento-tx.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
@@ -156,7 +158,8 @@ export class VentasService {
         if (clienteExistente) {
           throw new ConflictException(`Ya existe un cliente con el documento ${dto.clienteNuevo.documento}`);
         }
-        const clienteCreado = await tx.cliente.create({ data: dto.clienteNuevo });
+        const { autorizaDatos, ...datosCliente } = dto.clienteNuevo;
+        const clienteCreado = await tx.cliente.create({ data: { ...datosCliente, ...(autorizaDatos ? datosDeAutorizacion(true, usuario) : {}) } });
         clienteId = clienteCreado.id;
         await registrarAuditoria(tx, {
           usuario,
@@ -164,7 +167,7 @@ export class VentasService {
           entidad: 'CLIENTE',
           entidadId: clienteCreado.id,
           resumen: `Creó el cliente ${clienteCreado.nombre} (documento ${clienteCreado.documento}) junto con su venta`,
-          despues: soloCampos(clienteCreado, ['nombre', 'documento', 'telefono', 'email', 'direccion']),
+          despues: soloCampos(clienteCreado, ['nombre', 'documento', 'tipoDocumento', 'telefono', 'email', 'direccion', 'autorizaDatos']),
         });
       } else if (clienteId) {
         // Con alcance restringido solo se pueden usar clientes que ya tienen ventas en sus proyectos.
@@ -347,13 +350,29 @@ export class VentasService {
 
     // Lo pagado sale solo de abonos ACTIVOS; los anulados se muestran en el historial pero no cuentan.
     const abonosActivos = venta.abonos.filter((abono) => abono.estado === EstadoAbono.ACTIVO);
+    // Cuotas vencidas, saldo vencido, interés de mora y semáforo de esta venta (RF-CAR-03): los mismos números de la cartera.
+    const empresa = await this.configuracion.obtenerEmpresa();
+    const cartera =
+      venta.estado === EstadoVenta.ACTIVA
+        ? resumirCartera(venta.cuotas, new Date(), { tasaMoraMensual: empresa.tasaMoraMensual, diasGracia: empresa.diasGraciaMora }, empresa.diasSemaforoAmarillo)
+        : null;
     return {
       ...venta,
       cuotas: venta.cuotas.map(({ aplicaciones, ...cuota }) => ({
         ...cuota,
         pagado: aplicaciones.reduce((total, aplicacion) => total.plus(aplicacion.valor), new Prisma.Decimal(0)),
       })),
-      estadoCuenta: calcularEstadoCuenta({ valorTotal: venta.valorTotal, cuotas: venta.cuotas, abonos: abonosActivos }),
+      estadoCuenta: {
+        ...calcularEstadoCuenta({ valorTotal: venta.valorTotal, cuotas: venta.cuotas, abonos: abonosActivos }),
+        cartera: cartera && {
+          semaforo: cartera.semaforo,
+          cuotasVencidas: cartera.cuotasVencidas,
+          saldoVencido: cartera.saldoVencido,
+          interesMora: cartera.interesMora,
+          saldoPorVencer: cartera.saldoPorVencer,
+          moraConfigurada: empresa.tasaMoraMensual !== null,
+        },
+      },
     };
   }
 

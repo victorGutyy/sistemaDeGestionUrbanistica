@@ -7,6 +7,7 @@ export const PERMISOS = {
   PROYECTOS_CAMBIAR_ESTADO: 'proyectos.cambiar_estado',
   CLIENTES_VER: 'clientes.ver',
   CLIENTES_CREAR: 'clientes.crear',
+  CLIENTES_EDITAR: 'clientes.editar',
   VENTAS_VER: 'ventas.ver',
   VENTAS_CREAR: 'ventas.crear',
   VENTAS_AUTORIZAR: 'ventas.autorizar',
@@ -30,6 +31,7 @@ export const PERMISOS = {
   USUARIOS_GESTIONAR: 'usuarios.gestionar',
   AUDITORIA_VER: 'auditoria.ver',
   IMPORTACION_GESTIONAR: 'importacion.gestionar',
+  EXPORTACION_COMPLETA: 'exportacion.completa',
 } as const
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS]

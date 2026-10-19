@@ -2,16 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { filtroCliente, filtroProyecto, filtroVenta } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoAbono, EstadoCuota, EstadoVenta } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoVenta } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import {
-  calcularDiasHastaVencer,
-  calcularSemaforo,
-  evaluarCuotaPendiente,
-  type ParametrosMora,
-  type Semaforo,
-} from './mora.js';
+import { resumirCartera } from './cartera-venta.js';
+import { evaluarCuotaPendiente, type ParametrosMora } from './mora.js';
 
 // Solo cuenta lo aplicado por abonos ACTIVOS: un abono anulado ya no reduce lo que se debe.
 const APLICACIONES_ACTIVAS = { where: { abono: { estado: EstadoAbono.ACTIVO } }, select: { valor: true } } as const;
@@ -53,40 +48,19 @@ export class CarteraService {
     return clientes
       .filter((cliente) => cliente.ventas.length > 0)
       .map((cliente) => {
-        const cuotasPendientes = cliente.ventas.flatMap((venta) =>
-          venta.cuotas.filter((cuota) => cuota.estado !== EstadoCuota.PAGADA),
-        );
-
-        let saldoVencido = new Prisma.Decimal(0);
-        let interesMora = new Prisma.Decimal(0);
-
-        for (const cuota of cuotasPendientes) {
-          const evaluacion = evaluarCuotaPendiente(cuota, cuota.aplicaciones, hoy, mora);
-          if (evaluacion?.vencida) {
-            saldoVencido = saldoVencido.plus(evaluacion.saldo);
-            interesMora = interesMora.plus(evaluacion.interesMora);
-          }
-        }
-
-        const semaforo: Semaforo = calcularSemaforo(
-          cuotasPendientes.map((cuota) => ({
-            fechaVencimiento: cuota.fechaVencimiento,
-            diasHastaVencer: calcularDiasHastaVencer(cuota.fechaVencimiento, hoy),
-          })),
+        const resumen = resumirCartera(
+          cliente.ventas.flatMap((venta) => venta.cuotas),
+          hoy,
+          mora,
           diasAlertaAmarilla,
         );
 
-        const proximaCuota =
-          cuotasPendientes
-            .slice()
-            .sort((a, b) => a.fechaVencimiento.getTime() - b.fechaVencimiento.getTime())[0] ?? null;
-
         return {
           cliente: { id: cliente.id, nombre: cliente.nombre, documento: cliente.documento },
-          semaforo,
-          saldoVencido,
-          interesMora,
-          proximaCuota,
+          semaforo: resumen.semaforo,
+          saldoVencido: resumen.saldoVencido,
+          interesMora: resumen.interesMora,
+          proximaCuota: resumen.proximaCuota,
           // Para poder ir directo al seguimiento de cuotas/abonos de cada
           // venta (VentaDetallePage), sin tener que buscarla aparte.
           ventas: cliente.ventas.map((venta) => ({

@@ -46,12 +46,12 @@ async function archivo(llenar: (hojas: (nombre: string) => ExcelJS.Worksheet) =>
 
 const conUnCliente = () =>
   archivo((hoja) => {
-    hoja('Clientes').addRow(['1000000001', 'Cliente de Prueba Uno']);
+    hoja('Clientes').getRow(2).values = ['1000000001', 'CC', 'Cliente de Prueba Uno'];
   });
 
 const conErrores = () =>
   archivo((hoja) => {
-    hoja('Clientes').addRow(['12', 'X']);
+    hoja('Clientes').getRow(2).values = ['12', 'CC', 'X'];
   });
 
 describe('ImportacionService · modo de prueba', () => {

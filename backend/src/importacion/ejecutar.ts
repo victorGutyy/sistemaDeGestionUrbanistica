@@ -105,7 +105,7 @@ export async function ejecutarPlanEnTx(
   const clienteIds = new Map<string, string>();
   for (const cliente of plan.clientes) {
     const creado = await tx.cliente.create({
-      data: { nombre: cliente.nombre, documento: cliente.documento, telefono: cliente.telefono, email: cliente.email, direccion: cliente.direccion },
+      data: { nombre: cliente.nombre, documento: cliente.documento, tipoDocumento: cliente.tipoDocumento, telefono: cliente.telefono, email: cliente.email, direccion: cliente.direccion },
     });
     clienteIds.set(cliente.documento, creado.id);
     await registrarAuditoria(tx, {
@@ -114,7 +114,7 @@ export async function ejecutarPlanEnTx(
       entidad: 'CLIENTE',
       entidadId: creado.id,
       resumen: `Creó el cliente ${creado.nombre} (documento ${creado.documento}) (${MOTIVO_IMPORTACION})`,
-      despues: soloCampos(creado, ['nombre', 'documento', 'telefono', 'email', 'direccion']),
+      despues: soloCampos(creado, ['nombre', 'documento', 'tipoDocumento', 'telefono', 'email', 'direccion']),
     });
   }
   const vendedorIds = new Map<string, string>();

@@ -14,6 +14,7 @@ import { CierresCajaModule } from './cierres-caja/cierres-caja.module.js';
 import { ClientesModule } from './clientes/clientes.module.js';
 import { ConfiguracionModule } from './configuracion/configuracion.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { ExportacionModule } from './exportacion/exportacion.module.js';
 import { FinanzasModule } from './finanzas/finanzas.module.js';
 import { ImportacionModule } from './importacion/importacion.module.js';
 import { LotesModule } from './lotes/lotes.module.js';
@@ -47,6 +48,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     CierresCajaModule,
     AuditoriaModule,
     ImportacionModule,
+    ExportacionModule,
     TrabajadoresModule,
     NominaModule,
     DashboardModule,

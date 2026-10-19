@@ -21,6 +21,7 @@ export const ENTIDADES_AUDITORIA = {
   CONFIGURACION: 'Configuración',
   USUARIO: 'Usuario',
   IMPORTACION: 'Importación de Excel',
+  EXPORTACION: 'Exportación de datos',
 } as const;
 
 export type EntidadAuditoria = keyof typeof ENTIDADES_AUDITORIA;
@@ -40,6 +41,7 @@ export const ACCIONES_AUDITORIA = {
   PROYECTO_CAMBIAR_ESTADO: 'Cambió el estado de un proyecto',
   PROYECTO_CREAR_MANZANA: 'Creó una manzana',
   CLIENTE_CREAR: 'Creó un cliente',
+  CLIENTE_EDITAR: 'Editó un cliente',
   ABONO_REGISTRAR: 'Registró un abono',
   ABONO_ANULAR: 'Anuló un abono',
   RECIBO_EMITIR: 'Emitió un recibo de caja',
@@ -66,6 +68,7 @@ export const ACCIONES_AUDITORIA = {
   USUARIO_RESTABLECER_PASSWORD: 'Restableció la contraseña de un usuario',
   USUARIO_DESBLOQUEAR: 'Desbloqueó un usuario',
   IMPORTACION_EJECUTAR: 'Importó datos desde Excel',
+  EXPORTACION_COMPLETA: 'Exportó todos los datos a Excel',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;

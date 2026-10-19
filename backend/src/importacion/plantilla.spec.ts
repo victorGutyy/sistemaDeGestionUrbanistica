@@ -57,9 +57,9 @@ describe('lectura del libro', () => {
   it('lee las filas llenadas, con fechas de Excel, números y texto, e ignora filas vacías', async () => {
     const libro = await cargar(await generarPlantilla());
     const clientes = libro.getWorksheet('Clientes') as ExcelJS.Worksheet;
-    clientes.addRow(['1000000001', 'Cliente de Prueba Uno', '3000000001', 'cliente1@ejemplo.test', 'Calle 1 # 2-3']);
-    clientes.addRow([]);
-    clientes.addRow([1000000002, 'Cliente de Prueba Dos']);
+    // Se escribe en filas explícitas: las listas desplegables de la plantilla ya "usan" las celdas hasta la fila 2000.
+    clientes.getRow(2).values = ['1000000001', 'CC', 'Cliente de Prueba Uno', '3000000001', 'cliente1@ejemplo.test', 'Calle 1 # 2-3'];
+    clientes.getRow(4).values = [1000000002, 'NIT', 'Cliente de Prueba Dos'];
     const abonos = libro.getWorksheet('Abonos') as ExcelJS.Worksheet;
     abonos.addRow(['La Floresta', 'A', 12, new Date(Date.UTC(2026, 4, 10)), 13500000, 'Consignación', 'Bancolombia ahorros', '000123']);
 

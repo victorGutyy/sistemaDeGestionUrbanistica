@@ -93,6 +93,16 @@ enum TipoCuenta {
   BILLETERA_DIGITAL
 }
 
+// Tipo de documento de identidad de un cliente (RF-CLI-01).
+enum TipoDocumento {
+  CC
+  CE
+  NIT
+  PASAPORTE
+  TI
+  OTRO
+}
+
 enum TipoVendedor {
   ASESOR_INMOBILIARIO
   REFERIDO
@@ -199,6 +209,7 @@ model Usuario {
   historialCierres          CierreCajaHistorial[]
   registrosAuditoria        RegistroAuditoria[]
   importaciones             Importacion[]
+  clientesAutorizados       Cliente[]              @relation("AutorizacionesRegistradas")
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -325,16 +336,22 @@ model LoteHistorial {
 
 // Comprador de uno o más lotes.
 model Cliente {
-  id           String       @id @default(uuid())
-  nombre       String
-  documento    String       @unique
-  telefono     String?
-  email        String?
-  direccion    String?
-  ventas       Venta[]
-  separaciones Separacion[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id                          String        @id @default(uuid())
+  nombre                      String
+  documento                   String        @unique
+  tipoDocumento               TipoDocumento @default(CC)
+  telefono                    String?
+  email                       String?
+  direccion                   String?
+  // Autorización de tratamiento de datos personales (Ley 1581 de 2012, RF-CLI-04): si la dio, cuándo y quién la registró.
+  autorizaDatos               Boolean       @default(false)
+  fechaAutorizacion           DateTime?
+  autorizacionRegistradaPorId String?
+  autorizacionRegistradaPor   Usuario?      @relation("AutorizacionesRegistradas", fields: [autorizacionRegistradaPorId], references: [id])
+  ventas                      Venta[]
+  separaciones                Separacion[]
+  createdAt                   DateTime      @default(now())
+  updatedAt                   DateTime      @updatedAt
 }
 
 // Apartado de un lote antes de formalizar la venta. El valor es solo informativo (lo que dejó el

@@ -292,6 +292,14 @@ describe('validarImportacion · referencias entre hojas y datos inválidos', () 
     expect(mensajes(resultado.errores).join(' ')).toMatch(/¿Será el de la manzana A\?/);
   });
 
+  it('el tipo de documento del cliente se lee de la hoja; vacío es CC y uno desconocido es un error', () => {
+    const conTipo = validarImportacion(libro({ clientes: [{ ...CLIENTE, tipoDocumento: 'nit' }, { documento: '2000000002', nombre: 'Cliente de Prueba Dos' }] }), contextoVacio());
+    expect(conTipo.errores).toEqual([]);
+    expect(conTipo.plan.clientes.map((cliente) => [cliente.documento, cliente.tipoDocumento])).toEqual([['1000000001', 'NIT'], ['2000000002', 'CC']]);
+    const invalido = validarImportacion(libro({ clientes: [{ ...CLIENTE, tipoDocumento: 'Licencia' }] }), contextoVacio());
+    expect(mensajes(invalido.errores).join(' ')).toMatch(/Debe ser una de estas opciones: CC, CE, NIT/);
+  });
+
   it('un lote o cliente repetido en la misma hoja es un error', () => {
     const resultado = validarImportacion(libro({ proyectos: [PROYECTO, PROYECTO], lotes: [LOTE, LOTE], clientes: [CLIENTE, CLIENTE] }), contextoVacio());
     const textos = mensajes(resultado.errores).join(' | ');

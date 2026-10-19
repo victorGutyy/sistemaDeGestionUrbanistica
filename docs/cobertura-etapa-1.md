@@ -1,0 +1,226 @@
+# Cobertura de la Etapa 1
+
+Auditoría del paso 2.10a (18/10/2026): cada requerimiento de la Etapa 1 de `docs/requerimientos.md` contra lo que hay hoy en el código. Es una revisión de lectura (rutas, pantallas, esquema, pruebas); no cambia nada del sistema.
+
+**Estados:** ✅ construido y verificado · 🟡 parcial (qué falta en la columna de evidencia) · ❌ falta · ⏸ pospuesto a propósito · ⏳ no depende del código (se mide o se hace al desplegar).
+
+La Etapa 1 se acepta cuando están todos sus **Debe**. Los "Debería" y "Podría" se mueven primero si hay atraso.
+
+## Resumen
+
+| | Total | ✅ | 🟡 | ❌ | ⏸ |
+|---|---|---|---|---|---|
+| Debe | 75 | 67 | 3 | 5 | 0 |
+| Debería | 12 | 6 | 1 | 5 | 0 |
+| Podría | 1 | 0 | 0 | 0 | 1 |
+
+Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignados a esta etapa están incluidos). Para aceptar la etapa faltan 8 "Debe".
+
+## Lo que falta para cerrar la Etapa 1
+
+**Debe**
+
+| ID | Qué falta | Se resuelve en |
+|---|---|---|
+| RF-CLI-01 | Pantalla para registrar un cliente sin hacer una venta y campo **tipo de documento** (hoy solo existe el número). | 2.10b |
+| RF-CLI-03 | **Ficha del cliente** con sus lotes, ventas, abonos, saldo y estado de mora. No hay pantallas de clientes ni búsqueda; la API solo devuelve los datos básicos. | 2.10b |
+| RF-CAR-03 | El estado de cuenta de una venta muestra pagado, saldo y próxima cuota, pero **no las cuotas vencidas ni el interés de mora**, y no hay estado de cuenta por cliente. | 2.10b |
+| RF-REP-03 | **Reporte de estado de cuenta por cliente** (PDF). No existe. | 2.10b |
+| RF-PRY-12 | El tipo de proyecto Maquinaria existe, pero sin equipos no sirve. | 2.10c |
+| RF-MAQ-01 | **Catálogo de equipos** (nombre, tipo, marca, modelo, año, placa o serie, estado). | 2.10c |
+| RF-MAQ-03 | Asignar cada ingreso o egreso de un proyecto de maquinaria a un equipo o a la flota. | 2.10c |
+| RF-MAQ-07 | Dar de baja un equipo conservando sus movimientos. | 2.10c |
+
+**Debería**
+
+| ID | Qué falta | Se resuelve en |
+|---|---|---|
+| RF-CLI-04 | Registrar la autorización de tratamiento de datos personales por cliente. | 2.10b |
+| RF-MAQ-02 | Administrar los tipos de equipo. | 2.10c |
+| RF-MAQ-04 | El ingreso por alquiler registra cliente, período y valor. | 2.10c |
+| RF-MAQ-06 | Categorías de gasto propias de maquinaria. | 2.10c |
+| RF-USR-08 | Los roles son filas de una tabla con permisos de un catálogo, pero no hay pantalla ni endpoint para **crear roles nuevos** (hoy solo `GET /roles`). | por decidir |
+| RF-CAR-06 | Pago del interés de mora separado del abono. Depende de lo que confirme el cliente sobre cómo se cobra la mora. | fuera de la Etapa 1 mientras tanto |
+
+**Podría:** RF-VEN-09 (varios compradores por venta) queda ⏸ para el final, como se acordó.
+
+## Requerimientos funcionales
+
+### Configuración (CFG)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-CFG-01 | Debe | ✅ | `PUT /configuracion/empresa`, logo (`POST/DELETE /configuracion/logo`), pantalla Configuración. |
+| RF-CFG-02 | Debe | ✅ | Tabla `ConfiguracionEmpresa`, `EmpresaContext`; recibos, PDF y correos la leen de la base. |
+| RF-CFG-03 | Debe | ✅ | `PUT /configuracion/parametros` (cuota inicial, plazo máximo, tasa); `ventas/reglas-venta.ts` los usa. |
+| RF-CFG-04 | Debe | ✅ | Tasa de mora y días de gracia en parámetros; `cartera/mora.ts`. |
+| RF-CFG-05 | Debe | ✅ | `diasSemaforoAmarillo` en parámetros; `calcularSemaforo`. |
+| RF-CFG-06 | Debe | ✅ | `POST/PATCH /configuracion/cuentas`; las cuentas se desactivan, no se borran. |
+| RF-CFG-07 | Debe | ✅ | `PATCH /configuracion/medios-pago/:medio`; el servidor rechaza un medio deshabilitado. |
+| RF-CFG-08 | Debe | ✅ | `POST/PATCH /configuracion/categorias-gasto`; las del sistema no se renombran. |
+| RF-CFG-10 | Debería | ✅ | `textoLegalRecibo` en la empresa; aparece en el PDF del recibo. |
+| RF-CFG-11 | Debe | ✅ | `POST/PATCH /configuracion/categorias-ingreso` (CC-01). |
+
+### Usuarios (USR)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-USR-01 | Debe | ✅ | `POST /auth/login`; no existe ruta de registro; el primer gerente sale del seed. |
+| RF-USR-02 | Debe | ✅ | `RolUsuario` con permisos del catálogo `auth/permisos.ts`; Gerente, Administrador y Consulta. |
+| RF-USR-03 | Debe | ✅ | `UsuarioProyecto`; `auth/alcance.ts`; pruebas `alcance-servicios.spec.ts`. |
+| RF-USR-04 | Debe | ✅ | `POST/PATCH /usuarios`, `PATCH /usuarios/:id/estado` (activar y desactivar, sin borrar). |
+| RF-USR-05 | Debe | ✅ | `POST /usuarios/:id/password`. |
+| RF-USR-07 | Debe | ✅ | `minutosInactividad` configurable; `AuthContext` cierra la sesión. |
+| RF-USR-08 | Debería | 🟡 | Los roles ya viven en una tabla; falta la pantalla y el endpoint para crearlos y editarlos. |
+| RF-USR-09 | Debe | ✅ | `usuarios.service.ts`: "No puedes cambiar el estado de tu propia cuenta". |
+
+### Proyectos y lotes (PRY)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-PRY-01 | Debe | ✅ | `POST /proyectos`; pantalla Registrar proyecto. |
+| RF-PRY-02 | Debe | ✅ | `POST /proyectos/:id/manzanas`; las manzanas son opcionales. |
+| RF-PRY-03 | Debe | ✅ | `POST /lotes`; pantalla Registrar lote. |
+| RF-PRY-04 | Debe | ✅ | `proyectos/areas.ts`; el lote que excede el área pide confirmación (`confirmarExcesoArea`). |
+| RF-PRY-05 | Debe | ✅ | `EstadoLote`; máquina de estados `lotes/estado-lote.ts`. |
+| RF-PRY-06 | Debe | ✅ | `lotes/aplicar-accion.ts` es el único lugar que cambia el estado; deja historial y auditoría. |
+| RF-PRY-07 | Debe | ✅ | `PATCH /lotes/:id` registra el precio anterior en `LoteHistorial`. |
+| RF-PRY-08 | Debe | ✅ | `PATCH /proyectos/:id/estado`; un proyecto finalizado no admite lotes ni manzanas nuevas. |
+| RF-PRY-09 | Debe | ✅ | `GET /lotes` con filtros de proyecto, manzana, estado y búsqueda. |
+| RF-PRY-10 | Debería | ✅ | `POST /lotes/:id/escriturar` con datos de la escritura. |
+| RF-PRY-11 | Debe | ✅ | `TipoProyecto.REMODELACION` (CC-01); sin manzanas ni lotes. |
+| RF-PRY-12 | Debe | 🟡 | `TipoProyecto.MAQUINARIA` existe; faltan los equipos (ver RF-MAQ). |
+
+### Clientes (CLI)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-CLI-01 | Debe | 🟡 | `POST /clientes` y creación junto con la venta; faltan la pantalla y el campo tipo de documento. |
+| RF-CLI-02 | Debe | ✅ | `documento` único (base de datos y servicio). |
+| RF-CLI-03 | Debe | ❌ | No hay pantallas de clientes; `GET /clientes/:id` solo devuelve los datos básicos. |
+| RF-CLI-04 | Debería | ❌ | No existe el campo de autorización. |
+
+### Ventas (VEN)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-VEN-01 | Debe | ✅ | `POST /lotes/:id/separar` con valor y fecha límite; pantalla del lote. |
+| RF-VEN-02 | Debe | ✅ | `POST /ventas`; pantalla Registrar venta. |
+| RF-VEN-03 | Debe | ✅ | Cuota inicial en valor o porcentaje (`calcularCuotaInicial`). |
+| RF-VEN-04 | Debe | ✅ | `ventas/plan-de-pagos.ts`: cuotas mensuales sin interés en pesos enteros. |
+| RF-VEN-05 | Debe | ✅ | `evaluarExcepcion`; `POST /ventas/:id/aprobar` y `/rechazar` (solo gerente). |
+| RF-VEN-06 | Debe | ✅ | `POST /ventas/:id/documentos` (PDF, PNG o JPG validados por su contenido). |
+| RF-VEN-07 | Debe | ✅ | Tabla `Vendedor` (asesor o referido, con documento y teléfono). |
+| RF-VEN-08 | Debe | ✅ | `POST /ventas/:id/desistir`; no toca abonos ni recibos. |
+| RF-VEN-09 | Podría | ⏸ | Pospuesto al final. |
+| RF-VEN-10 | Debe | ✅ | `GET /ventas/:id` y `VentaDetallePage` (cuotas, abonos, saldo y documentos). |
+
+### Abonos y recibos (REC)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-REC-01 | Debe | ✅ | `POST /abonos` con venta, valor, fecha, medio, cuenta, referencia y usuario. |
+| RF-REC-02 | Debe | ✅ | Soporte adjunto validado por su contenido; se descarga solo con sesión y permiso. |
+| RF-REC-03 | Debe | ✅ | `abonos/repartir-abono.ts`; pruebas `repartir-abono.spec.ts`. |
+| RF-REC-04 | Debe | ✅ | Recibo `RC-` con consecutivo sin saltos; prueba de concurrencia `consecutivos.e2e-spec.ts`. |
+| RF-REC-05 | Debe | ✅ | `abonos/recibo-contenido.ts` (incluye valor en letras); `generar-pdf-recibo.ts`. |
+| RF-REC-06 | Debe | ✅ | Triggers de la base impiden editar o borrar recibos y abonos. |
+| RF-REC-07 | Debe | ✅ | `POST /abonos/:id/anular` (solo gerente, con motivo); el recibo queda marcado ANULADO. |
+| RF-REC-08 | Debe | ✅ | `anularAbonoEnTx` revierte las cuotas; el consecutivo no se reutiliza. |
+| RF-REC-09 | Debe | ✅ | `GET /abonos/:id/recibo` (PDF) y búsqueda `GET /recibos`. |
+
+### Cierre de caja (CAJ)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-CAJ-01 | Debe | ✅ | `POST /cierres-caja` diario, semanal o quincenal (semana y quincena provisionales). |
+| RF-CAJ-02 | Debe | ✅ | `cierres-caja/calcular-cierre.ts`: totales por medio de pago y por cuenta. |
+| RF-CAJ-03 | Debe | ✅ | Efectivo esperado contra contado y diferencia. |
+| RF-CAJ-04 | Debe | ✅ | Estados borrador, cerrado, aprobado o devuelto; `/cerrar`, `/aprobar`, `/devolver`. |
+| RF-CAJ-05 | Debe | ✅ | `fecha-abierta.ts` bloquea registros en períodos cerrados; las anulaciones cuentan el día que se anulan. |
+| RF-CAJ-06 | Debería | ✅ | `GET /cierres-caja/:id/pdf` (no visto renderizado). |
+
+### Cartera (CAR)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-CAR-01 | Debe | ✅ | `cartera/mora.ts` (`calcularSemaforo`); `CarteraPage`. |
+| RF-CAR-02 | Debe | ✅ | Interés de mora solo sobre el saldo vencido, con tasa y días de gracia de la configuración. |
+| RF-CAR-03 | Debe | 🟡 | `estadoCuenta` por venta (pagado, saldo, próxima cuota); faltan cuotas vencidas e interés de mora ahí, y la vista por cliente. |
+| RF-CAR-04 | Debe | ✅ | `GET /cartera` y `/cartera/reporte` por proyecto y consolidado, con enlace a la venta. |
+| RF-CAR-06 | Debería | ❌ | Depende de la confirmación del cliente sobre cómo se cobra la mora. |
+
+### Egresos, ingresos y finanzas (EGR)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-EGR-01 | Debe | ✅ | `POST /finanzas/movimientos`. |
+| RF-EGR-02 | Debe | ✅ | Soporte o motivo obligatorio (validado en servidor). |
+| RF-EGR-03 | Debería | ✅ | Ingresos con categoría y proyecto. |
+| RF-EGR-04 | Debe | ✅ | `POST /finanzas/movimientos/:id/anular` (solo gerente). |
+| RF-EGR-05 | Debe | ✅ | `finanzas/proyecto-finanzas.ts`: utilidad por proyecto. |
+| RF-EGR-06 | Debe | ✅ | Vendido, recaudado y saldo por cobrar por proyecto. |
+| RF-EGR-07 | Debe | ✅ | `GET /finanzas/consolidado` por rango de fechas. |
+| RF-EGR-08 | Debe | ✅ | `GET /finanzas/proyectos/:id` y `ProyectoFinanzasPage` (CC-01). |
+| RF-EGR-09 | Debería | ✅ | Tercero (nombre y documento) y número de factura en cada movimiento. |
+
+### Auditoría (AUD)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-AUD-01 | Debe | ✅ | `registrarAuditoria` en cada escritura; `auditoria/cobertura.spec.ts` lo exige. |
+| RF-AUD-02 | Debe | ✅ | `GET /auditoria` y pantalla con filtros (solo gerente). |
+| RF-AUD-03 | Debe | ✅ | Trigger `RegistroAuditoria_inmutable`; prueba `auditoria.e2e-spec.ts`. |
+
+### Migración desde Excel (MIG)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-MIG-01 | Debe | ✅ | `GET /importacion/plantilla` (borrador: se ajusta al Excel real). |
+| RF-MIG-02 | Debe | ✅ | `POST /importacion/validar` no guarda nada. |
+| RF-MIG-03 | Debe | ✅ | `POST /importacion/confirmar` exige la huella y guarda todo o nada. |
+| RF-MIG-04 | Debe | ✅ | Recibos de la serie `H-` marcados como históricos. |
+| RF-MIG-05 | Debería | ✅ | Conciliación en pantalla y en Excel. |
+
+### Reportes (REP) y maquinaria (MAQ)
+
+| ID | Prio. | Estado | Evidencia |
+|---|---|---|---|
+| RF-REP-03 | Debe | ❌ | No existe el reporte de estado de cuenta por cliente. |
+| RF-MAQ-01 | Debe | ❌ | No hay tabla de equipos. |
+| RF-MAQ-02 | Debería | ❌ | Sin tipos de equipo. |
+| RF-MAQ-03 | Debe | ❌ | Los movimientos no se asignan a un equipo. |
+| RF-MAQ-04 | Debería | ❌ | Sin cliente ni período de alquiler. |
+| RF-MAQ-06 | Debería | ❌ | Sin categorías propias de maquinaria. |
+| RF-MAQ-07 | Debe | ❌ | Sin baja de equipos. |
+
+## Requerimientos no funcionales
+
+| ID | Estado | Evidencia o pendiente |
+|---|---|---|
+| RNF-SEG-01 | ⏳ | HTTPS al desplegar. |
+| RNF-SEG-02 | ✅ | bcrypt con mínimo 8 caracteres. |
+| RNF-SEG-03 | ✅ | `@Permiso` en cada ruta; una ruta sin declarar se rechaza; prueba `app.e2e-spec.ts`. |
+| RNF-SEG-04 | ✅ | Alcance por proyecto en servicios; `alcance-servicios.spec.ts`. |
+| RNF-SEG-05 | ✅ | Soportes y documentos solo con sesión y permiso. |
+| RNF-SEG-06 | ✅ | Bloqueo temporal tras intentos fallidos (`auth.service.ts`). |
+| RNF-SEG-07 | 🟡 | `.env` fuera del repositorio; falta la revisión final del repositorio al cierre. |
+| RNF-INT-01 | ✅ | `consecutivos.e2e-spec.ts` (50 transacciones simultáneas). |
+| RNF-INT-02 | ✅ | `Decimal` en todo el dinero. |
+| RNF-INT-03 | ✅ | No hay borrado de información de negocio; todo se anula, desactiva o finaliza. |
+| RNF-INT-04 | ✅ | Transacciones en abonos, ventas, cierres e importación; pruebas de reversión. |
+| RNF-INT-05 | ✅ | Pruebas de plan de cuotas, abonos, anulación, mora, cierre e importación. |
+| RNF-REN-01 a 04 | ⏳ | Se miden con el modo volumen del paso 2.11. |
+| RNF-DIS-01 a 03 | ⏳ | Al desplegar (monitoreo, copias diarias y simulacro de restauración). |
+| RNF-USA-01 | ✅ | Español de Colombia, `$1.234.567` y dd/mm/aaaa. |
+| RNF-USA-02 | ⏳ | Depende de la ficha del cliente (2.10b). |
+| RNF-USA-03 | ✅ | Mensajes de servidor y formularios en español. |
+| RNF-USA-04 y 05 | ⏳ | Capacitación y manual de usuario con capturas. |
+| RNF-COM-01 | ⏳ | Prueba en Chrome, Edge y Firefox. |
+| RNF-COM-02 | 🟡 | Verificado a 375 px en el navegador; falta una prueba en un Android real. |
+| RNF-COM-03 | 🟡 | Los PDF (recibo y cierre) se verificaron por contenido, no renderizados. |
+| RNF-MAN-01 | ✅ | Empresa y reglas con números configurables. |
+| RNF-MAN-02 | 🟡 | README explica cómo levantar; falta documentación de despliegue. |
+| RNF-MAN-03 | 🟡 | Almacenamiento abstraído (`StorageService`) con implementación local; falta la de S3. |
+| RNF-LEG-01 | 🟡 | Falta la autorización de datos por cliente (RF-CLI-04) y la política de datos visible. |
+| RNF-LEG-02 | ❌ | No existe la **exportación completa de todos los datos a Excel**; los servicios en la nube se contratan al desplegar. |

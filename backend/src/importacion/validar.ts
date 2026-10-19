@@ -2,7 +2,8 @@ import { repartirAbono } from '../abonos/repartir-abono.js';
 import { formatearCOP } from '../common/formato.util.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoLote, EstadoProyecto, FormaPago, MedioPago, TipoProyecto, TipoVendedor } from '../generated/prisma/enums.js';
+import { OPCIONES_TIPO_DOCUMENTO_EXCEL } from '../common/tipo-documento.js';
+import { EstadoLote, EstadoProyecto, FormaPago, MedioPago, TipoDocumento, TipoProyecto, TipoVendedor } from '../generated/prisma/enums.js';
 import { generarPlanDePagos } from '../ventas/plan-de-pagos.js';
 import { esVacia, leerCodigo, leerDecimal, leerEntero, leerFecha, leerOpcion, leerPesos, leerTexto, normalizarTexto, type Celda, type Lectura } from './celdas.js';
 import type { FilaLeida, LibroLeido, ProblemaImportacion } from './leer-libro.js';
@@ -87,6 +88,7 @@ export interface LotePlan {
 export interface ClientePlan {
   fila: number;
   documento: string;
+  tipoDocumento: TipoDocumento;
   nombre: string;
   telefono: string | null;
   email: string | null;
@@ -553,6 +555,7 @@ export function validarImportacion(libro: LibroLeido, contexto: ContextoValidaci
   for (const fila of filasDe('clientes')) {
     const lector = lectorDe('clientes', fila);
     const documento = lector.codigo('documento');
+    const etiquetaTipoDocumento = lector.opcion('tipoDocumento');
     const nombre = lector.texto('nombre');
     const telefono = lector.codigo('telefono');
     const email = lector.texto('email');
@@ -578,7 +581,8 @@ export function validarImportacion(libro: LibroLeido, contexto: ContextoValidaci
       }
       continue;
     }
-    plan.clientes.push({ fila: fila.fila, documento, nombre, telefono: telefono ?? null, email: email ?? null, direccion: direccion ?? null });
+    const tipoDocumento = OPCIONES_TIPO_DOCUMENTO_EXCEL.find((opcion) => opcion.texto === etiquetaTipoDocumento)?.tipo ?? TipoDocumento.CC;
+    plan.clientes.push({ fila: fila.fila, documento, tipoDocumento, nombre, telefono: telefono ?? null, email: email ?? null, direccion: direccion ?? null });
     clientes.set(documento, { nombre, nuevo: true });
   }
 

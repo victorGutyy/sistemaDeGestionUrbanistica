@@ -36,6 +36,7 @@ export interface HojaPlantilla {
 export const FORMAS_DE_PAGO = ['Contado', 'Financiado'];
 export const MEDIOS_DE_PAGO = ['Efectivo', 'Consignación', 'Transferencia', 'Nequi', 'Daviplata', 'Cheque', 'Tarjeta'];
 export const TIPOS_DE_VENDEDOR = ['Asesor inmobiliario', 'Referido'];
+export const TIPOS_DE_DOCUMENTO = ['CC', 'CE', 'NIT', 'Pasaporte', 'TI', 'Otro'];
 
 // Tope de filas por hoja y de tamaño del archivo (protegen al servidor de un archivo enorme o mal armado).
 export const MAXIMO_FILAS_POR_HOJA = 5000;
@@ -106,6 +107,7 @@ export const HOJAS: HojaPlantilla[] = [
     descripcion: 'Un cliente por fila, identificado por su documento. Si ya existe en el sistema se reutiliza y no se modifica.',
     columnas: [
       { clave: 'documento', encabezado: 'Documento', alias: ['Cédula', 'Cedula', 'Identificación', 'Identificacion', 'NIT'], tipo: 'texto', obligatoria: true, ayuda: 'Cédula o NIT, sin puntos.', ejemplo: '1000000001', ancho: 16 },
+      { clave: 'tipoDocumento', encabezado: 'Tipo de documento', alias: ['Tipo documento', 'Tipo'], tipo: 'lista', obligatoria: false, opciones: TIPOS_DE_DOCUMENTO, ayuda: 'CC, CE, NIT, Pasaporte, TI u Otro. Vacío = CC.', ejemplo: 'CC', ancho: 18 },
       { clave: 'nombre', encabezado: 'Nombre', alias: ['Nombre completo', 'Cliente'], tipo: 'texto', obligatoria: true, ayuda: 'Nombre completo.', ejemplo: 'Cliente de Prueba Uno', ancho: 30 },
       { clave: 'telefono', encabezado: 'Teléfono', alias: ['Telefono', 'Celular'], tipo: 'texto', obligatoria: false, ayuda: 'Teléfono o celular.', ejemplo: '3000000001', ancho: 16 },
       { clave: 'email', encabezado: 'Correo', alias: ['Email', 'Correo electrónico', 'Correo electronico'], tipo: 'texto', obligatoria: false, ayuda: 'Correo electrónico.', ejemplo: 'cliente1@ejemplo.test', ancho: 28 },
