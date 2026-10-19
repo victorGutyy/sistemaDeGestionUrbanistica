@@ -23,6 +23,7 @@ import {
   type Venta,
 } from '../lib/api'
 import { formatearCOP, formatearFecha, hoyEnBogota } from '../lib/formato'
+import { ESTILO_SEMAFORO, ETIQUETA_SEMAFORO } from '../lib/clientes'
 import { CLASE_ESTADO_VENTA, ETIQUETA_ESTADO_VENTA, etiquetaCuota } from '../lib/ventas'
 
 const ESTILO_ESTADO_CUOTA: Record<EstadoCuota, string> = {
@@ -241,6 +242,13 @@ Motivo (queda registrado):`,
             Valor total: {formatearCOP(venta.valorTotal)} · Cuota inicial: {formatearCOP(venta.cuotaInicial)} ·{' '}
             {venta.formaPago === 'CONTADO' ? 'Contado' : `Financiado en ${venta.numeroCuotas} cuotas`} · Vendida el {formatearFecha(venta.fechaVenta)}
           </p>
+          {tiene(PERMISOS.CLIENTES_VER) && (
+            <p className="text-sm">
+              <Link to={`/clientes/${venta.cliente.id}`} className="font-medium text-blue-600 hover:underline">
+                Ver la ficha del cliente
+              </Link>
+            </p>
+          )}
           {venta.vendedor && (
             <p className="text-sm text-slate-500">
               Vendedor: {venta.vendedor.nombre} ({venta.vendedor.tipo === 'ASESOR_INMOBILIARIO' ? 'asesor inmobiliario' : 'referido'})
@@ -333,6 +341,28 @@ Motivo (queda registrado):`,
                 : '—'}
             </p>
           </div>
+        </div>
+      )}
+
+      {estadoCuenta?.cartera && venta.estado === 'ACTIVA' && (
+        <div className={`mt-3 rounded-lg border px-4 py-3 text-sm ${estadoCuenta.cartera.cuotasVencidas > 0 ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white'}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTILO_SEMAFORO[estadoCuenta.cartera.semaforo]}`}>{ETIQUETA_SEMAFORO[estadoCuenta.cartera.semaforo]}</span>
+            {estadoCuenta.cartera.cuotasVencidas > 0 ? (
+              <span className="font-medium text-red-700">
+                {estadoCuenta.cartera.cuotasVencidas} cuota{estadoCuenta.cartera.cuotasVencidas === 1 ? '' : 's'} vencida{estadoCuenta.cartera.cuotasVencidas === 1 ? '' : 's'} por {formatearCOP(estadoCuenta.cartera.saldoVencido)}
+              </span>
+            ) : (
+              <span className="text-slate-600">No tiene cuotas vencidas.</span>
+            )}
+          </div>
+          {estadoCuenta.cartera.cuotasVencidas > 0 && (
+            <p className="mt-1 text-slate-700">
+              Interés de mora (informativo): <span className="font-medium">{estadoCuenta.cartera.moraConfigurada ? formatearCOP(estadoCuenta.cartera.interesMora) : 'sin tasa de mora definida'}</span>
+              {!estadoCuenta.cartera.moraConfigurada && ' — el gerente la define en Configuración.'}
+            </p>
+          )}
+          {Number(estadoCuenta.cartera.saldoPorVencer) > 0 && <p className="mt-1 text-xs text-slate-500">Por vencer: {formatearCOP(estadoCuenta.cartera.saldoPorVencer)}</p>}
         </div>
       )}
 

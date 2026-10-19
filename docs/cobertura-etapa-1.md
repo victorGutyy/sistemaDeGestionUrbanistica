@@ -10,11 +10,11 @@ La Etapa 1 se acepta cuando están todos sus **Debe**. Los "Debería" y "Podría
 
 | | Total | ✅ | 🟡 | ❌ | ⏸ |
 |---|---|---|---|---|---|
-| Debe | 75 | 67 | 3 | 5 | 0 |
-| Debería | 12 | 6 | 1 | 5 | 0 |
+| Debe | 75 | 71 | 1 | 3 | 0 |
+| Debería | 12 | 7 | 1 | 4 | 0 |
 | Podría | 1 | 0 | 0 | 0 | 1 |
 
-Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignados a esta etapa están incluidos). Para aceptar la etapa faltan 8 "Debe".
+Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignados a esta etapa están incluidos). Para aceptar la etapa faltan 4 "Debe" (todos de maquinaria: RF-PRY-12, RF-MAQ-01, RF-MAQ-03 y RF-MAQ-07).
 
 ## Lo que falta para cerrar la Etapa 1
 
@@ -22,10 +22,6 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 
 | ID | Qué falta | Se resuelve en |
 |---|---|---|
-| RF-CLI-01 | Pantalla para registrar un cliente sin hacer una venta y campo **tipo de documento** (hoy solo existe el número). | 2.10b |
-| RF-CLI-03 | **Ficha del cliente** con sus lotes, ventas, abonos, saldo y estado de mora. No hay pantallas de clientes ni búsqueda; la API solo devuelve los datos básicos. | 2.10b |
-| RF-CAR-03 | El estado de cuenta de una venta muestra pagado, saldo y próxima cuota, pero **no las cuotas vencidas ni el interés de mora**, y no hay estado de cuenta por cliente. | 2.10b |
-| RF-REP-03 | **Reporte de estado de cuenta por cliente** (PDF). No existe. | 2.10b |
 | RF-PRY-12 | El tipo de proyecto Maquinaria existe, pero sin equipos no sirve. | 2.10c |
 | RF-MAQ-01 | **Catálogo de equipos** (nombre, tipo, marca, modelo, año, placa o serie, estado). | 2.10c |
 | RF-MAQ-03 | Asignar cada ingreso o egreso de un proyecto de maquinaria a un equipo o a la flota. | 2.10c |
@@ -35,13 +31,11 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 
 | ID | Qué falta | Se resuelve en |
 |---|---|---|
-| RF-CLI-04 | Registrar la autorización de tratamiento de datos personales por cliente. | 2.10b |
 | RF-MAQ-02 | Administrar los tipos de equipo. | 2.10c |
 | RF-MAQ-04 | El ingreso por alquiler registra cliente, período y valor. | 2.10c |
 | RF-MAQ-06 | Categorías de gasto propias de maquinaria. | 2.10c |
 | RF-USR-08 | Los roles son filas de una tabla con permisos de un catálogo, pero no hay pantalla ni endpoint para **crear roles nuevos** (hoy solo `GET /roles`). | por decidir |
 | RF-CAR-06 | Pago del interés de mora separado del abono. Depende de lo que confirme el cliente sobre cómo se cobra la mora. | fuera de la Etapa 1 mientras tanto |
-
 **Podría:** RF-VEN-09 (varios compradores por venta) queda ⏸ para el final, como se acordó.
 
 ## Requerimientos funcionales
@@ -95,10 +89,10 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 
 | ID | Prio. | Estado | Evidencia |
 |---|---|---|---|
-| RF-CLI-01 | Debe | 🟡 | `POST /clientes` y creación junto con la venta; faltan la pantalla y el campo tipo de documento. |
+| RF-CLI-01 | Debe | ✅ | `POST /clientes` y pantalla Nuevo cliente (`/clientes/nuevo`) con tipo de documento; también al crear el cliente dentro de la venta. |
 | RF-CLI-02 | Debe | ✅ | `documento` único (base de datos y servicio). |
-| RF-CLI-03 | Debe | ❌ | No hay pantallas de clientes; `GET /clientes/:id` solo devuelve los datos básicos. |
-| RF-CLI-04 | Debería | ❌ | No existe el campo de autorización. |
+| RF-CLI-03 | Debe | ✅ | Menú Clientes (`/clientes`, búsqueda) y ficha (`/clientes/:id`): datos, resumen de cartera, ventas con cuotas y abonos, Registrar abono y estado de cuenta. |
+| RF-CLI-04 | Debería | ✅ | Campos `autorizaDatos`, `fechaAutorizacion` y quién la registró; se da al crear, se registra o retira desde la ficha y queda en la auditoría. |
 
 ### Ventas (VEN)
 
@@ -146,7 +140,7 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 |---|---|---|---|
 | RF-CAR-01 | Debe | ✅ | `cartera/mora.ts` (`calcularSemaforo`); `CarteraPage`. |
 | RF-CAR-02 | Debe | ✅ | Interés de mora solo sobre el saldo vencido, con tasa y días de gracia de la configuración. |
-| RF-CAR-03 | Debe | 🟡 | `estadoCuenta` por venta (pagado, saldo, próxima cuota); faltan cuotas vencidas e interés de mora ahí, y la vista por cliente. |
+| RF-CAR-03 | Debe | ✅ | `estadoCuenta.cartera` en el detalle de la venta (cuotas vencidas, saldo vencido, mora, semáforo) y ficha del cliente; comparten `resumirCartera` con la cartera. |
 | RF-CAR-04 | Debe | ✅ | `GET /cartera` y `/cartera/reporte` por proyecto y consolidado, con enlace a la venta. |
 | RF-CAR-06 | Debería | ❌ | Depende de la confirmación del cliente sobre cómo se cobra la mora. |
 
@@ -186,7 +180,7 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 
 | ID | Prio. | Estado | Evidencia |
 |---|---|---|---|
-| RF-REP-03 | Debe | ❌ | No existe el reporte de estado de cuenta por cliente. |
+| RF-REP-03 | Debe | ✅ | `GET /clientes/:id/estado-cuenta` (PDF multipágina) y botón en la ficha. |
 | RF-MAQ-01 | Debe | ❌ | No hay tabla de equipos. |
 | RF-MAQ-02 | Debería | ❌ | Sin tipos de equipo. |
 | RF-MAQ-03 | Debe | ❌ | Los movimientos no se asignan a un equipo. |
@@ -213,7 +207,7 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 | RNF-REN-01 a 04 | ⏳ | Se miden con el modo volumen del paso 2.11. |
 | RNF-DIS-01 a 03 | ⏳ | Al desplegar (monitoreo, copias diarias y simulacro de restauración). |
 | RNF-USA-01 | ✅ | Español de Colombia, `$1.234.567` y dd/mm/aaaa. |
-| RNF-USA-02 | ⏳ | Depende de la ficha del cliente (2.10b). |
+| RNF-USA-02 | ✅ | Clientes, ficha del cliente y Registrar abono: tres pasos (pantalla `ClienteDetallePage`). |
 | RNF-USA-03 | ✅ | Mensajes de servidor y formularios en español. |
 | RNF-USA-04 y 05 | ⏳ | Capacitación y manual de usuario con capturas. |
 | RNF-COM-01 | ⏳ | Prueba en Chrome, Edge y Firefox. |
@@ -222,5 +216,5 @@ Total: 88 requerimientos funcionales de la Etapa 1 (los de CC-01 y CC-02 asignad
 | RNF-MAN-01 | ✅ | Empresa y reglas con números configurables. |
 | RNF-MAN-02 | 🟡 | README explica cómo levantar; falta documentación de despliegue. |
 | RNF-MAN-03 | 🟡 | Almacenamiento abstraído (`StorageService`) con implementación local; falta la de S3. |
-| RNF-LEG-01 | 🟡 | Falta la autorización de datos por cliente (RF-CLI-04) y la política de datos visible. |
-| RNF-LEG-02 | ❌ | No existe la **exportación completa de todos los datos a Excel**; los servicios en la nube se contratan al desplegar. |
+| RNF-LEG-01 | 🟡 | Ya se registra la autorización de datos por cliente (RF-CLI-04); falta la política de tratamiento de datos visible para el cliente. |
+| RNF-LEG-02 | ✅ | `GET /exportacion/completa` (solo gerente): un libro de Excel con una hoja por tabla, sin contraseñas; botón en Configuración. Los adjuntos no van en el libro. Los servicios en la nube se contratan al desplegar. |

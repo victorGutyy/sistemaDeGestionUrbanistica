@@ -7,6 +7,8 @@ import { EmpresaProvider } from './contexts/EmpresaContext'
 import { PERMISOS } from './lib/permisos'
 import { AuditoriaPage } from './pages/AuditoriaPage'
 import { CajaPage } from './pages/CajaPage'
+import { ClienteDetallePage } from './pages/ClienteDetallePage'
+import { ClientesPage } from './pages/ClientesPage'
 import { ImportacionPage } from './pages/ImportacionPage'
 import { CarteraPage } from './pages/CarteraPage'
 import { CierreDetallePage } from './pages/CierreDetallePage'
@@ -23,6 +25,7 @@ import { ProyectoFinanzasPage } from './pages/ProyectoFinanzasPage'
 import { ProyectosPage } from './pages/ProyectosPage'
 import { RecibosPage } from './pages/RecibosPage'
 import { RegistrarAbonoPage } from './pages/RegistrarAbonoPage'
+import { RegistrarClientePage } from './pages/RegistrarClientePage'
 import { RegistrarLotePage } from './pages/RegistrarLotePage'
 import { RegistrarMovimientoPage } from './pages/RegistrarMovimientoPage'
 import { RegistrarPagoNominaPage } from './pages/RegistrarPagoNominaPage'
@@ -57,6 +60,13 @@ function App() {
               <Route path="/ventas/nueva" element={<RegistrarVentaPage />} />
               <Route path="/ventas/:ventaId/abonos/nuevo" element={<RegistrarAbonoPage />} />
               <Route path="/ventas/:id" element={<VentaDetallePage />} />
+              <Route element={<ProtectedRoute permiso={PERMISOS.CLIENTES_VER} />}>
+                <Route path="/clientes" element={<ClientesPage />} />
+                <Route path="/clientes/:id" element={<ClienteDetallePage />} />
+              </Route>
+              <Route element={<ProtectedRoute permiso={PERMISOS.CLIENTES_CREAR} />}>
+                <Route path="/clientes/nuevo" element={<RegistrarClientePage />} />
+              </Route>
               <Route path="/recibos" element={<RecibosPage />} />
               <Route element={<ProtectedRoute permiso={PERMISOS.CAJA_VER} />}>
                 <Route path="/caja" element={<CajaPage />} />

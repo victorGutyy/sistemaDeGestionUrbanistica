@@ -1,3 +1,5 @@
+import { hoyEnBogota } from './formato'
+
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 const CLAVE_TOKEN = 'sistemaUrbanismo.token'
 
@@ -342,11 +344,140 @@ export function listarClientes() {
   return solicitar<Cliente[]>('/clientes')
 }
 
+export type TipoDocumento = 'CC' | 'CE' | 'NIT' | 'PASAPORTE' | 'TI' | 'OTRO'
+
+export interface ClienteResumen extends Cliente {
+  tipoDocumento: TipoDocumento
+  telefono: string | null
+  email: string | null
+  // Ventas del cliente dentro del alcance de quien consulta.
+  _count: { ventas: number }
+}
+
+// Búsqueda por nombre, documento o teléfono.
+export function buscarClientes(buscar?: string) {
+  const texto = buscar?.trim()
+  return solicitar<ClienteResumen[]>(`/clientes${texto ? `?buscar=${encodeURIComponent(texto)}` : ''}`)
+}
+
+export interface DatosCliente {
+  id: string
+  nombre: string
+  documento: string
+  tipoDocumento: TipoDocumento
+  telefono: string | null
+  email: string | null
+  direccion: string | null
+  autorizaDatos: boolean
+  fechaAutorizacion: string | null
+  autorizacionRegistradaPor: { nombre: string } | null
+}
+
+export interface CuotaFicha {
+  numero: number
+  fechaVencimiento: string
+  valor: string
+  pagado: string
+  saldo: string
+  estado: 'PENDIENTE' | 'PARCIAL' | 'PAGADA'
+  vencida: boolean
+  diasAtraso: number
+  interesMora: string
+}
+
+export interface AbonoFicha {
+  id: string
+  fecha: string
+  valor: string
+  medioPago: MedioPago
+  estado: 'ACTIVO' | 'ANULADO'
+  recibo: { numeroTexto: string } | null
+  cuentaDestino: { alias: string } | null
+}
+
+export interface VentaFicha {
+  id: string
+  estado: EstadoVenta
+  formaPago: FormaPago
+  fechaVenta: string
+  valorTotal: string
+  cuotaInicial: string
+  lote: { id: string; numero: string; proyecto: string; manzana: string | null }
+  // Solo una venta activa cuenta en los totales y tiene saldo.
+  vigente: boolean
+  pagado: string
+  saldo: string | null
+  cartera: {
+    semaforo: Semaforo
+    saldoVencido: string
+    interesMora: string
+    saldoPorVencer: string
+    cuotasVencidas: number
+    cuotasPendientes: number
+    proximaCuota: { numero: number; fechaVencimiento: string; valor: string } | null
+  } | null
+  cuotas: CuotaFicha[]
+  abonos: AbonoFicha[]
+}
+
+export interface FichaCliente {
+  cliente: DatosCliente
+  // false = la tasa de mora no está definida: el interés se muestra en $0 por falta de dato.
+  moraConfigurada: boolean
+  resumen: {
+    semaforo: Semaforo
+    ventasVigentes: number
+    totalVendido: string
+    totalPagado: string
+    saldo: string
+    saldoVencido: string
+    interesMora: string
+    saldoPorVencer: string
+    cuotasVencidas: number
+  }
+  ventas: VentaFicha[]
+}
+
+export function obtenerFichaCliente(id: string) {
+  return solicitar<FichaCliente>(`/clientes/${id}`)
+}
+
+export interface DatosNuevoCliente {
+  nombre: string
+  documento: string
+  tipoDocumento: TipoDocumento
+  telefono?: string
+  email?: string
+  direccion?: string
+  autorizaDatos?: boolean
+}
+
+export function crearCliente(datos: DatosNuevoCliente) {
+  return solicitar<DatosCliente>('/clientes', { method: 'POST', body: JSON.stringify(datos) })
+}
+
+// Solo se cambia lo que se envía; en teléfono, correo y dirección un texto vacío borra el dato.
+export function actualizarCliente(id: string, datos: Partial<Omit<DatosNuevoCliente, 'documento'>>) {
+  return solicitar<DatosCliente>(`/clientes/${id}`, { method: 'PATCH', body: JSON.stringify(datos) })
+}
+
+// Estado de cuenta del cliente en PDF (se abre en una pestaña nueva, con la sesión).
+export function abrirEstadoCuentaCliente(id: string) {
+  return abrirArchivo(`/clientes/${id}/estado-cuenta`)
+}
+
+// Exportación completa de todos los datos de la empresa a Excel (solo gerente).
+export function exportarTodosLosDatos() {
+  return descargarArchivo('/exportacion/completa', `exportacion-completa-${hoyEnBogota()}.xlsx`)
+}
+
 export interface ClienteNuevoPayload {
   nombre: string
   documento: string
+  tipoDocumento?: TipoDocumento
   telefono?: string
   email?: string
+  autorizaDatos?: boolean
 }
 
 export type EstadoVenta = 'PENDIENTE_APROBACION' | 'ACTIVA' | 'RECHAZADA' | 'DESISTIDA'
@@ -423,6 +554,15 @@ export interface EstadoCuenta {
   totalPagado: string
   saldoPendiente: string
   proximaCuota: Cuota | null
+  // Cuotas vencidas, saldo vencido, mora y semáforo de la venta (solo si está activa).
+  cartera?: {
+    semaforo: Semaforo
+    cuotasVencidas: number
+    saldoVencido: string
+    interesMora: string
+    saldoPorVencer: string
+    moraConfigurada: boolean
+  } | null
 }
 
 export interface DocumentoVenta {

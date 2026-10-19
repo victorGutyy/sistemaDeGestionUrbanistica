@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { LogoEmpresa } from '../components/LogoEmpresa'
+import { useAuth } from '../contexts/AuthContext'
 import { useEmpresa } from '../contexts/EmpresaContext'
 import {
   actualizarCategoriaGasto,
@@ -12,6 +13,7 @@ import {
   crearCategoriaGasto,
   crearCategoriaIngreso,
   crearCuenta,
+  exportarTodosLosDatos,
   obtenerConfiguracion,
   quitarLogo,
   subirLogo,
@@ -26,6 +28,7 @@ import {
 } from '../lib/api'
 import { formatearCOP } from '../lib/formato'
 import { esColorValido } from '../lib/marca'
+import { PERMISOS } from '../lib/permisos'
 
 const CLASE_INPUT =
   'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
@@ -675,9 +678,41 @@ function SeccionComisiones({ comisiones, onCambio }: { comisiones: ComisionConfi
   )
 }
 
+// Exportación completa (RNF-LEG-02): la empresa se lleva todos sus datos a Excel cuando quiera.
+function SeccionExportacion() {
+  const [exportando, setExportando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function exportar() {
+    setExportando(true)
+    setError(null)
+    try {
+      await exportarTodosLosDatos()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo exportar')
+    } finally {
+      setExportando(false)
+    }
+  }
+
+  return (
+    <Seccion
+      titulo="Exportar todos mis datos a Excel"
+      descripcion="Descarga un libro de Excel con todos los datos de la empresa, una hoja por tipo de dato (proyectos, lotes, clientes, ventas, cuotas, abonos, recibos, egresos, nómina, auditoría y más). No incluye contraseñas ni los archivos adjuntos. Cada exportación queda registrada en la auditoría."
+    >
+      <Aviso error={error} ok={null} />
+      <button type="button" onClick={exportar} disabled={exportando} className={`${CLASE_BOTON} w-full py-3 sm:w-auto sm:py-2`}>
+        {exportando ? 'Preparando el archivo…' : 'Exportar todos los datos'}
+      </button>
+      {exportando && <p className="mt-2 text-xs text-slate-500">Con muchos datos puede tardar unos segundos.</p>}
+    </Seccion>
+  )
+}
+
 // ---------- Página ----------
 
 export function ConfiguracionPage() {
+  const { tiene } = useAuth()
   const [config, setConfig] = useState<ConfiguracionCompleta | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -722,6 +757,7 @@ export function ConfiguracionPage() {
         actualizar={actualizarCategoriaIngreso}
       />
       <SeccionComisiones comisiones={config.comisiones} onCambio={(comisiones) => setConfig({ ...config, comisiones })} />
+      {tiene(PERMISOS.EXPORTACION_COMPLETA) && <SeccionExportacion />}
     </div>
   )
 }

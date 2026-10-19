@@ -15,10 +15,12 @@ import {
   type MedioPago,
   type MedioPagoConfig,
   type ParametrosVenta,
+  type TipoDocumento,
   type TipoVendedor,
   type Vendedor,
 } from '../lib/api'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
+import { ETIQUETA_TIPO_DOCUMENTO, TIPOS_DOCUMENTO } from '../lib/clientes'
 import { formatearCOP, hoyEnBogota } from '../lib/formato'
 
 type OrigenCliente = 'existente' | 'nuevo'
@@ -56,6 +58,8 @@ export function RegistrarVentaPage() {
   const [clienteDocumento, setClienteDocumento] = useState('')
   const [clienteTelefono, setClienteTelefono] = useState('')
   const [clienteEmail, setClienteEmail] = useState('')
+  const [clienteTipoDocumento, setClienteTipoDocumento] = useState<TipoDocumento>('CC')
+  const [clienteAutorizaDatos, setClienteAutorizaDatos] = useState(false)
 
   const [origenVendedor, setOrigenVendedor] = useState<OrigenVendedor>('ninguno')
   const [vendedorId, setVendedorId] = useState('')
@@ -154,8 +158,10 @@ export function RegistrarVentaPage() {
               clienteNuevo: {
                 nombre: clienteNombre,
                 documento: clienteDocumento,
+                tipoDocumento: clienteTipoDocumento,
                 telefono: clienteTelefono || undefined,
                 email: clienteEmail || undefined,
+                autorizaDatos: clienteAutorizaDatos || undefined,
               },
             }),
         ...(origenVendedor === 'existente' ? { vendedorId } : {}),
@@ -241,9 +247,20 @@ export function RegistrarVentaPage() {
           ) : (
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input required placeholder="Nombre completo" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className={CLASE_INPUT} />
-              <input required placeholder="Documento" value={clienteDocumento} onChange={(e) => setClienteDocumento(e.target.value)} className={CLASE_INPUT} />
+              <select value={clienteTipoDocumento} onChange={(e) => setClienteTipoDocumento(e.target.value as TipoDocumento)} className={CLASE_INPUT} aria-label="Tipo de documento">
+                {TIPOS_DOCUMENTO.map((tipo) => (
+                  <option key={tipo} value={tipo}>
+                    {ETIQUETA_TIPO_DOCUMENTO[tipo]}
+                  </option>
+                ))}
+              </select>
+              <input required placeholder="Número de documento" value={clienteDocumento} onChange={(e) => setClienteDocumento(e.target.value)} className={CLASE_INPUT} />
               <input placeholder="Teléfono (opcional)" value={clienteTelefono} onChange={(e) => setClienteTelefono(e.target.value)} className={CLASE_INPUT} />
               <input type="email" placeholder="Correo electrónico (opcional)" value={clienteEmail} onChange={(e) => setClienteEmail(e.target.value)} className={CLASE_INPUT} />
+              <label className="flex items-start gap-2 text-sm text-slate-600 sm:col-span-2">
+                <input type="checkbox" checked={clienteAutorizaDatos} onChange={(e) => setClienteAutorizaDatos(e.target.checked)} className="mt-0.5" />
+                El cliente autorizó el tratamiento de sus datos personales (Ley 1581 de 2012)
+              </label>
             </div>
           )}
         </div>
