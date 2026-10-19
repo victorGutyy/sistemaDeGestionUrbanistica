@@ -17,8 +17,8 @@ export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Post()
-  crear(@Body() dto: CrearUsuarioDto) {
-    return this.usuariosService.crear(dto);
+  crear(@Body() dto: CrearUsuarioDto, @CurrentUsuario() actor: UsuarioAutenticado) {
+    return this.usuariosService.crear(dto, actor);
   }
 
   @Get()
@@ -27,8 +27,8 @@ export class UsuariosController {
   }
 
   @Patch(':id')
-  actualizar(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarUsuarioDto) {
-    return this.usuariosService.actualizar(id, dto);
+  actualizar(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarUsuarioDto, @CurrentUsuario() actor: UsuarioAutenticado) {
+    return this.usuariosService.actualizar(id, dto, actor);
   }
 
   @Patch(':id/estado')
@@ -37,16 +37,16 @@ export class UsuariosController {
     @Body() dto: ActualizarEstadoUsuarioDto,
     @CurrentUsuario() usuarioActual: UsuarioAutenticado,
   ) {
-    return this.usuariosService.actualizarEstado(id, dto, usuarioActual.id);
+    return this.usuariosService.actualizarEstado(id, dto, usuarioActual);
   }
 
   @Post(':id/password')
-  restablecerPassword(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RestablecerPasswordDto) {
-    return this.usuariosService.restablecerPassword(id, dto);
+  restablecerPassword(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RestablecerPasswordDto, @CurrentUsuario() actor: UsuarioAutenticado) {
+    return this.usuariosService.restablecerPassword(id, dto, actor);
   }
 
   @Post(':id/desbloquear')
-  desbloquear(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usuariosService.desbloquear(id);
+  desbloquear(@Param('id', ParseUUIDPipe) id: string, @CurrentUsuario() actor: UsuarioAutenticado) {
+    return this.usuariosService.desbloquear(id, actor);
   }
 }

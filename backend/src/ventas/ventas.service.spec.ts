@@ -5,6 +5,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { EstadoLote, EstadoVenta, FormaPago, MedioPago, TipoVendedor } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
+import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 import { crearAbonoEnTx } from '../abonos/crear-abono-tx.js';
 import { crearMovimientoEnTx } from '../finanzas/crear-movimiento-tx.js';
@@ -41,6 +42,7 @@ function crearPrismaFalso() {
     cuota: { create: vi.fn(), createMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
     abono: { create: vi.fn(), findMany: vi.fn() },
     cuentaBancaria: { findUnique: vi.fn() },
+    registroAuditoria: { create: vi.fn() },
     separacion: { updateMany: vi.fn() },
     desistimiento: { create: vi.fn() },
     documentoVenta: { create: vi.fn(), findFirst: vi.fn() },
@@ -199,6 +201,13 @@ describe('VentasService.crear', () => {
   describe('venta de contado', () => {
     it('crea la venta ACTIVA con una cuota 0 por el valor total, sin plan de cuotas, y marca el lote VENDIDO', async () => {
       await service.crear(BASE_CONTADO, USUARIO);
+
+      // Auditoría (RF-AUD-01): quién registró la venta y con qué datos; y el cambio de estado del lote.
+      const venta = auditoriaDe(tx.registroAuditoria.create, 'VENTA_CREAR');
+      expect(venta).toMatchObject({ entidad: 'VENTA', entidadId: 'venta-1', usuarioId: USUARIO.id });
+      expect(venta.resumen).toContain('L-1');
+      expect(venta.despues).toMatchObject({ estado: 'ACTIVA', formaPago: 'CONTADO', valorTotal: '80000000' });
+      expect(auditoriasDe(tx.registroAuditoria.create).map((r) => r.accion)).toContain('LOTE_CAMBIAR_ESTADO');
 
       const { data } = tx.venta.create.mock.calls[0][0];
       expect(data).toMatchObject({ estado: EstadoVenta.ACTIVA, esExcepcion: false, registradaPorId: USUARIO.id, numeroCuotas: null, tasaInteres: null });
@@ -362,6 +371,7 @@ describe('VentasService.crear', () => {
       tx.cliente.create.mockResolvedValue({ id: 'cliente-nuevo' });
 
       await service.crear({ ...BASE_CONTADO, clienteId: undefined, clienteNuevo: { nombre: 'Ana Pérez', documento: '123456789' } }, USUARIO);
+      expect(auditoriaDe(tx.registroAuditoria.create, 'CLIENTE_CREAR')).toMatchObject({ entidad: 'CLIENTE', entidadId: 'cliente-nuevo', usuarioId: USUARIO.id });
 
       expect(tx.cliente.create).toHaveBeenCalledWith({ data: { nombre: 'Ana Pérez', documento: '123456789' } });
       expect(tx.venta.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ clienteId: 'cliente-nuevo' }) }));
@@ -439,6 +449,13 @@ describe('VentasService: aprobar y rechazar excepciones', () => {
   it('aprobar activa la venta, genera la cuota 0 y el plan, y vende el lote dejando quién autorizó', async () => {
     await service.aprobar('venta-1', GERENTE);
 
+    expect(auditoriaDe(tx.registroAuditoria.create, 'VENTA_APROBAR')).toMatchObject({
+      entidadId: 'venta-1',
+      usuarioId: GERENTE.id,
+      antes: { estado: 'PENDIENTE_APROBACION' },
+      despues: { estado: 'ACTIVA' },
+    });
+
     expect(tx.venta.updateMany).toHaveBeenCalledWith({
       where: { id: 'venta-1', estado: EstadoVenta.PENDIENTE_APROBACION },
       data: expect.objectContaining({ estado: EstadoVenta.ACTIVA, resueltaPorId: GERENTE.id }),
@@ -471,6 +488,12 @@ describe('VentasService: aprobar y rechazar excepciones', () => {
 
   it('rechazar deja la venta RECHAZADA con el motivo, sin borrarla, y libera el lote que ella había separado', async () => {
     await service.rechazar('venta-1', '  No cumple las condiciones  ', GERENTE);
+
+    expect(auditoriaDe(tx.registroAuditoria.create, 'VENTA_RECHAZAR')).toMatchObject({
+      entidadId: 'venta-1',
+      antes: { estado: 'PENDIENTE_APROBACION' },
+      despues: { estado: 'RECHAZADA', motivoRechazo: 'No cumple las condiciones' },
+    });
 
     expect(tx.venta.updateMany).toHaveBeenCalledWith({
       where: { id: 'venta-1', estado: EstadoVenta.PENDIENTE_APROBACION },
@@ -550,6 +573,9 @@ describe('VentasService.desistir (RF-VEN-08)', () => {
     expect(tx.loteHistorial.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ estadoNuevo: EstadoLote.DESISTIDO, ventaId: 'venta-1', usuarioId: GERENTE.id }),
     });
+    const desistimientoAuditado = auditoriaDe(tx.registroAuditoria.create, 'VENTA_DESISTIR');
+    expect(desistimientoAuditado).toMatchObject({ entidadId: 'venta-1', usuarioId: GERENTE.id, antes: { estado: 'ACTIVA' }, despues: { estado: 'DESISTIDA', valorDevolver: '20000000', valorRetener: '15000000' } });
+
     const { data } = tx.desistimiento.create.mock.calls[0][0];
     expect(data).toMatchObject({ ventaId: 'venta-1', motivo: DTO.motivo, registradoPorId: GERENTE.id });
     expect(data.valorDevolver.toString()).toBe('20000000');
@@ -573,7 +599,7 @@ describe('VentasService.desistir (RF-VEN-08)', () => {
       referencia: 'ACTA-1',
       origen: 'DEVOLUCION_DESISTIMIENTO',
       ventaId: 'venta-1',
-      registradoPorId: GERENTE.id,
+      usuario: GERENTE,
     });
     expect(datos.valor.toString()).toBe('20000000');
     expect(datos.descripcion).toContain('Cliente de Prueba');
@@ -665,6 +691,7 @@ describe('VentasService: documentos firmados (RF-VEN-06)', () => {
     const resultado = await service.subirDocumentos('venta-1', [archivo(PDF, '../../contrato firmado.pdf'), archivo(PNG, 'promesa.JPG')], 'Contrato', USUARIO);
 
     expect(resultado).toHaveLength(2);
+    expect(auditoriaDe(tx.registroAuditoria.create, 'VENTA_DOCUMENTO_SUBIR')).toMatchObject({ entidadId: 'venta-1', usuarioId: USUARIO.id });
     // El nombre en disco es "documento.<tipo real>": un .JPG que en realidad es PNG se guarda como png.
     expect(storage.guardar).toHaveBeenNthCalledWith(1, 'ventas/venta-1', 'documento.pdf', PDF);
     expect(storage.guardar).toHaveBeenNthCalledWith(2, 'ventas/venta-1', 'documento.png', PNG);

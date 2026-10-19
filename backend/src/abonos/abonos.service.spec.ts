@@ -5,6 +5,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { MedioPago } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
+import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 import { AbonosService } from './abonos.service.js';
 import type { ContextoRecibo } from './crear-abono-tx.js';
@@ -15,6 +16,7 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
 const CONTEXTO: ContextoRecibo = {
   prefijoRecibo: 'RC-',
   recibidoPor: 'Usuario Prueba',
+  usuario: { id: 'usuario-prueba', nombre: 'Usuario Prueba', email: 'prueba@ejemplo.test' },
   empresa: {
     nombreComercial: 'Empresa de prueba',
     razonSocial: 'Empresa de prueba SAS',
@@ -62,6 +64,7 @@ function crearPrismaFalso() {
   const tx = {
     $queryRaw: vi.fn().mockResolvedValue([{ ultimo: 1 }]),
     $executeRaw: vi.fn().mockResolvedValue(0),
+    registroAuditoria: { create: vi.fn() },
     cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
     venta: { findUnique: vi.fn() },
     cuentaBancaria: { findUnique: vi.fn() },
@@ -201,6 +204,12 @@ describe('AbonosService.crear', () => {
 
     const resultado = await service.crear({ ...DTO_BASE, valor: '10000000' }, USUARIO);
 
+    // Auditoría (RF-AUD-01): el abono y el recibo emitido, con quién los registró.
+    const abonoAuditado = auditoriaDe(tx.registroAuditoria.create, 'ABONO_REGISTRAR');
+    expect(abonoAuditado).toMatchObject({ entidad: 'ABONO', entidadId: 'abono-1', usuarioId: USUARIO.id });
+    expect(abonoAuditado.despues).toMatchObject({ valor: '10000000', medioPago: 'EFECTIVO', saldoAnterior: '45000000', saldoNuevo: '35000000' });
+    expect(auditoriaDe(tx.registroAuditoria.create, 'RECIBO_EMITIR')).toMatchObject({ entidad: 'RECIBO', entidadId: 'recibo-1' });
+
     expect(tx.aplicacionAbono.createMany).toHaveBeenCalledWith({
       data: [{ abonoId: 'abono-1', cuotaId: 'cuota-0', valor: D('10000000') }],
     });
@@ -228,6 +237,13 @@ describe('AbonosService.crear', () => {
     ]);
     expect(tx.cuota.update).toHaveBeenCalledWith({ where: { id: 'cuota-1' }, data: { estado: 'PAGADA' } });
     expect(tx.cuota.update).toHaveBeenCalledWith({ where: { id: 'cuota-2' }, data: { estado: 'PARCIAL' } });
+  });
+
+  it('un abono que se rechaza no deja nada en la auditoría', async () => {
+    prisma.venta.findFirst.mockResolvedValue(VENTA_ACTIVA);
+    prepararAbonoExitoso(ventaConCuotas({ 0: '30000000' }));
+    await expect(service.crear({ ...DTO_BASE, valor: '20000000' }, USUARIO)).rejects.toThrow();
+    expect(auditoriasDe(tx.registroAuditoria.create)).toEqual([]);
   });
 
   it('no deja pasar un abono mayor al saldo de la venta ni gasta un consecutivo', async () => {
@@ -295,12 +311,22 @@ describe('AbonosService.anular', () => {
     const { prisma, tx } = crearPrismaFalso();
     prisma.abono.findFirst.mockResolvedValue({ id: 'abono-1' });
     tx.abono.findUnique.mockResolvedValue({ ventaId: 'venta-1' });
-    tx.abono.findUniqueOrThrow.mockResolvedValue({ id: 'abono-1', estado: 'ACTIVO', aplicaciones: [{ cuotaId: 'cuota-0' }] });
-    tx.abono.update.mockResolvedValue({ id: 'abono-1', estado: 'ANULADO' });
+    tx.abono.findUniqueOrThrow.mockResolvedValue({ id: 'abono-1', estado: 'ACTIVO', valor: D('100000'), fecha: new Date(2026, 9, 1), aplicaciones: [{ cuotaId: 'cuota-0' }] });
+    tx.abono.update.mockResolvedValue({ id: 'abono-1', estado: 'ANULADO', recibo: { id: 'recibo-1', numeroTexto: 'RC-000001' } });
     tx.cuota.findUniqueOrThrow.mockResolvedValue({ id: 'cuota-0', valor: D('30000000'), estado: 'PARCIAL' });
     const service = new AbonosService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
 
     await service.anular('abono-1', { motivo: '  Consignación devuelta por el banco ' }, USUARIO);
+
+    // Auditoría: la anulación del abono y la del recibo, con el motivo y el estado antes y después.
+    expect(auditoriaDe(tx.registroAuditoria.create, 'ABONO_ANULAR')).toMatchObject({
+      entidad: 'ABONO',
+      entidadId: 'abono-1',
+      usuarioId: USUARIO.id,
+      antes: { estado: 'ACTIVO' },
+      despues: { estado: 'ANULADO', motivoAnulacion: 'Consignación devuelta por el banco' },
+    });
+    expect(auditoriaDe(tx.registroAuditoria.create, 'RECIBO_ANULAR').resumen).toContain('RC-000001');
 
     expect(tx.abono.update).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -5,12 +5,16 @@ import { EstadoProyecto, TipoProyecto } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { ProyectosService } from './proyectos.service.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
+import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 
 function crearPrismaFalso() {
-  return {
-    proyecto: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  const tablas = {
+    proyecto: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
     manzana: { findFirst: vi.fn(), create: vi.fn() },
+    registroAuditoria: { create: vi.fn() },
   };
+  // Los cambios se guardan en una transacción junto con su registro de auditoría.
+  return { ...tablas, $transaction: vi.fn((accion: (tx: typeof tablas) => unknown) => accion(tablas)) };
 }
 
 const USUARIO = usuarioDePrueba();
@@ -97,5 +101,43 @@ describe('ProyectosService: manzanas y resumen de áreas', () => {
 
     expect(detalle.resumenAreas.areaSubdividida.toString()).toBe('750.5');
     expect(detalle.resumenAreas.areaDisponible.toString()).toBe('9249.5');
+  });
+});
+
+describe('ProyectosService: auditoría (RF-AUD-01)', () => {
+  let prisma: ReturnType<typeof crearPrismaFalso>;
+  let service: ProyectosService;
+  const PROYECTO_BD = { id: 'p-1', nombre: 'La Floresta', tipo: 'LOTES', estado: 'ACTIVO', areaTotal: '1000', ubicacion: null, municipio: 'Calarcá', valorCompra: null, fechaCompra: null };
+
+  beforeEach(() => {
+    prisma = crearPrismaFalso();
+    service = new ProyectosService(prisma as unknown as PrismaService);
+  });
+
+  it('crear un proyecto deja quién lo creó y con qué datos', async () => {
+    prisma.proyecto.create.mockResolvedValue(PROYECTO_BD);
+    await service.crear({ nombre: 'La Floresta', areaTotal: '1000', municipio: 'Calarcá' }, USUARIO);
+    expect(auditoriaDe(prisma.registroAuditoria.create, 'PROYECTO_CREAR')).toMatchObject({ entidad: 'PROYECTO', entidadId: 'p-1', usuarioId: USUARIO.id, despues: { nombre: 'La Floresta', tipo: 'LOTES' } });
+  });
+
+  it('finalizar o reactivar un proyecto deja el estado anterior y el nuevo', async () => {
+    prisma.proyecto.findUnique.mockResolvedValue(PROYECTO_BD);
+    prisma.proyecto.update.mockResolvedValue({ ...PROYECTO_BD, estado: 'FINALIZADO' });
+    await service.actualizarEstado('p-1', { estado: 'FINALIZADO' }, USUARIO);
+    expect(auditoriaDe(prisma.registroAuditoria.create, 'PROYECTO_CAMBIAR_ESTADO')).toMatchObject({ antes: { estado: 'ACTIVO' }, despues: { estado: 'FINALIZADO' } });
+  });
+
+  it('crear una manzana deja a qué proyecto se la agregaron', async () => {
+    prisma.proyecto.findUnique.mockResolvedValue(PROYECTO_BD);
+    prisma.manzana.findFirst.mockResolvedValue(null);
+    prisma.manzana.create.mockResolvedValue({ id: 'm-1', nombre: 'A' });
+    await service.crearManzana('p-1', { nombre: 'A' }, USUARIO);
+    expect(auditoriaDe(prisma.registroAuditoria.create, 'PROYECTO_CREAR_MANZANA')).toMatchObject({ entidadId: 'p-1', despues: { manzanaId: 'm-1', nombre: 'A' } });
+  });
+
+  it('un cambio rechazado (proyecto que no existe) no deja nada en la auditoría', async () => {
+    prisma.proyecto.findUnique.mockResolvedValue(null);
+    await expect(service.actualizarEstado('x', { estado: 'FINALIZADO' }, USUARIO)).rejects.toThrow();
+    expect(auditoriasDe(prisma.registroAuditoria.create)).toEqual([]);
   });
 });

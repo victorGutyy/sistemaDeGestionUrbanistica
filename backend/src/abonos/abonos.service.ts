@@ -50,7 +50,7 @@ export class AbonosService {
       }
     }
 
-    const contexto = await this.configuracion.contextoRecibo(usuario.nombre);
+    const contexto = await this.configuracion.contextoRecibo(usuario);
 
     let comprobanteUrl: string | undefined;
     if (comprobante && tipoSoporte) {
@@ -113,7 +113,7 @@ export class AbonosService {
     if (!abono) {
       throw new NotFoundException(`No existe el abono ${id}`);
     }
-    return this.prisma.$transaction((tx) => anularAbonoEnTx(tx, id, dto.motivo.trim(), usuario.id));
+    return this.prisma.$transaction((tx) => anularAbonoEnTx(tx, id, dto.motivo.trim(), usuario));
   }
 
   // El soporte solo se entrega con sesión válida y permiso sobre el proyecto de la venta (RNF-SEG-05).

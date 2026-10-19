@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
+import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 import { MedioPago, TipoMovimiento } from '../generated/prisma/enums.js';
 import { categoriaDevolucionDesistimientoEnTx, crearMovimientoEnTx, type DatosMovimiento } from './crear-movimiento-tx.js';
 
@@ -9,6 +10,7 @@ const D = (v: string) => new Prisma.Decimal(v);
 function crearTxFalso() {
   return {
     $executeRaw: vi.fn().mockResolvedValue(0),
+    registroAuditoria: { create: vi.fn() },
     cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
     categoriaGasto: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     categoriaIngreso: { findUnique: vi.fn() },
@@ -25,7 +27,7 @@ const EGRESO: DatosMovimiento = {
   categoriaId: 'cat-gasto',
   medioPago: MedioPago.EFECTIVO,
   motivoSinSoporte: 'El proveedor no entregó factura',
-  registradoPorId: 'u-1',
+  usuario: { id: 'u-1', nombre: 'Usuario de Prueba', email: 'usuario@ejemplo.test' },
 };
 
 describe('crearMovimientoEnTx', () => {
@@ -49,6 +51,22 @@ describe('crearMovimientoEnTx', () => {
       origen: 'MANUAL',
       registradoPorId: 'u-1',
     });
+  });
+
+  it('registrar un egreso deja en la auditoría quién, cuánto, en qué categoría y con qué soporte (RF-AUD-01)', async () => {
+    await ejecutar({ ...EGRESO, terceroNombre: 'Ferretería de Prueba' });
+
+    const registro = auditoriaDe(tx.registroAuditoria.create, 'MOVIMIENTO_REGISTRAR');
+    expect(registro).toMatchObject({ entidad: 'MOVIMIENTO', entidadId: 'm-1', usuarioId: 'u-1', usuarioNombre: 'Usuario de Prueba' });
+    expect(registro.resumen).toContain('egreso');
+    expect(registro.despues).toMatchObject({ tipo: 'GASTO', valor: '250000', categoria: 'Materiales', medioPago: 'EFECTIVO', conSoporte: false, motivoSinSoporte: 'El proveedor no entregó factura' });
+  });
+
+  it('un movimiento rechazado (sin soporte, categoría inválida, fecha cerrada) no deja nada en la auditoría', async () => {
+    await expect(ejecutar({ ...EGRESO, motivoSinSoporte: '   ' })).rejects.toThrow();
+    tx.categoriaGasto.findUnique.mockResolvedValue(null);
+    await expect(ejecutar(EGRESO)).rejects.toThrow();
+    expect(auditoriasDe(tx.registroAuditoria.create)).toEqual([]);
   });
 
   it('un ingreso busca su categoría entre las de ingreso y no exige soporte (RF-EGR-03)', async () => {

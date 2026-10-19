@@ -16,9 +16,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
+import { CurrentUsuario } from '../auth/current-usuario.decorator.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
 import { Public } from '../auth/public.decorator.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { MedioPago, TipoVendedor } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from './configuracion.service.js';
 import { ActualizarComisionDto } from './dto/actualizar-comision.dto.js';
@@ -69,40 +71,40 @@ export class ConfiguracionController {
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Put('empresa')
-  actualizarEmpresa(@Body() dto: ActualizarEmpresaDto) {
-    return this.configuracionService.actualizarEmpresa(dto);
+  actualizarEmpresa(@Body() dto: ActualizarEmpresaDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.actualizarEmpresa(dto, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Put('parametros')
-  actualizarParametros(@Body() dto: ActualizarParametrosDto) {
-    return this.configuracionService.actualizarParametros(dto);
+  actualizarParametros(@Body() dto: ActualizarParametrosDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.actualizarParametros(dto, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Post('logo')
   @UseInterceptors(FileInterceptor('logo', { limits: { fileSize: TAMANO_MAXIMO_LOGO } }))
-  subirLogo(@UploadedFile() archivo: Express.Multer.File | undefined) {
-    return this.configuracionService.guardarLogo(this.exigirArchivo(archivo));
+  subirLogo(@UploadedFile() archivo: Express.Multer.File | undefined, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.guardarLogo(this.exigirArchivo(archivo), usuario);
   }
 
   // No borra el archivo: solo deja de usarse (se vuelve a mostrar el logo genérico).
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Delete('logo')
-  quitarLogo() {
-    return this.configuracionService.quitarLogo();
+  quitarLogo(@CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.quitarLogo(usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Post('cuentas')
-  crearCuenta(@Body() dto: CrearCuentaBancariaDto) {
-    return this.configuracionService.crearCuenta(dto);
+  crearCuenta(@Body() dto: CrearCuentaBancariaDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.crearCuenta(dto, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Patch('cuentas/:id')
-  actualizarCuenta(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCuentaBancariaDto) {
-    return this.configuracionService.actualizarCuenta(id, dto);
+  actualizarCuenta(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCuentaBancariaDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.actualizarCuenta(id, dto, usuario);
   }
 
   @Permiso(PERMISOS.ABONOS_REGISTRAR)
@@ -117,32 +119,33 @@ export class ConfiguracionController {
   actualizarMedioPago(
     @Param('medio', new ParseEnumPipe(MedioPago)) medio: MedioPago,
     @Body() dto: ActualizarMedioPagoDto,
+    @CurrentUsuario() usuario: UsuarioAutenticado,
   ) {
-    return this.configuracionService.actualizarMedioPago(medio, dto.activo);
+    return this.configuracionService.actualizarMedioPago(medio, dto.activo, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Post('categorias-gasto')
-  crearCategoriaGasto(@Body() dto: CrearCategoriaGastoDto) {
-    return this.configuracionService.crearCategoriaGasto(dto);
+  crearCategoriaGasto(@Body() dto: CrearCategoriaGastoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.crearCategoriaGasto(dto, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Patch('categorias-gasto/:id')
-  actualizarCategoriaGasto(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCategoriaGastoDto) {
-    return this.configuracionService.actualizarCategoriaGasto(id, dto);
+  actualizarCategoriaGasto(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCategoriaGastoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.actualizarCategoriaGasto(id, dto, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Post('categorias-ingreso')
-  crearCategoriaIngreso(@Body() dto: CrearCategoriaIngresoDto) {
-    return this.configuracionService.crearCategoriaIngreso(dto);
+  crearCategoriaIngreso(@Body() dto: CrearCategoriaIngresoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.crearCategoriaIngreso(dto, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
   @Patch('categorias-ingreso/:id')
-  actualizarCategoriaIngreso(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCategoriaIngresoDto) {
-    return this.configuracionService.actualizarCategoriaIngreso(id, dto);
+  actualizarCategoriaIngreso(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCategoriaIngresoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.actualizarCategoriaIngreso(id, dto, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)
@@ -150,8 +153,9 @@ export class ConfiguracionController {
   actualizarComision(
     @Param('tipo', new ParseEnumPipe(TipoVendedor)) tipo: TipoVendedor,
     @Body() dto: ActualizarComisionDto,
+    @CurrentUsuario() usuario: UsuarioAutenticado,
   ) {
-    return this.configuracionService.actualizarComision(tipo, dto.valor);
+    return this.configuracionService.actualizarComision(tipo, dto.valor, usuario);
   }
 
   private exigirArchivo(archivo: Express.Multer.File | undefined): Express.Multer.File {

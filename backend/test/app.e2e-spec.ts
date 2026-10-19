@@ -52,6 +52,8 @@ const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch' | 'delete', ru
   ['get', `/abonos/${ID}/recibo`],
   ['post', `/abonos/${ID}/anular`],
   ['get', '/recibos'],
+  ['get', '/auditoria'],
+  ['get', '/auditoria/catalogo'],
   ['get', '/cartera'],
   ['get', '/cierres-caja'],
   ['get', '/cierres-caja/proximo'],

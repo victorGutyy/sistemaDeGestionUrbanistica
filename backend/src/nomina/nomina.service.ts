@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { validarCuentaDestino } from '../abonos/validar-pago.js';
+import { registrarAuditoria } from '../auditoria/auditoria.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
+import { formatearCOP } from '../common/formato.util.js';
 import { exigirFechaAbiertaEnTx } from '../cierres-caja/fecha-abierta.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
@@ -15,7 +18,7 @@ export class NominaService {
     private readonly configuracion: ConfiguracionService,
   ) {}
 
-  async crearPago(dto: CrearPagoNominaDto) {
+  async crearPago(dto: CrearPagoNominaDto, usuario: UsuarioAutenticado) {
     const trabajador = await this.prisma.trabajador.findUnique({ where: { id: dto.trabajadorId } });
     if (!trabajador) {
       throw new NotFoundException(`No existe el trabajador ${dto.trabajadorId}`);
@@ -37,7 +40,7 @@ export class NominaService {
     return this.prisma.$transaction(async (tx) => {
       // Un día que ya pertenece a un cierre de caja cerrado o aprobado no admite pagos nuevos.
       await exigirFechaAbiertaEnTx(tx, fechaPago);
-      return tx.pagoNomina.create({
+      const pago = await tx.pagoNomina.create({
         data: {
           trabajadorId: dto.trabajadorId,
           periodoInicio: parsearFechaLocal(dto.periodoInicio),
@@ -51,6 +54,25 @@ export class NominaService {
         },
         include: { novedades: true, trabajador: true },
       });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'NOMINA_REGISTRAR_PAGO',
+        entidad: 'NOMINA',
+        entidadId: pago.id,
+        resumen: `Registró un pago de nómina de ${formatearCOP(valorPagado)} a ${trabajador.nombre}`,
+        despues: {
+          trabajadorId: dto.trabajadorId,
+          periodoInicio: dto.periodoInicio,
+          periodoFin: dto.periodoFin,
+          fechaPago: dto.fechaPago,
+          salarioBase: trabajador.salarioBase,
+          valorPagado,
+          medioPago: dto.medioPago,
+          cuentaId,
+          novedades: novedades.map((novedad) => ({ tipo: novedad.tipo, valor: novedad.valor, descripcion: novedad.descripcion })),
+        },
+      });
+      return pago;
     });
   }
 

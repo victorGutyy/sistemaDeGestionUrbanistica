@@ -5,6 +5,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { MedioPago, TipoMovimiento } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
+import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 import { FinanzasService } from './finanzas.service.js';
 
@@ -18,12 +19,14 @@ function crearPrismaFalso() {
     cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
     categoriaGasto: { findUnique: vi.fn().mockResolvedValue({ id: 'cat-gasto', nombre: 'Materiales', activa: true }) },
     categoriaIngreso: { findUnique: vi.fn().mockResolvedValue({ id: 'cat-ingreso', nombre: 'Otros servicios', activa: true }) },
-    movimientoFinanciero: { create: vi.fn().mockResolvedValue({ id: 'm-1' }) },
+    movimientoFinanciero: { create: vi.fn().mockResolvedValue({ id: 'm-1' }), updateMany: vi.fn() },
+    registroAuditoria: { create: vi.fn() },
   };
   const prisma = {
     proyecto: { findUnique: vi.fn().mockResolvedValue({ id: 'p-1', nombre: 'Proyecto de prueba', tipo: 'LOTES' }) },
     cuentaBancaria: { findUnique: vi.fn() },
-    movimientoFinanciero: { findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn() },
+    // anular se hace en una transacción: usa el mismo falso de updateMany que la base "normal".
+    movimientoFinanciero: { findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]), updateMany: tx.movimientoFinanciero.updateMany },
     venta: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn((callback: (txArg: typeof tx) => unknown) => callback(tx)),
   };
@@ -114,7 +117,7 @@ describe('FinanzasService.anular (RF-EGR-04)', () => {
   it('marca el movimiento como anulado con quién, cuándo y por qué, sin borrarlo', async () => {
     const { prisma } = crearPrismaFalso();
     const service = new FinanzasService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
-    prisma.movimientoFinanciero.findFirst.mockResolvedValue({ id: 'm-1', soporteRuta: null, categoriaGasto: null, categoriaIngreso: null });
+    prisma.movimientoFinanciero.findFirst.mockResolvedValue({ id: 'm-1', tipo: 'GASTO', valor: D('250000'), descripcion: 'Cemento', fecha: new Date(2026, 9, 1), soporteRuta: null, categoriaGasto: null, categoriaIngreso: null });
     prisma.movimientoFinanciero.updateMany.mockResolvedValue({ count: 1 });
 
     await service.anular('m-1', { motivo: '  Se registró dos veces  ' }, USUARIO);
@@ -123,6 +126,32 @@ describe('FinanzasService.anular (RF-EGR-04)', () => {
       where: { id: 'm-1', estado: 'ACTIVO' },
       data: expect.objectContaining({ estado: 'ANULADO', anuladoPorId: USUARIO.id, motivoAnulacion: 'Se registró dos veces', anuladoEn: expect.any(Date) }),
     });
+  });
+
+  it('la anulación deja en la auditoría quién, cuándo y por qué, con el estado antes y después (RF-AUD-01)', async () => {
+    const { prisma, tx } = crearPrismaFalso();
+    const service = new FinanzasService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
+    prisma.movimientoFinanciero.findFirst.mockResolvedValue({ id: 'm-1', tipo: 'GASTO', valor: D('250000'), descripcion: 'Cemento', fecha: new Date(2026, 9, 1), soporteRuta: null, categoriaGasto: null, categoriaIngreso: null });
+    prisma.movimientoFinanciero.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.anular('m-1', { motivo: 'Se registró dos veces' }, USUARIO);
+
+    expect(auditoriaDe(tx.registroAuditoria.create, 'MOVIMIENTO_ANULAR')).toMatchObject({
+      entidad: 'MOVIMIENTO',
+      entidadId: 'm-1',
+      usuarioId: USUARIO.id,
+      antes: { estado: 'ACTIVO', valor: '250000' },
+      despues: { estado: 'ANULADO', motivoAnulacion: 'Se registró dos veces' },
+    });
+  });
+
+  it('si el movimiento ya estaba anulado, no queda un segundo registro de anulación', async () => {
+    const { prisma, tx } = crearPrismaFalso();
+    const service = new FinanzasService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
+    prisma.movimientoFinanciero.findFirst.mockResolvedValue({ id: 'm-1', tipo: 'GASTO', valor: D('1'), descripcion: 'x', fecha: new Date() });
+    prisma.movimientoFinanciero.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.anular('m-1', { motivo: 'Otra vez' }, USUARIO)).rejects.toThrow();
+    expect(auditoriasDe(tx.registroAuditoria.create)).toEqual([]);
   });
 
   it('un movimiento ya anulado no se vuelve a anular', async () => {

@@ -197,6 +197,7 @@ model Usuario {
   cierresCerrados           CierreCaja[]           @relation("CierresCerrados")
   cierresResueltos          CierreCaja[]           @relation("CierresResueltos")
   historialCierres          CierreCajaHistorial[]
+  registrosAuditoria        RegistroAuditoria[]
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -641,6 +642,33 @@ model CierreCajaHistorial {
   createdAt      DateTime      @default(now())
 
   @@index([cierreId])
+}
+
+// Auditoría (RF-AUD-01 a 03): una fila por cada acción de una persona sobre ventas, lotes, dinero, cierres,
+// configuración y usuarios, con quién, cuándo y los valores ANTES y DESPUÉS. Se escribe en la misma transacción
+// que la acción (si una falla, la otra también) y la base de datos impide editar o borrar cualquier fila.
+// Nunca guarda contraseñas, hashes ni tokens.
+model RegistroAuditoria {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  usuarioId     String
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+  // Nombre y correo tal como estaban ese día, por si después cambian.
+  usuarioNombre String
+  usuarioEmail  String
+  // Códigos del catálogo de auditoria/auditoria.ts (p. ej. ABONO_ANULAR) y tipo de registro (p. ej. ABONO).
+  accion        String
+  entidad       String
+  entidadId     String?
+  // La acción contada en español, para leerla sin abrir los valores.
+  resumen       String
+  antes         Json?
+  despues       Json?
+
+  @@index([createdAt])
+  @@index([usuarioId, createdAt])
+  @@index([entidad, createdAt])
+  @@index([entidad, entidadId])
 }
 
 // Empleado de la empresa (no de un proyecto en particular).

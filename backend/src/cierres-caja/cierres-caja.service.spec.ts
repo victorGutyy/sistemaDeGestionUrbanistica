@@ -4,6 +4,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import type { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
+import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 import { CierresCajaService } from './cierres-caja.service.js';
 
@@ -16,14 +17,16 @@ function crearPrismaFalso() {
   const tx = {
     $executeRaw: vi.fn().mockResolvedValue(0),
     $queryRaw: vi.fn().mockResolvedValue([{ ultimo: 1 }]),
-    cierreCaja: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    registroAuditoria: { create: vi.fn() },
+    cierreCaja: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
     cierreCajaHistorial: { create: vi.fn() },
     abono: { findMany: vi.fn().mockResolvedValue([]) },
     movimientoFinanciero: { findMany: vi.fn().mockResolvedValue([]) },
     pagoNomina: { findMany: vi.fn().mockResolvedValue([]) },
   };
   const prisma = {
-    cierreCaja: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
+    // crear y descartar se hacen dentro de una transacción: usan los mismos falsos que la base "normal".
+    cierreCaja: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: tx.cierreCaja.create, deleteMany: tx.cierreCaja.deleteMany },
     abono: tx.abono,
     movimientoFinanciero: tx.movimientoFinanciero,
     pagoNomina: tx.pagoNomina,
@@ -34,6 +37,8 @@ function crearPrismaFalso() {
 
 // Hoy es martes 20 de octubre de 2026 (mediodía en Colombia).
 const HOY = new Date(Date.UTC(2026, 9, 20, 17, 0, 0));
+
+const CIERRE_CERRADO = { estado: 'CERRADO', numeroTexto: 'CC-000001', desde: dia('2026-10-12'), hasta: dia('2026-10-18'), efectivoContado: D('100000'), diferencia: D('0') };
 
 function cierreBase(extra: Record<string, unknown> = {}) {
   return {
@@ -92,6 +97,7 @@ describe('CierresCajaService', () => {
       expect(data.desde.toISOString()).toBe('2026-10-12T00:00:00.000Z');
       expect(data.hasta.toISOString()).toBe('2026-10-18T00:00:00.000Z');
       expect(data.efectivoInicial.toString()).toBe('250000');
+      expect(auditoriaDe(tx.registroAuditoria.create, 'CIERRE_CREAR')).toMatchObject({ entidad: 'CIERRE_CAJA', usuarioId: ADMIN.id, despues: { tipo: 'SEMANAL', desde: '2026-10-12', hasta: '2026-10-18' } });
     });
 
     it('no se puede cerrar un período que todavía no termina', async () => {
@@ -189,6 +195,9 @@ describe('CierresCajaService', () => {
       expect(tx.cierreCajaHistorial.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ cierreId: 'c-1', estadoAnterior: 'BORRADOR', estadoNuevo: 'CERRADO', usuarioId: ADMIN.id }),
       });
+      const auditado = auditoriaDe(tx.registroAuditoria.create, 'CIERRE_CERRAR');
+      expect(auditado).toMatchObject({ entidad: 'CIERRE_CAJA', entidadId: 'c-1', usuarioId: ADMIN.id, antes: { estado: 'BORRADOR' } });
+      expect(auditado.despues).toMatchObject({ estado: 'CERRADO', numero: 'CC-000004', efectivoEsperado: '100000', efectivoContado: '100000', diferencia: '0' });
     });
 
     it('con diferencia exige explicarla y guarda la diferencia (contado − esperado)', async () => {
@@ -241,7 +250,7 @@ describe('CierresCajaService', () => {
 
   describe('aprobar y devolver (RF-CAJ-04)', () => {
     it('el gerente aprueba un cierre cerrado y queda en el historial', async () => {
-      tx.cierreCaja.findUnique.mockResolvedValue({ estado: 'CERRADO' });
+      tx.cierreCaja.findUnique.mockResolvedValue(CIERRE_CERRADO);
       tx.cierreCaja.updateMany.mockResolvedValue({ count: 1 });
 
       await service.aprobar('c-1', { observacion: ' Todo en orden ' }, GERENTE);
@@ -251,15 +260,17 @@ describe('CierresCajaService', () => {
         data: expect.objectContaining({ estado: 'APROBADO', resueltoPorId: GERENTE.id, observacionGerente: 'Todo en orden' }),
       });
       expect(tx.cierreCajaHistorial.create.mock.calls[0][0].data).toMatchObject({ estadoAnterior: 'CERRADO', estadoNuevo: 'APROBADO', usuarioId: GERENTE.id });
+      expect(auditoriaDe(tx.registroAuditoria.create, 'CIERRE_APROBAR')).toMatchObject({ entidadId: 'c-1', usuarioId: GERENTE.id, antes: { estado: 'CERRADO' }, despues: { estado: 'APROBADO' } });
     });
 
     it('devolver guarda la observación del gerente', async () => {
-      tx.cierreCaja.findUnique.mockResolvedValue({ estado: 'CERRADO' });
+      tx.cierreCaja.findUnique.mockResolvedValue(CIERRE_CERRADO);
       tx.cierreCaja.updateMany.mockResolvedValue({ count: 1 });
 
       await service.devolver('c-1', { observacion: 'Falta el soporte del taxi' }, GERENTE);
 
       expect(tx.cierreCaja.updateMany.mock.calls[0][0].data).toMatchObject({ estado: 'DEVUELTO', observacionGerente: 'Falta el soporte del taxi' });
+      expect(auditoriaDe(tx.registroAuditoria.create, 'CIERRE_DEVOLVER')).toMatchObject({ despues: { estado: 'DEVUELTO', observacion: 'Falta el soporte del taxi' } });
     });
 
     it('solo se resuelve un cierre cerrado: si otra persona ya decidió, no se pisa su decisión', async () => {
@@ -270,6 +281,13 @@ describe('CierresCajaService', () => {
       expect(tx.cierreCajaHistorial.create).not.toHaveBeenCalled();
     });
 
+    it('una decisión que no se pudo tomar (otra persona ya decidió) no deja nada en la auditoría', async () => {
+      tx.cierreCaja.findUnique.mockResolvedValue(CIERRE_CERRADO);
+      tx.cierreCaja.updateMany.mockResolvedValue({ count: 0 });
+      await expect(service.aprobar('c-1', {}, GERENTE)).rejects.toBeInstanceOf(ConflictException);
+      expect(auditoriasDe(tx.registroAuditoria.create)).toEqual([]);
+    });
+
     it('un cierre que no existe responde 404', async () => {
       tx.cierreCaja.findUnique.mockResolvedValue(null);
       await expect(service.aprobar('x', {}, GERENTE)).rejects.toBeInstanceOf(NotFoundException);
@@ -278,13 +296,14 @@ describe('CierresCajaService', () => {
 
   describe('descartar', () => {
     it('solo descarta borradores', async () => {
-      prisma.cierreCaja.findUnique.mockResolvedValue({ id: 'c-1', estado: 'BORRADOR' });
+      prisma.cierreCaja.findUnique.mockResolvedValue({ id: 'c-1', estado: 'BORRADOR', tipo: 'SEMANAL', desde: dia('2026-10-12'), hasta: dia('2026-10-18'), efectivoInicial: D('0') });
       prisma.cierreCaja.deleteMany.mockResolvedValue({ count: 1 });
-      await expect(service.descartar('c-1')).resolves.toEqual({ descartado: true });
+      await expect(service.descartar('c-1', ADMIN)).resolves.toEqual({ descartado: true });
       expect(prisma.cierreCaja.deleteMany).toHaveBeenCalledWith({ where: { id: 'c-1', estado: 'BORRADOR' } });
+      expect(auditoriaDe(tx.registroAuditoria.create, 'CIERRE_DESCARTAR')).toMatchObject({ entidadId: 'c-1', usuarioId: ADMIN.id, antes: { estado: 'BORRADOR', tipo: 'SEMANAL' } });
 
       prisma.cierreCaja.deleteMany.mockResolvedValue({ count: 0 });
-      await expect(service.descartar('c-1')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.descartar('c-1', ADMIN)).rejects.toBeInstanceOf(ConflictException);
     });
   });
 

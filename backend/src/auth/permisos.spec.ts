@@ -64,6 +64,10 @@ describe('catálogo de permisos y roles del sistema', () => {
     expect(rol('CONSULTA').permisos.some((p) => p.startsWith('caja.'))).toBe(false);
   });
 
+  it('solo el gerente consulta la auditoría (RF-AUD-02)', () => {
+    expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.AUDITORIA_VER)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
+  });
+
   it('solo el gerente registra desistimientos', () => {
     expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.VENTAS_DESISTIR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
   });

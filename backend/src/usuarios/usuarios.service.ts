@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { registrarAuditoria } from '../auditoria/auditoria.js';
 import { PERMISOS } from '../auth/permisos.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { EstadoUsuario } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ActualizarEstadoUsuarioDto } from './dto/actualizar-estado-usuario.dto.js';
@@ -22,6 +24,25 @@ const SELECT_PUBLICO = {
   proyectosPermitidos: { select: { proyectoId: true } },
 } as const;
 
+// Lo que se deja en la auditoría de un usuario: nunca el hash de la contraseña ni nada de seguridad interna.
+function instantaneaUsuario(usuario: {
+  nombre: string;
+  email: string;
+  estado: EstadoUsuario;
+  todosLosProyectos: boolean;
+  rol: { clave: string };
+  proyectosPermitidos?: { proyectoId: string }[];
+}) {
+  return {
+    nombre: usuario.nombre,
+    email: usuario.email,
+    estado: usuario.estado,
+    rol: usuario.rol.clave,
+    todosLosProyectos: usuario.todosLosProyectos,
+    proyectoIds: usuario.proyectosPermitidos?.map((p) => p.proyectoId),
+  };
+}
+
 interface AlcanceResuelto {
   todosLosProyectos: boolean;
   // undefined = no tocar la lista actual de proyectos.
@@ -32,25 +53,36 @@ interface AlcanceResuelto {
 export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async crear(dto: CrearUsuarioDto) {
+  async crear(dto: CrearUsuarioDto, actor: UsuarioAutenticado) {
     const rol = await this.exigirRolActivo(dto.rolId);
     await this.exigirCorreoLibre(dto.email);
     const alcance = await this.resolverAlcance(rol, dto, true);
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    return this.prisma.usuario.create({
-      data: {
-        nombre: dto.nombre,
-        email: dto.email,
-        passwordHash,
-        rolId: dto.rolId,
-        todosLosProyectos: alcance.todosLosProyectos,
-        proyectosPermitidos: alcance.proyectoIds
-          ? { create: alcance.proyectoIds.map((proyectoId) => ({ proyectoId })) }
-          : undefined,
-      },
-      select: SELECT_PUBLICO,
+    return this.prisma.$transaction(async (tx) => {
+      const creado = await tx.usuario.create({
+        data: {
+          nombre: dto.nombre,
+          email: dto.email,
+          passwordHash,
+          rolId: dto.rolId,
+          todosLosProyectos: alcance.todosLosProyectos,
+          proyectosPermitidos: alcance.proyectoIds
+            ? { create: alcance.proyectoIds.map((proyectoId) => ({ proyectoId })) }
+            : undefined,
+        },
+        select: SELECT_PUBLICO,
+      });
+      await registrarAuditoria(tx, {
+        usuario: actor,
+        accion: 'USUARIO_CREAR',
+        entidad: 'USUARIO',
+        entidadId: creado.id,
+        resumen: `Creó el usuario ${creado.nombre} (${creado.email}) con el rol ${creado.rol.nombre}`,
+        despues: instantaneaUsuario(creado),
+      });
+      return creado;
     });
   }
 
@@ -58,7 +90,7 @@ export class UsuariosService {
     return this.prisma.usuario.findMany({ orderBy: { nombre: 'asc' }, select: SELECT_PUBLICO });
   }
 
-  async actualizar(id: string, dto: ActualizarUsuarioDto) {
+  async actualizar(id: string, dto: ActualizarUsuarioDto, actor: UsuarioAutenticado) {
     const usuario = await this.obtenerConRol(id);
 
     if (dto.email && dto.email !== usuario.email) {
@@ -84,7 +116,7 @@ export class UsuariosService {
           data: alcance.proyectoIds.map((proyectoId) => ({ usuarioId: id, proyectoId })),
         });
       }
-      return tx.usuario.update({
+      const actualizado = await tx.usuario.update({
         where: { id },
         data: {
           nombre: dto.nombre,
@@ -94,11 +126,21 @@ export class UsuariosService {
         },
         select: SELECT_PUBLICO,
       });
+      await registrarAuditoria(tx, {
+        usuario: actor,
+        accion: 'USUARIO_EDITAR',
+        entidad: 'USUARIO',
+        entidadId: id,
+        resumen: `Editó el usuario ${usuario.nombre} (${usuario.email})`,
+        antes: instantaneaUsuario(usuario),
+        despues: instantaneaUsuario(actualizado),
+      });
+      return actualizado;
     });
   }
 
-  async actualizarEstado(id: string, dto: ActualizarEstadoUsuarioDto, idUsuarioActual: string) {
-    if (id === idUsuarioActual) {
+  async actualizarEstado(id: string, dto: ActualizarEstadoUsuarioDto, actor: UsuarioAutenticado) {
+    if (id === actor.id) {
       throw new BadRequestException('No puedes cambiar el estado de tu propia cuenta');
     }
 
@@ -107,32 +149,64 @@ export class UsuariosService {
       await this.exigirOtroGestorActivo(usuario);
     }
 
-    return this.prisma.usuario.update({
-      where: { id },
-      data: { estado: dto.estado },
-      select: SELECT_PUBLICO,
+    return this.prisma.$transaction(async (tx) => {
+      const actualizado = await tx.usuario.update({ where: { id }, data: { estado: dto.estado }, select: SELECT_PUBLICO });
+      await registrarAuditoria(tx, {
+        usuario: actor,
+        accion: 'USUARIO_CAMBIAR_ESTADO',
+        entidad: 'USUARIO',
+        entidadId: id,
+        resumen: `${dto.estado === EstadoUsuario.ACTIVO ? 'Activó' : 'Desactivó'} al usuario ${usuario.nombre} (${usuario.email})`,
+        antes: { estado: usuario.estado },
+        despues: { estado: actualizado.estado },
+      });
+      return actualizado;
     });
   }
 
   // El gerente fija una contraseña nueva. Cierra las sesiones abiertas de esa
   // cuenta (por si el motivo era una sospecha de acceso indebido) y la desbloquea.
-  async restablecerPassword(id: string, dto: RestablecerPasswordDto) {
-    await this.obtenerConRol(id);
+  async restablecerPassword(id: string, dto: RestablecerPasswordDto, actor: UsuarioAutenticado) {
+    const usuario = await this.obtenerConRol(id);
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    return this.prisma.usuario.update({
-      where: { id },
-      data: { passwordHash, intentosFallidos: 0, bloqueadoHasta: null, sesionesValidasDesde: new Date() },
-      select: SELECT_PUBLICO,
+    return this.prisma.$transaction(async (tx) => {
+      const actualizado = await tx.usuario.update({
+        where: { id },
+        data: { passwordHash, intentosFallidos: 0, bloqueadoHasta: null, sesionesValidasDesde: new Date() },
+        select: SELECT_PUBLICO,
+      });
+      // La contraseña nunca se guarda en la auditoría: solo que se cambió.
+      await registrarAuditoria(tx, {
+        usuario: actor,
+        accion: 'USUARIO_RESTABLECER_PASSWORD',
+        entidad: 'USUARIO',
+        entidadId: id,
+        resumen: `Restableció la contraseña de ${usuario.nombre} (${usuario.email}) y cerró sus sesiones abiertas`,
+        despues: { contrasenaCambiada: true, sesionesCerradas: true, desbloqueado: true },
+      });
+      return actualizado;
     });
   }
 
-  async desbloquear(id: string) {
-    await this.obtenerConRol(id);
-    return this.prisma.usuario.update({
-      where: { id },
-      data: { intentosFallidos: 0, bloqueadoHasta: null },
-      select: SELECT_PUBLICO,
+  async desbloquear(id: string, actor: UsuarioAutenticado) {
+    const usuario = await this.obtenerConRol(id);
+    return this.prisma.$transaction(async (tx) => {
+      const actualizado = await tx.usuario.update({
+        where: { id },
+        data: { intentosFallidos: 0, bloqueadoHasta: null },
+        select: SELECT_PUBLICO,
+      });
+      await registrarAuditoria(tx, {
+        usuario: actor,
+        accion: 'USUARIO_DESBLOQUEAR',
+        entidad: 'USUARIO',
+        entidadId: id,
+        resumen: `Desbloqueó al usuario ${usuario.nombre} (${usuario.email})`,
+        antes: { bloqueadoHasta: usuario.bloqueadoHasta, intentosFallidos: usuario.intentosFallidos },
+        despues: { bloqueadoHasta: null, intentosFallidos: 0 },
+      });
+      return actualizado;
     });
   }
 
@@ -179,7 +253,10 @@ export class UsuariosService {
   }
 
   private async obtenerConRol(id: string) {
-    const usuario = await this.prisma.usuario.findUnique({ where: { id }, include: { rol: true } });
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id },
+      include: { rol: true, proyectosPermitidos: { select: { proyectoId: true } } },
+    });
     if (!usuario) {
       throw new NotFoundException(`No existe el usuario ${id}`);
     }

@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
+import { registrarAuditoria, type ActorAuditoria } from '../auditoria/auditoria.js';
 import { exigirFechaAbiertaEnTx } from '../cierres-caja/fecha-abierta.js';
+import { formatearCOP } from '../common/formato.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { MedioPago, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
 
@@ -25,7 +27,8 @@ export interface DatosMovimiento {
   motivoSinSoporte?: string | null;
   origen?: OrigenMovimiento;
   ventaId?: string | null;
-  registradoPorId: string;
+  // Quien registra el movimiento (queda en el movimiento y en la auditoría).
+  usuario: ActorAuditoria;
 }
 
 const limpiar = (texto: string | null | undefined) => texto?.trim() || null;
@@ -57,7 +60,7 @@ export async function crearMovimientoEnTx(tx: Prisma.TransactionClient, datos: D
     throw new BadRequestException('Adjunta el soporte del egreso o explica por qué no hay soporte');
   }
 
-  return tx.movimientoFinanciero.create({
+  const movimiento = await tx.movimientoFinanciero.create({
     data: {
       tipo: datos.tipo,
       fecha: datos.fecha,
@@ -77,9 +80,36 @@ export async function crearMovimientoEnTx(tx: Prisma.TransactionClient, datos: D
       motivoSinSoporte: soporteRuta ? null : motivoSinSoporte,
       origen: datos.origen ?? OrigenMovimiento.MANUAL,
       ventaId: datos.ventaId ?? null,
-      registradoPorId: datos.registradoPorId,
+      registradoPorId: datos.usuario.id,
     },
   });
+
+  await registrarAuditoria(tx, {
+    usuario: datos.usuario,
+    accion: 'MOVIMIENTO_REGISTRAR',
+    entidad: 'MOVIMIENTO',
+    entidadId: movimiento.id,
+    resumen: `Registró ${esGasto ? 'un egreso' : 'un ingreso'} de ${formatearCOP(datos.valor)} (${categoria.nombre}): ${datos.descripcion.trim()}`,
+    despues: {
+      tipo: datos.tipo,
+      fecha: datos.fecha,
+      valor: datos.valor,
+      descripcion: datos.descripcion.trim(),
+      categoria: categoria.nombre,
+      proyectoId: datos.proyectoId ?? null,
+      medioPago: datos.medioPago,
+      cuentaId: datos.cuentaId ?? null,
+      referencia: movimiento.referencia,
+      tercero: movimiento.terceroNombre,
+      numeroDocumento: movimiento.numeroDocumento,
+      conSoporte: movimiento.soporteRuta !== null,
+      motivoSinSoporte: movimiento.motivoSinSoporte,
+      origen: movimiento.origen,
+      ventaId: movimiento.ventaId,
+    },
+  });
+
+  return movimiento;
 }
 
 // La categoría de la devolución existe desde la migración y el seed; si alguien la borrara de la base,

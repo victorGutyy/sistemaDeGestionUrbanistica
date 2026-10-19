@@ -1,4 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { registrarAuditoria } from '../auditoria/auditoria.js';
+import { formatearCOP } from '../common/formato.util.js';
 import { exigirAlcanceTotal, exigirProyecto, filtroMovimiento, filtroProyecto, filtroVenta, tieneAlcanceTotal } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { exigirFechaNoFutura, validarCuentaDestino } from '../abonos/validar-pago.js';
@@ -115,7 +117,7 @@ export class FinanzasService {
         numeroDocumento: dto.numeroDocumento,
         soporteRuta,
         motivoSinSoporte: dto.motivoSinSoporte,
-        registradoPorId: usuario.id,
+        usuario,
       }),
     );
 
@@ -153,19 +155,30 @@ export class FinanzasService {
   async anular(id: string, dto: AnularMovimientoDto, usuario: UsuarioAutenticado) {
     const existente = await this.prisma.movimientoFinanciero.findFirst({
       where: { id, AND: [filtroMovimiento(usuario)] },
-      select: { id: true },
+      select: { id: true, tipo: true, valor: true, descripcion: true, fecha: true },
     });
     if (!existente) {
       throw new NotFoundException(`No existe el movimiento ${id}`);
     }
 
-    const { count } = await this.prisma.movimientoFinanciero.updateMany({
-      where: { id, estado: EstadoMovimiento.ACTIVO },
-      data: { estado: EstadoMovimiento.ANULADO, anuladoPorId: usuario.id, anuladoEn: new Date(), motivoAnulacion: dto.motivo.trim() },
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.movimientoFinanciero.updateMany({
+        where: { id, estado: EstadoMovimiento.ACTIVO },
+        data: { estado: EstadoMovimiento.ANULADO, anuladoPorId: usuario.id, anuladoEn: new Date(), motivoAnulacion: dto.motivo.trim() },
+      });
+      if (count === 0) {
+        throw new ConflictException('Este movimiento ya está anulado');
+      }
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'MOVIMIENTO_ANULAR',
+        entidad: 'MOVIMIENTO',
+        entidadId: id,
+        resumen: `Anuló ${existente.tipo === TipoMovimiento.GASTO ? 'el egreso' : 'el ingreso'} de ${formatearCOP(existente.valor)} (${existente.descripcion}): ${dto.motivo.trim()}`,
+        antes: { estado: EstadoMovimiento.ACTIVO, valor: existente.valor, fecha: existente.fecha },
+        despues: { estado: EstadoMovimiento.ANULADO, motivoAnulacion: dto.motivo.trim() },
+      });
     });
-    if (count === 0) {
-      throw new ConflictException('Este movimiento ya está anulado');
-    }
     return this.obtener(id, usuario);
   }
 

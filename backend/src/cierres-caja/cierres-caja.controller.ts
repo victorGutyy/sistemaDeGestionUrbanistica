@@ -68,7 +68,7 @@ export class CierresCajaController {
 
   @Permiso(PERMISOS.CAJA_CERRAR)
   @Delete(':id')
-  descartar(@Param('id', ParseUUIDPipe) id: string) {
-    return this.cierresCajaService.descartar(id);
+  descartar(@Param('id', ParseUUIDPipe) id: string, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.cierresCajaService.descartar(id, usuario);
   }
 }

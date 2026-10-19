@@ -31,6 +31,7 @@ export const PERMISOS = {
   CONFIGURACION_VER: 'configuracion.ver',
   CONFIGURACION_EDITAR: 'configuracion.editar',
   USUARIOS_GESTIONAR: 'usuarios.gestionar',
+  AUDITORIA_VER: 'auditoria.ver', // consultar la auditoría (solo gerente)
 } as const;
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -76,6 +77,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.ABONOS_ANULAR &&
         permiso !== PERMISOS.FINANZAS_ANULAR &&
         permiso !== PERMISOS.CAJA_APROBAR &&
+        permiso !== PERMISOS.AUDITORIA_VER &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,

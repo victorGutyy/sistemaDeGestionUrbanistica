@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { CurrentUsuario } from '../auth/current-usuario.decorator.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
+import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { CrearPagoNominaDto } from './dto/crear-pago-nomina.dto.js';
 import { NominaService } from './nomina.service.js';
 
@@ -11,8 +13,8 @@ export class NominaController {
 
   @Permiso(PERMISOS.NOMINA_GESTIONAR)
   @Post('pagos')
-  crearPago(@Body() dto: CrearPagoNominaDto) {
-    return this.nominaService.crearPago(dto);
+  crearPago(@Body() dto: CrearPagoNominaDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.nominaService.crearPago(dto, usuario);
   }
 
   @Permiso(PERMISOS.NOMINA_VER)

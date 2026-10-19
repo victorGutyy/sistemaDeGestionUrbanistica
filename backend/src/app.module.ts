@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AbonosModule } from './abonos/abonos.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AuditoriaModule } from './auditoria/auditoria.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { RolesGuard } from './auth/roles.guard.js';
@@ -43,6 +44,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     CarteraModule,
     FinanzasModule,
     CierresCajaModule,
+    AuditoriaModule,
     TrabajadoresModule,
     NominaModule,
     DashboardModule,

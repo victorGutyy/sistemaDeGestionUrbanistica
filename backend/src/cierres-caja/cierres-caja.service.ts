@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { registrarAuditoria } from '../auditoria/auditoria.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
+import { formatearCOP } from '../common/formato.util.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { detectarTipoDocumento } from '../common/tipo-archivo.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
@@ -176,14 +178,25 @@ export class CierresCajaService {
     }
 
     try {
-      const creado = await this.prisma.cierreCaja.create({
-        data: {
-          tipo: dto.tipo,
-          desde: new Date(`${desde}T00:00:00.000Z`),
-          hasta: new Date(`${hasta}T00:00:00.000Z`),
-          efectivoInicial,
-          creadoPorId: usuario.id,
-        },
+      const creado = await this.prisma.$transaction(async (tx) => {
+        const fila = await tx.cierreCaja.create({
+          data: {
+            tipo: dto.tipo,
+            desde: new Date(`${desde}T00:00:00.000Z`),
+            hasta: new Date(`${hasta}T00:00:00.000Z`),
+            efectivoInicial,
+            creadoPorId: usuario.id,
+          },
+        });
+        await registrarAuditoria(tx, {
+          usuario,
+          accion: 'CIERRE_CREAR',
+          entidad: 'CIERRE_CAJA',
+          entidadId: fila.id,
+          resumen: `Generó un cierre de caja ${dto.tipo.toLowerCase()} del ${formatearDiaDDMMAAAA(desde)} al ${formatearDiaDDMMAAAA(hasta)}`,
+          despues: { tipo: dto.tipo, desde, hasta, efectivoInicial },
+        });
+        return fila;
       });
       return this.obtener(creado.id);
     } catch (error) {
@@ -258,6 +271,25 @@ export class CierresCajaService {
       await tx.cierreCajaHistorial.create({
         data: { cierreId: id, estadoAnterior: cierre.estado, estadoNuevo: EstadoCierre.CERRADO, usuarioId: usuario.id, observacion: explicacion },
       });
+      const numeroTexto = cierre.numeroTexto ?? formatearNumeroRecibo(PREFIJO_CIERRE_CAJA, numero);
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'CIERRE_CERRAR',
+        entidad: 'CIERRE_CAJA',
+        entidadId: id,
+        resumen: `Cerró la caja ${numeroTexto} (${formatearDiaDDMMAAAA(desde)} al ${formatearDiaDDMMAAAA(hasta)}): esperado ${formatearCOP(esperado)}, contado ${formatearCOP(contado)}, diferencia ${formatearCOP(diferencia)}`,
+        antes: { estado: cierre.estado },
+        despues: {
+          estado: EstadoCierre.CERRADO,
+          numero: numeroTexto,
+          efectivoEsperado: esperado,
+          efectivoContado: contado,
+          diferencia,
+          explicacionDiferencia: diferencia.isZero() ? null : explicacion,
+          entradas: resumen.totales.entradas,
+          salidas: resumen.totales.salidas,
+        },
+      });
     });
     return this.obtener(id);
   }
@@ -273,15 +305,30 @@ export class CierresCajaService {
   }
 
   // Solo un borrador se descarta; un cierre que ya se cerró queda para siempre (aunque se devuelva).
-  async descartar(id: string) {
-    const existente = await this.prisma.cierreCaja.findUnique({ where: { id }, select: { id: true, estado: true } });
+  async descartar(id: string, usuario: UsuarioAutenticado) {
+    const existente = await this.prisma.cierreCaja.findUnique({
+      where: { id },
+      select: { id: true, estado: true, tipo: true, desde: true, hasta: true, efectivoInicial: true },
+    });
     if (!existente) {
       throw new NotFoundException(`No existe el cierre de caja ${id}`);
     }
-    const { count } = await this.prisma.cierreCaja.deleteMany({ where: { id, estado: EstadoCierre.BORRADOR } });
-    if (count === 0) {
-      throw new ConflictException('Solo se puede descartar un cierre en borrador');
-    }
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.cierreCaja.deleteMany({ where: { id, estado: EstadoCierre.BORRADOR } });
+      if (count === 0) {
+        throw new ConflictException('Solo se puede descartar un cierre en borrador');
+      }
+      const desde = diaDeColumnaDate(existente.desde);
+      const hasta = diaDeColumnaDate(existente.hasta);
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'CIERRE_DESCARTAR',
+        entidad: 'CIERRE_CAJA',
+        entidadId: id,
+        resumen: `Descartó el borrador del cierre de caja del ${formatearDiaDDMMAAAA(desde)} al ${formatearDiaDDMMAAAA(hasta)}`,
+        antes: { estado: existente.estado, tipo: existente.tipo, desde, hasta, efectivoInicial: existente.efectivoInicial },
+      });
+    });
     return { descartado: true };
   }
 
@@ -289,7 +336,7 @@ export class CierresCajaService {
 
   private async resolver(id: string, nuevo: 'APROBADO' | 'DEVUELTO', observacion: string | null, usuario: UsuarioAutenticado) {
     await this.prisma.$transaction(async (tx) => {
-      const cierre = await tx.cierreCaja.findUnique({ where: { id }, select: { estado: true } });
+      const cierre = await tx.cierreCaja.findUnique({ where: { id }, select: { estado: true, numeroTexto: true, desde: true, hasta: true, efectivoContado: true, diferencia: true } });
       if (!cierre) {
         throw new NotFoundException(`No existe el cierre de caja ${id}`);
       }
@@ -303,6 +350,15 @@ export class CierresCajaService {
       }
       await tx.cierreCajaHistorial.create({
         data: { cierreId: id, estadoAnterior: EstadoCierre.CERRADO, estadoNuevo: nuevo, usuarioId: usuario.id, observacion },
+      });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: nuevo === EstadoCierre.APROBADO ? 'CIERRE_APROBAR' : 'CIERRE_DEVOLVER',
+        entidad: 'CIERRE_CAJA',
+        entidadId: id,
+        resumen: `${nuevo === EstadoCierre.APROBADO ? 'Aprobó' : 'Devolvió'} el cierre de caja ${cierre.numeroTexto} (${formatearDiaDDMMAAAA(diaDeColumnaDate(cierre.desde))} al ${formatearDiaDDMMAAAA(diaDeColumnaDate(cierre.hasta))})${observacion ? `: ${observacion}` : ''}`,
+        antes: { estado: EstadoCierre.CERRADO },
+        despues: { estado: nuevo, observacion, efectivoContado: cierre.efectivoContado, diferencia: cierre.diferencia },
       });
     });
     return this.obtener(id);

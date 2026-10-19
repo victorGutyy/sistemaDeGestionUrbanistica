@@ -2,13 +2,15 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { basename } from 'node:path';
 import { crearAbonoEnTx, type ContextoRecibo } from '../abonos/crear-abono-tx.js';
 import { exigirFechaNoFutura, validarCuentaDestino } from '../abonos/validar-pago.js';
+import { registrarAuditoria, soloCampos } from '../auditoria/auditoria.js';
 import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { categoriaDevolucionDesistimientoEnTx, crearMovimientoEnTx } from '../finanzas/crear-movimiento-tx.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
-import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento } from '../common/tipo-archivo.js';
+import { formatearCOP } from '../common/formato.util.js';
+import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento, type TipoDocumento } from '../common/tipo-archivo.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoLote, EstadoVenta, FormaPago, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
 import { aplicarAccionLote } from '../lotes/aplicar-accion.js';
@@ -156,6 +158,14 @@ export class VentasService {
         }
         const clienteCreado = await tx.cliente.create({ data: dto.clienteNuevo });
         clienteId = clienteCreado.id;
+        await registrarAuditoria(tx, {
+          usuario,
+          accion: 'CLIENTE_CREAR',
+          entidad: 'CLIENTE',
+          entidadId: clienteCreado.id,
+          resumen: `Creó el cliente ${clienteCreado.nombre} (documento ${clienteCreado.documento}) junto con su venta`,
+          despues: soloCampos(clienteCreado, ['nombre', 'documento', 'telefono', 'email', 'direccion']),
+        });
       } else if (clienteId) {
         // Con alcance restringido solo se pueden usar clientes que ya tienen ventas en sus proyectos.
         const cliente = await tx.cliente.findFirst({ where: { id: clienteId, ...filtroCliente(usuario) } });
@@ -191,7 +201,7 @@ export class VentasService {
       if (pendiente) {
         // El lote queda separado mientras el gerente decide, para que nadie más lo tome.
         if (lote.estado === EstadoLote.DISPONIBLE) {
-          await aplicarAccionLote(tx, lote, 'SEPARAR', usuario.id, {
+          await aplicarAccionLote(tx, lote, 'SEPARAR', usuario, {
             motivo: 'Venta con excepción pendiente de aprobación',
             ventaId: venta.id,
           });
@@ -200,7 +210,7 @@ export class VentasService {
       } else {
         const cuotaInicialId = await this.crearPlanDeCuotas(tx, venta);
         // El cambio de estado pasa por la máquina de estados: valida, deja historial y evita vender dos veces el mismo lote.
-        await aplicarAccionLote(tx, lote, 'VENDER', usuario.id, { ventaId: venta.id });
+        await aplicarAccionLote(tx, lote, 'VENDER', usuario, { ventaId: venta.id });
         await convertirSeparacionEnTx(tx, lote.id, venta.id);
 
         if (dto.cuotaInicialRecibida && cuotaInicialId && contextoRecibo) {
@@ -220,6 +230,18 @@ export class VentasService {
           );
         }
       }
+
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'VENTA_CREAR',
+        entidad: 'VENTA',
+        entidadId: venta.id,
+        resumen: `Registró la venta del lote ${lote.numero} por ${formatearCOP(valorTotal)}${pendiente ? ' (pendiente de aprobación del gerente)' : ''}`,
+        despues: {
+          ...soloCampos(venta, ['estado', 'loteId', 'clienteId', 'vendedorId', 'formaPago', 'valorTotal', 'cuotaInicial', 'numeroCuotas', 'tasaInteres', 'fechaVenta', 'esExcepcion', 'motivoExcepcion']),
+          cuotaInicialRecibida: Boolean(dto.cuotaInicialRecibida && !pendiente),
+        },
+      });
 
       return tx.venta.findUniqueOrThrow({
         where: { id: venta.id },
@@ -242,8 +264,18 @@ export class VentasService {
       }
 
       await this.crearPlanDeCuotas(tx, venta);
-      await aplicarAccionLote(tx, venta.lote, 'VENDER', usuario.id, { ventaId: id, motivo: 'Excepción aprobada' });
+      await aplicarAccionLote(tx, venta.lote, 'VENDER', usuario, { ventaId: id, motivo: 'Excepción aprobada' });
       await convertirSeparacionEnTx(tx, venta.lote.id, id);
+
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'VENTA_APROBAR',
+        entidad: 'VENTA',
+        entidadId: id,
+        resumen: `Aprobó la venta con excepción del lote ${venta.lote.numero} por ${formatearCOP(venta.valorTotal)}`,
+        antes: { estado: EstadoVenta.PENDIENTE_APROBACION },
+        despues: { estado: EstadoVenta.ACTIVA, motivoExcepcion: venta.motivoExcepcion },
+      });
 
       return tx.venta.findUniqueOrThrow({
         where: { id },
@@ -266,8 +298,18 @@ export class VentasService {
       }
 
       if (venta.separoElLote && venta.lote.estado === EstadoLote.SEPARADO) {
-        await aplicarAccionLote(tx, venta.lote, 'LIBERAR', usuario.id, { ventaId: id, motivo: 'Excepción rechazada' });
+        await aplicarAccionLote(tx, venta.lote, 'LIBERAR', usuario, { ventaId: id, motivo: 'Excepción rechazada' });
       }
+
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'VENTA_RECHAZAR',
+        entidad: 'VENTA',
+        entidadId: id,
+        resumen: `Rechazó la venta con excepción del lote ${venta.lote.numero}: ${motivo.trim()}`,
+        antes: { estado: EstadoVenta.PENDIENTE_APROBACION },
+        despues: { estado: EstadoVenta.RECHAZADA, motivoRechazo: motivo.trim() },
+      });
 
       return tx.venta.findUniqueOrThrow({ where: { id }, include: { cliente: true, lote: true, vendedor: true } });
     });
@@ -371,7 +413,7 @@ export class VentasService {
       }
 
       // El lote pasa a DESISTIDO (solo desde VENDIDO: un lote ya escriturado no admite desistimiento).
-      await aplicarAccionLote(tx, venta.lote, 'DESISTIR', usuario.id, { ventaId: id, motivo: dto.motivo.trim() });
+      await aplicarAccionLote(tx, venta.lote, 'DESISTIR', usuario, { ventaId: id, motivo: dto.motivo.trim() });
 
       await tx.desistimiento.create({
         data: {
@@ -402,9 +444,19 @@ export class VentasService {
           motivoSinSoporte: 'Devolución registrada junto con el desistimiento de la venta',
           origen: OrigenMovimiento.DEVOLUCION_DESISTIMIENTO,
           ventaId: id,
-          registradoPorId: usuario.id,
+          usuario,
         });
       }
+
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'VENTA_DESISTIR',
+        entidad: 'VENTA',
+        entidadId: id,
+        resumen: `Registró el desistimiento de la venta del lote ${venta.lote.numero} (${venta.cliente.nombre}): ${dto.motivo.trim()}`,
+        antes: { estado: EstadoVenta.ACTIVA, pagado },
+        despues: { estado: EstadoVenta.DESISTIDA, fecha, motivo: dto.motivo.trim(), valorDevolver, valorRetener, medioPagoDevolucion: dto.medioPagoDevolucion },
+      });
 
       return tx.venta.findUniqueOrThrow({ where: { id }, include: { cliente: true, lote: true, desistimiento: true } });
     });
@@ -437,24 +489,41 @@ export class VentasService {
       return { archivo, tipo };
     });
 
-    const creados = [];
+    // Primero se guardan los archivos; luego los registros y su auditoría se crean juntos (todo o nada).
+    const guardados: { archivo: Express.Multer.File; tipo: TipoDocumento; rutaRelativa: string }[] = [];
     for (const { archivo, tipo } of validados) {
       // El nombre en disco lo fija el servidor según el tipo real; el original solo se muestra.
       const { rutaRelativa } = await this.storage.guardar(`ventas/${ventaId}`, `documento.${tipo}`, archivo.buffer);
-      creados.push(
-        await this.prisma.documentoVenta.create({
-          data: {
-            ventaId,
-            nombreOriginal: basename(archivo.originalname).slice(0, 200),
-            ruta: rutaRelativa,
-            tipoMime: CONTENT_TYPE_DOCUMENTO[tipo],
-            tamano: archivo.buffer.length,
-            descripcion: descripcion?.trim() || null,
-            subidoPorId: usuario.id,
-          },
-        }),
-      );
+      guardados.push({ archivo, tipo, rutaRelativa });
     }
+
+    const creados = await this.prisma.$transaction(async (tx) => {
+      const filas = [];
+      for (const { archivo, tipo, rutaRelativa } of guardados) {
+        filas.push(
+          await tx.documentoVenta.create({
+            data: {
+              ventaId,
+              nombreOriginal: basename(archivo.originalname).slice(0, 200),
+              ruta: rutaRelativa,
+              tipoMime: CONTENT_TYPE_DOCUMENTO[tipo],
+              tamano: archivo.buffer.length,
+              descripcion: descripcion?.trim() || null,
+              subidoPorId: usuario.id,
+            },
+          }),
+        );
+      }
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'VENTA_DOCUMENTO_SUBIR',
+        entidad: 'VENTA',
+        entidadId: ventaId,
+        resumen: `Adjuntó ${filas.length} documento${filas.length === 1 ? '' : 's'} firmado${filas.length === 1 ? '' : 's'} a la venta`,
+        despues: { documentos: filas.map((fila) => ({ id: fila.id, nombre: fila.nombreOriginal, tipo: fila.tipoMime, tamano: fila.tamano, descripcion: fila.descripcion })) },
+      });
+      return filas;
+    });
     return creados;
   }
 
@@ -472,7 +541,7 @@ export class VentasService {
 
   // Datos de la empresa y de quien recibe, con los que se emite el recibo de la cuota inicial.
   private async construirContextoRecibo(usuario: UsuarioAutenticado): Promise<ContextoRecibo> {
-    return this.configuracion.contextoRecibo(usuario.nombre);
+    return this.configuracion.contextoRecibo(usuario);
   }
 
   listarVendedores() {

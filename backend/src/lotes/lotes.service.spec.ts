@@ -33,6 +33,7 @@ function crearPrismaFalso() {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     loteHistorial: { create: vi.fn() },
+    registroAuditoria: { create: vi.fn() },
     separacion: { create: vi.fn(), updateMany: vi.fn() },
     cliente: { findFirst: vi.fn() },
     $transaction: vi.fn(),

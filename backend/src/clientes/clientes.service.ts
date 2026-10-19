@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { registrarAuditoria, soloCampos } from '../auditoria/auditoria.js';
 import { exigirAlcanceTotal, filtroCliente } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -20,7 +21,18 @@ export class ClientesService {
       throw new ConflictException(`Ya existe un cliente con el documento ${dto.documento}`);
     }
 
-    return this.prisma.cliente.create({ data: dto });
+    return this.prisma.$transaction(async (tx) => {
+      const cliente = await tx.cliente.create({ data: dto });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'CLIENTE_CREAR',
+        entidad: 'CLIENTE',
+        entidadId: cliente.id,
+        resumen: `Creó el cliente ${cliente.nombre} (documento ${cliente.documento})`,
+        despues: soloCampos(cliente, ['nombre', 'documento', 'telefono', 'email', 'direccion']),
+      });
+      return cliente;
+    });
   }
 
   // Quien tiene alcance restringido solo ve a los clientes con alguna venta en sus proyectos.

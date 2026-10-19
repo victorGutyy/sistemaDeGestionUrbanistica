@@ -8,7 +8,9 @@ import {
 } from '../consecutivos/consecutivo.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoCuota, MedioPago } from '../generated/prisma/enums.js';
+import { registrarAuditoria, type ActorAuditoria } from '../auditoria/auditoria.js';
 import { exigirFechaAbiertaEnTx } from '../cierres-caja/fecha-abierta.js';
+import { formatearCOP } from '../common/formato.util.js';
 import { construirContenidoRecibo, type EmpresaRecibo } from './recibo-contenido.js';
 import { repartirAbono, type ParteAplicada } from './repartir-abono.js';
 
@@ -18,6 +20,8 @@ export interface ContextoRecibo {
   empresa: EmpresaRecibo;
   prefijoRecibo: string;
   recibidoPor: string;
+  // Quien registra el abono: queda en la auditoría.
+  usuario: ActorAuditoria;
 }
 
 export interface DatosAbono {
@@ -151,6 +155,35 @@ export async function crearAbonoEnTx(tx: Prisma.TransactionClient, datos: DatosA
     },
   });
 
+  await registrarAuditoria(tx, {
+    usuario: contexto.usuario,
+    accion: 'ABONO_REGISTRAR',
+    entidad: 'ABONO',
+    entidadId: abono.id,
+    resumen: `Registró un abono de ${formatearCOP(datos.valor)} del lote ${venta.lote.numero} (${venta.cliente.nombre}), recibo ${recibo.numeroTexto}`,
+    despues: {
+      ventaId: datos.ventaId,
+      fecha: datos.fecha,
+      valor: datos.valor,
+      medioPago: datos.medioPago,
+      cuentaDestinoId: datos.cuentaDestinoId ?? null,
+      referencia,
+      conSoporte: Boolean(datos.comprobanteUrl),
+      recibo: recibo.numeroTexto,
+      cuotasCubiertas: partes.map(cuotaCubierta),
+      saldoAnterior,
+      saldoNuevo: saldoAnterior.minus(datos.valor),
+    },
+  });
+  await registrarAuditoria(tx, {
+    usuario: contexto.usuario,
+    accion: 'RECIBO_EMITIR',
+    entidad: 'RECIBO',
+    entidadId: recibo.id,
+    resumen: `Emitió el recibo ${recibo.numeroTexto} por ${formatearCOP(datos.valor)}`,
+    despues: { numeroTexto: recibo.numeroTexto, serie: recibo.serie, esHistorico: recibo.esHistorico, abonoId: abono.id },
+  });
+
   return { abono, recibo, partes };
 }
 
@@ -214,7 +247,7 @@ export async function recalcularEstadoCuotaEnTx(tx: Prisma.TransactionClient, cu
 
 // Anulación (RF-REC-07 y 08): el abono y su recibo se conservan, marcados como anulados con quién, cuándo y por qué;
 // el efecto sobre las cuotas se revierte; el consecutivo no se reutiliza (el contador solo avanza).
-export async function anularAbonoEnTx(tx: Prisma.TransactionClient, abonoId: string, motivo: string, usuarioId: string) {
+export async function anularAbonoEnTx(tx: Prisma.TransactionClient, abonoId: string, motivo: string, usuario: ActorAuditoria) {
   const existente = await tx.abono.findUnique({ where: { id: abonoId }, select: { ventaId: true } });
   if (!existente) {
     throw new NotFoundException(`No existe el abono ${abonoId}`);
@@ -228,12 +261,33 @@ export async function anularAbonoEnTx(tx: Prisma.TransactionClient, abonoId: str
 
   const anulado = await tx.abono.update({
     where: { id: abonoId },
-    data: { estado: EstadoAbono.ANULADO, anuladoPorId: usuarioId, anuladoEn: new Date(), motivoAnulacion: motivo },
+    data: { estado: EstadoAbono.ANULADO, anuladoPorId: usuario.id, anuladoEn: new Date(), motivoAnulacion: motivo },
     include: { recibo: true },
   });
 
   for (const aplicacion of abono.aplicaciones) {
     await recalcularEstadoCuotaEnTx(tx, aplicacion.cuotaId);
+  }
+
+  await registrarAuditoria(tx, {
+    usuario,
+    accion: 'ABONO_ANULAR',
+    entidad: 'ABONO',
+    entidadId: abonoId,
+    resumen: `Anuló el abono de ${formatearCOP(abono.valor)}${anulado.recibo ? ` (recibo ${anulado.recibo.numeroTexto})` : ''}: ${motivo}`,
+    antes: { estado: EstadoAbono.ACTIVO, valor: abono.valor, fecha: abono.fecha },
+    despues: { estado: EstadoAbono.ANULADO, motivoAnulacion: motivo },
+  });
+  if (anulado.recibo) {
+    await registrarAuditoria(tx, {
+      usuario,
+      accion: 'RECIBO_ANULAR',
+      entidad: 'RECIBO',
+      entidadId: anulado.recibo.id,
+      resumen: `Anuló el recibo ${anulado.recibo.numeroTexto}: ${motivo}`,
+      antes: { numeroTexto: anulado.recibo.numeroTexto, anulado: false },
+      despues: { numeroTexto: anulado.recibo.numeroTexto, anulado: true, motivoAnulacion: motivo },
+    });
   }
 
   return anulado;

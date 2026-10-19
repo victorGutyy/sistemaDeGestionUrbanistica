@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { exigirProyecto, filtroCliente, filtroLote } from '../auth/alcance.js';
+import { registrarAuditoria, soloCampos } from '../auditoria/auditoria.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -83,6 +84,14 @@ export class LotesService {
             valorNuevo: lote.valorVenta,
             usuarioId: usuario.id,
           },
+        });
+        await registrarAuditoria(tx, {
+          usuario,
+          accion: 'LOTE_CREAR',
+          entidad: 'LOTE',
+          entidadId: lote.id,
+          resumen: `Creó el lote ${lote.numero} en ${proyecto.nombre} (precio ${lote.valorVenta.toString()})`,
+          despues: soloCampos(lote, ['numero', 'proyectoId', 'manzanaId', 'area', 'linderos', 'valorPorM2', 'valorVenta', 'estado']),
         });
         return lote;
       });
@@ -173,6 +182,29 @@ export class LotesService {
             usuarioId: usuario.id,
           },
         });
+        await registrarAuditoria(tx, {
+          usuario,
+          accion: 'LOTE_CAMBIAR_PRECIO',
+          entidad: 'LOTE',
+          entidadId: id,
+          resumen: `Cambió el precio del lote ${lote.numero} de ${lote.valorVenta.toString()} a ${actualizado.valorVenta.toString()}${dto.motivo ? `: ${dto.motivo}` : ''}`,
+          antes: { valorVenta: lote.valorVenta },
+          despues: { valorVenta: actualizado.valorVenta, motivo: dto.motivo },
+        });
+      }
+      // El resto de los datos del lote (el precio ya tiene su propio registro).
+      const campos = ['area', 'linderos', 'valorPorM2'] as const;
+      const cambio = campos.some((campo) => String(lote[campo] ?? '') !== String(actualizado[campo] ?? ''));
+      if (cambio) {
+        await registrarAuditoria(tx, {
+          usuario,
+          accion: 'LOTE_EDITAR',
+          entidad: 'LOTE',
+          entidadId: id,
+          resumen: `Editó los datos del lote ${lote.numero}`,
+          antes: soloCampos(lote, campos),
+          despues: soloCampos(actualizado, campos),
+        });
       }
       return actualizado;
     });
@@ -204,7 +236,18 @@ export class LotesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await aplicarAccionLote(tx, lote, 'SEPARAR', usuario.id, { motivo: dto.motivo });
+      await aplicarAccionLote(tx, lote, 'SEPARAR', usuario, {
+        motivo: dto.motivo,
+        detalleAuditoria: {
+          separacion: {
+            clienteId: dto.clienteId,
+            nombreInteresado: dto.nombreInteresado?.trim(),
+            telefonoInteresado: dto.telefonoInteresado?.trim(),
+            valor: dto.valor,
+            fechaLimite,
+          },
+        },
+      });
       await tx.separacion.create({
         data: {
           loteId: id,
@@ -225,7 +268,7 @@ export class LotesService {
     const lote = await this.obtenerParaCambiar(id, usuario);
 
     return this.prisma.$transaction(async (tx) => {
-      await aplicarAccionLote(tx, lote, 'LIBERAR', usuario.id, { motivo: dto.motivo });
+      await aplicarAccionLote(tx, lote, 'LIBERAR', usuario, { motivo: dto.motivo });
       await tx.separacion.updateMany({ where: { loteId: id, estado: EstadoSeparacion.ACTIVA }, data: { estado: EstadoSeparacion.LIBERADA } });
       return tx.lote.findUniqueOrThrow({ where: { id } });
     });
@@ -246,7 +289,7 @@ export class LotesService {
     const lote = await this.obtenerParaCambiar(id, usuario);
 
     return this.prisma.$transaction(async (tx) => {
-      await aplicarAccionLote(tx, lote, accion, usuario.id, opciones);
+      await aplicarAccionLote(tx, lote, accion, usuario, opciones);
       return tx.lote.findUniqueOrThrow({ where: { id } });
     });
   }

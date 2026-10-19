@@ -4,7 +4,9 @@ import { Prisma } from '../generated/prisma/client.js';
 import type { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { MedioPago, TipoNovedad } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
 import { NominaService } from './nomina.service.js';
+import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 
 function crearPrismaFalso() {
   const base = {
@@ -14,10 +16,12 @@ function crearPrismaFalso() {
     // El pago se crea en una transacción que primero revisa que el día no esté en un cierre de caja cerrado.
     $executeRaw: vi.fn().mockResolvedValue(0),
     cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
+    registroAuditoria: { create: vi.fn() },
   };
   return { ...base, $transaction: vi.fn((callback: (tx: typeof base) => unknown) => callback(base)) };
 }
 
+const USUARIO = usuarioDePrueba();
 const TRABAJADOR = { id: 'trabajador-1', salarioBase: new Prisma.Decimal('1500000') };
 
 describe('NominaService.crearPago', () => {
@@ -41,7 +45,7 @@ describe('NominaService.crearPago', () => {
         periodoFin: '2026-09-30',
         fechaPago: '2026-09-30',
         medioPago: MedioPago.EFECTIVO,
-      }),
+      }, USUARIO),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -59,7 +63,7 @@ describe('NominaService.crearPago', () => {
         { tipo: TipoNovedad.HORAS_EXTRA, valor: '100000' },
         { tipo: TipoNovedad.DESCUENTO, valor: '20000' },
       ],
-    });
+    }, USUARIO);
 
     const llamada = prisma.pagoNomina.create.mock.calls[0][0];
     expect(llamada.data.salarioBase.toString()).toBe('1500000');
@@ -79,7 +83,7 @@ describe('NominaService.crearPago', () => {
         periodoFin: '2026-09-30',
         fechaPago: '2026-09-30',
         medioPago: MedioPago.EFECTIVO,
-      }),
+      }, USUARIO),
     ).rejects.toThrow(/CC-000003/);
     expect(prisma.pagoNomina.create).not.toHaveBeenCalled();
   });
@@ -94,7 +98,7 @@ describe('NominaService.crearPago', () => {
         periodoFin: '2026-09-30',
         fechaPago: '2026-09-30',
         medioPago: MedioPago.TRANSFERENCIA,
-      }),
+      }, USUARIO),
     ).rejects.toThrow(/de donde salió el dinero/);
     expect(prisma.pagoNomina.create).not.toHaveBeenCalled();
   });
@@ -111,8 +115,42 @@ describe('NominaService.crearPago', () => {
       fechaPago: '2026-09-30',
       medioPago: MedioPago.TRANSFERENCIA,
       cuentaId: 'cuenta-1',
-    });
+    }, USUARIO);
 
     expect(prisma.pagoNomina.create.mock.calls[0][0].data).toMatchObject({ medioPago: MedioPago.TRANSFERENCIA, cuentaId: 'cuenta-1' });
+  });
+});
+
+describe('NominaService: auditoría (RF-AUD-01)', () => {
+  it('registrar un pago deja quién lo hizo, a quién y por cuánto, con sus novedades', async () => {
+    const prisma = crearPrismaFalso();
+    const service = new NominaService(prisma as unknown as PrismaService, { exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined) } as unknown as ConfiguracionService);
+    prisma.trabajador.findUnique.mockResolvedValue({ ...TRABAJADOR, nombre: 'Trabajador de Prueba' });
+    prisma.pagoNomina.create.mockResolvedValue({ id: 'pago-9' });
+
+    await service.crearPago(
+      {
+        trabajadorId: 'trabajador-1',
+        periodoInicio: '2026-09-01',
+        periodoFin: '2026-09-30',
+        fechaPago: '2026-09-30',
+        medioPago: MedioPago.EFECTIVO,
+        novedades: [{ tipo: TipoNovedad.DESCUENTO, valor: '20000' }],
+      },
+      USUARIO,
+    );
+
+    const registro = auditoriaDe(prisma.registroAuditoria.create, 'NOMINA_REGISTRAR_PAGO');
+    expect(registro).toMatchObject({ entidad: 'NOMINA', entidadId: 'pago-9', usuarioId: USUARIO.id });
+    expect(registro.resumen).toContain('Trabajador de Prueba');
+    expect(registro.despues).toMatchObject({ salarioBase: '1500000', valorPagado: '1480000', medioPago: 'EFECTIVO', novedades: [{ tipo: 'DESCUENTO', valor: '20000' }] });
+  });
+
+  it('un pago rechazado (trabajador inexistente) no deja nada en la auditoría', async () => {
+    const prisma = crearPrismaFalso();
+    const service = new NominaService(prisma as unknown as PrismaService, { exigirMedioPagoActivo: vi.fn() } as unknown as ConfiguracionService);
+    prisma.trabajador.findUnique.mockResolvedValue(null);
+    await expect(service.crearPago({ trabajadorId: 'x', periodoInicio: '2026-09-01', periodoFin: '2026-09-30', fechaPago: '2026-09-30', medioPago: MedioPago.EFECTIVO }, USUARIO)).rejects.toBeInstanceOf(NotFoundException);
+    expect(auditoriasDe(prisma.registroAuditoria.create)).toEqual([]);
   });
 });

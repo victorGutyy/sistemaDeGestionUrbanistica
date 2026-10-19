@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { registrarAuditoria, soloCampos } from '../auditoria/auditoria.js';
 import { exigirAlcanceTotal, exigirProyecto, filtroProyecto } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
@@ -17,16 +18,27 @@ export class ProyectosService {
     // Un proyecto nuevo quedaría fuera del alcance de quien está limitado a ciertos proyectos.
     exigirAlcanceTotal(usuario);
 
-    return this.prisma.proyecto.create({
-      data: {
-        nombre: dto.nombre,
-        tipo: dto.tipo,
-        ubicacion: dto.ubicacion,
-        municipio: dto.municipio,
-        areaTotal: dto.areaTotal,
-        valorCompra: dto.valorCompra,
-        fechaCompra: dto.fechaCompra ? parsearFechaLocal(dto.fechaCompra) : undefined,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const proyecto = await tx.proyecto.create({
+        data: {
+          nombre: dto.nombre,
+          tipo: dto.tipo,
+          ubicacion: dto.ubicacion,
+          municipio: dto.municipio,
+          areaTotal: dto.areaTotal,
+          valorCompra: dto.valorCompra,
+          fechaCompra: dto.fechaCompra ? parsearFechaLocal(dto.fechaCompra) : undefined,
+        },
+      });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'PROYECTO_CREAR',
+        entidad: 'PROYECTO',
+        entidadId: proyecto.id,
+        resumen: `Creó el proyecto ${proyecto.nombre}`,
+        despues: soloCampos(proyecto, ['nombre', 'tipo', 'ubicacion', 'municipio', 'areaTotal', 'valorCompra', 'fechaCompra', 'estado']),
+      });
+      return proyecto;
     });
   }
 
@@ -76,7 +88,18 @@ export class ProyectosService {
       throw new ConflictException(`El proyecto ya tiene la manzana "${repetida.nombre}"`);
     }
 
-    return this.prisma.manzana.create({ data: { proyectoId, nombre } });
+    return this.prisma.$transaction(async (tx) => {
+      const manzana = await tx.manzana.create({ data: { proyectoId, nombre } });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'PROYECTO_CREAR_MANZANA',
+        entidad: 'PROYECTO',
+        entidadId: proyectoId,
+        resumen: `Creó la manzana "${manzana.nombre}" en el proyecto ${proyecto.nombre}`,
+        despues: { manzanaId: manzana.id, nombre: manzana.nombre },
+      });
+      return manzana;
+    });
   }
 
   async actualizarEstado(id: string, dto: ActualizarEstadoProyectoDto, usuario: UsuarioAutenticado) {
@@ -87,9 +110,18 @@ export class ProyectosService {
       throw new NotFoundException(`No existe el proyecto ${id}`);
     }
 
-    return this.prisma.proyecto.update({
-      where: { id },
-      data: { estado: dto.estado },
+    return this.prisma.$transaction(async (tx) => {
+      const actualizado = await tx.proyecto.update({ where: { id }, data: { estado: dto.estado } });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'PROYECTO_CAMBIAR_ESTADO',
+        entidad: 'PROYECTO',
+        entidadId: id,
+        resumen: `${dto.estado === EstadoProyecto.FINALIZADO ? 'Finalizó' : 'Reactivó'} el proyecto ${proyecto.nombre}`,
+        antes: { estado: proyecto.estado },
+        despues: { estado: actualizado.estado },
+      });
+      return actualizado;
     });
   }
 }
