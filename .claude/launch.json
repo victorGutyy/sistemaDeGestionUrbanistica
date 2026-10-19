@@ -4,14 +4,59 @@
     {
       "name": "backend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start:dev", "--prefix", "backend"],
+      "runtimeArgs": [
+        "run",
+        "start:dev",
+        "--prefix",
+        "backend"
+      ],
       "port": 3000
     },
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend"
+      ],
       "port": 5173
+    },
+    {
+      "name": "demo-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "demo:api",
+        "--prefix",
+        "backend"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "demo-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:demo",
+        "--prefix",
+        "frontend"
+      ],
+      "port": 5174
+    },
+    {
+      "name": "volumen-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "demo:api",
+        "--prefix",
+        "backend",
+        "--",
+        "volumen"
+      ],
+      "port": 3002
     }
   ]
 }

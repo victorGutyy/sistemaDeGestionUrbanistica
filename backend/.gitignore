@@ -13,3 +13,9 @@ dist
 
 # Respaldos de la base (pg_dump): contienen datos de clientes, nunca van a Git.
 /respaldos/
+
+# Compilado de los scripts de datos (semilla, demostración, limpieza).
+/dist-scripts
+
+# Bases de demostración y de volumen: credenciales y archivos de prueba.
+/.demo/
