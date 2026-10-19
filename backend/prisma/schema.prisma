@@ -210,6 +210,7 @@ model Usuario {
   registrosAuditoria        RegistroAuditoria[]
   importaciones             Importacion[]
   clientesAutorizados       Cliente[]              @relation("AutorizacionesRegistradas")
+  equiposDadosDeBaja        Equipo[]               @relation("EquiposDadosDeBaja")
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -264,6 +265,7 @@ model Proyecto {
   manzanas          Manzana[]
   lotes             Lote[]
   movimientos       MovimientoFinanciero[]
+  equipos           Equipo[]
   usuariosConAcceso UsuarioProyecto[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
@@ -606,6 +608,13 @@ model MovimientoFinanciero {
   // Venta de la que viene (solo la devolución de un desistimiento).
   ventaId            String?
   venta              Venta?            @relation(fields: [ventaId], references: [id])
+  // Proyectos de maquinaria (RF-MAQ-03 y 04): el equipo al que se asigna el movimiento, o "gasto general de la flota";
+  // y, en el ingreso por alquiler, el período alquilado.
+  equipoId           String?
+  equipo             Equipo?           @relation(fields: [equipoId], references: [id])
+  flota              Boolean           @default(false)
+  periodoDesde       DateTime?         @db.Date
+  periodoHasta       DateTime?         @db.Date
   estado             EstadoMovimiento  @default(ACTIVO)
   registradoPorId    String?
   registradoPor      Usuario?          @relation("MovimientosRegistrados", fields: [registradoPorId], references: [id])
@@ -619,6 +628,7 @@ model MovimientoFinanciero {
   @@index([proyectoId, fecha])
   @@index([fecha])
   @@index([estado])
+  @@index([equipoId])
 }
 
 // Cierre de caja (RF-CAJ-01 a 06): resume lo que entró y salió de la caja de la empresa en un período, compara el
@@ -819,13 +829,61 @@ model CuentaBancaria {
 // Categoría de gasto. Las marcadas esSistema (Nómina, Comisiones) las usan
 // procesos automáticos de etapas posteriores y no se pueden desactivar.
 model CategoriaGasto {
-  id          String                 @id @default(uuid())
-  nombre      String                 @unique
-  activa      Boolean                @default(true)
-  esSistema   Boolean                @default(false)
-  movimientos MovimientoFinanciero[]
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id             String                 @id @default(uuid())
+  nombre         String                 @unique
+  activa         Boolean                @default(true)
+  esSistema      Boolean                @default(false)
+  // RF-MAQ-06: una categoría propia de la maquinaria solo se ofrece (y solo se acepta) en proyectos de maquinaria.
+  soloMaquinaria Boolean                @default(false)
+  movimientos    MovimientoFinanciero[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+}
+
+// Estado operativo de un equipo de maquinaria (RF-MAQ-01). Distinto de la baja: un equipo dado de baja se conserva
+// con todos sus movimientos pero ya no recibe movimientos nuevos (RF-MAQ-07).
+enum EstadoEquipo {
+  ACTIVO
+  EN_MANTENIMIENTO
+  FUERA_DE_SERVICIO
+}
+
+// Lista de tipos de equipo que administra el gerente (RF-MAQ-02): excavadora, retroexcavadora, volqueta...
+// Se desactivan, no se borran.
+model TipoEquipo {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
+  activo    Boolean  @default(true)
+  equipos   Equipo[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Equipo de maquinaria de un proyecto de tipo Maquinaria (RF-MAQ-01). Nunca se borra (lo impide la base de datos):
+// se da de baja con motivo y sus movimientos se conservan (RF-MAQ-07).
+model Equipo {
+  id           String                 @id @default(uuid())
+  proyectoId   String
+  proyecto     Proyecto               @relation(fields: [proyectoId], references: [id])
+  nombre       String
+  tipoEquipoId String
+  tipoEquipo   TipoEquipo             @relation(fields: [tipoEquipoId], references: [id])
+  marca        String?
+  modelo       String?
+  anio         Int?
+  // Placa o serie: no se repite entre equipos (índice único escrito a mano en la migración).
+  placaSerie   String?
+  estado       EstadoEquipo           @default(ACTIVO)
+  bajaEn       DateTime?
+  bajaMotivo   String?
+  bajaPorId    String?
+  bajaPor      Usuario?               @relation("EquiposDadosDeBaja", fields: [bajaPorId], references: [id])
+  movimientos  MovimientoFinanciero[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@index([proyectoId])
+  @@index([tipoEquipoId])
 }
 
 // Categoría de ingreso (RF-CFG-11): para los ingresos que no son cuotas ni abonos de lotes (esos se

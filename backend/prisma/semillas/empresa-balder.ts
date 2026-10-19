@@ -43,6 +43,12 @@ export const CATEGORIAS_GASTO = [
   { nombre: 'Trámites y legales', esSistema: false },
   { nombre: 'Publicidad', esSistema: false },
   { nombre: 'Otros', esSistema: false },
+  // Propias de la maquinaria (RF-MAQ-06): solo se ofrecen en proyectos de maquinaria. El gerente las administra.
+  { nombre: 'Combustible', esSistema: false, soloMaquinaria: true },
+  { nombre: 'Mantenimiento de equipos', esSistema: false, soloMaquinaria: true },
+  { nombre: 'Repuestos', esSistema: false, soloMaquinaria: true },
+  { nombre: 'Operario', esSistema: false, soloMaquinaria: true },
+  { nombre: 'Transporte del equipo', esSistema: false, soloMaquinaria: true },
 ];
 
 // Los ingresos por cuotas y abonos de lotes no llevan categoría: se suman solos desde los abonos.
@@ -51,6 +57,9 @@ export const CATEGORIAS_INGRESO = [
   { nombre: 'Otros servicios', esSistema: false },
   { nombre: 'Otros', esSistema: false },
 ];
+
+// Tipos de equipo de ejemplo (RF-MAQ-02). El cliente aún no confirma los suyos: el gerente los edita en Configuración.
+export const TIPOS_EQUIPO = ['Excavadora', 'Retroexcavadora', 'Volqueta'];
 
 export const COMISIONES = [
   { tipo: 'ASESOR_INMOBILIARIO' as const, valor: '1000000' },

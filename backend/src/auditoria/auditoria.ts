@@ -22,6 +22,7 @@ export const ENTIDADES_AUDITORIA = {
   USUARIO: 'Usuario',
   IMPORTACION: 'Importación de Excel',
   EXPORTACION: 'Exportación de datos',
+  EQUIPO: 'Equipo de maquinaria',
 } as const;
 
 export type EntidadAuditoria = keyof typeof ENTIDADES_AUDITORIA;
@@ -69,6 +70,11 @@ export const ACCIONES_AUDITORIA = {
   USUARIO_DESBLOQUEAR: 'Desbloqueó un usuario',
   IMPORTACION_EJECUTAR: 'Importó datos desde Excel',
   EXPORTACION_COMPLETA: 'Exportó todos los datos a Excel',
+  EQUIPO_CREAR: 'Registró un equipo',
+  EQUIPO_EDITAR: 'Editó un equipo',
+  EQUIPO_BAJA: 'Dio de baja un equipo',
+  EQUIPO_REACTIVAR: 'Reactivó un equipo',
+  CONFIGURACION_TIPO_EQUIPO: 'Cambió un tipo de equipo',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;

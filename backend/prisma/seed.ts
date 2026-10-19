@@ -21,7 +21,7 @@ import { CLAVE_GERENTE, ROLES_SISTEMA } from '../src/auth/permisos.js';
 import { MEDIOS_ACTIVOS_POR_DEFECTO } from '../src/configuracion/configuracion.service.js';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
 import { MedioPago } from '../src/generated/prisma/enums.js';
-import { CATEGORIAS_GASTO, CATEGORIAS_INGRESO, COMISIONES, CUENTAS, EMPRESA, PARAMETROS } from './semillas/empresa-balder.js';
+import { CATEGORIAS_GASTO, CATEGORIAS_INGRESO, COMISIONES, CUENTAS, EMPRESA, PARAMETROS, TIPOS_EQUIPO } from './semillas/empresa-balder.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
@@ -56,6 +56,10 @@ async function sembrarConfiguracion() {
     await prisma.categoriaIngreso.upsert({ where: { nombre: categoria.nombre }, update: {}, create: categoria });
   }
 
+  for (const nombre of TIPOS_EQUIPO) {
+    await prisma.tipoEquipo.upsert({ where: { nombre }, update: {}, create: { nombre } });
+  }
+
   await prisma.medioPagoConfig.createMany({
     data: Object.values(MedioPago).map((medio) => ({ medio, activo: MEDIOS_ACTIVOS_POR_DEFECTO[medio] })),
     skipDuplicates: true,
@@ -66,7 +70,7 @@ async function sembrarConfiguracion() {
     skipDuplicates: true,
   });
 
-  console.log('Configuración inicial lista (empresa, parámetros, cuentas, categorías de gasto e ingreso, medios de pago, comisiones).');
+  console.log('Configuración inicial lista (empresa, parámetros, cuentas, categorías de gasto e ingreso, tipos de equipo, medios de pago, comisiones).');
 }
 
 async function sembrarRoles() {

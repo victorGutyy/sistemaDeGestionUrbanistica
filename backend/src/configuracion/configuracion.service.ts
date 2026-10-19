@@ -8,6 +8,7 @@ import type { ContextoRecibo } from '../abonos/crear-abono-tx.js';
 import { registrarAuditoria, soloCampos, type ActorAuditoria } from '../auditoria/auditoria.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { empresaParaRecibo } from '../abonos/recibo-contenido.js';
+import { ActualizarTipoEquipoDto, CrearTipoEquipoDto } from '../equipos/dto/equipo.dto.js';
 import { ActualizarEmpresaDto } from './dto/actualizar-empresa.dto.js';
 import { ActualizarParametrosDto } from './dto/actualizar-parametros.dto.js';
 import {
@@ -78,12 +79,14 @@ export interface FilaCategoria {
   nombre: string;
   activa: boolean;
   esSistema: boolean;
+  // Solo las categorías de gasto lo tienen.
+  soloMaquinaria?: boolean;
 }
 
 interface TablaCategoria {
   findUnique(args: { where: { id: string } }): Promise<FilaCategoria | null>;
   findFirst(args: { where: { nombre: { equals: string; mode: 'insensitive' } } }): Promise<FilaCategoria | null>;
-  create(args: { data: { nombre: string } }): Promise<FilaCategoria>;
+  create(args: { data: { nombre: string; soloMaquinaria?: boolean } }): Promise<FilaCategoria>;
   update(args: { where: { id: string }; data: { nombre?: string; activa?: boolean } }): Promise<FilaCategoria>;
 }
 
@@ -129,15 +132,16 @@ export class ConfiguracionService {
   }
 
   async obtenerCompleta() {
-    const [empresa, cuentas, mediosPago, categoriasGasto, categoriasIngreso, comisiones] = await Promise.all([
+    const [empresa, cuentas, mediosPago, categoriasGasto, categoriasIngreso, comisiones, tiposEquipo] = await Promise.all([
       this.obtenerEmpresa(),
       this.listarCuentas(),
       this.listarMediosPago(),
       this.listarCategoriasGasto(),
       this.listarCategoriasIngreso(),
       this.listarComisiones(),
+      this.listarTiposEquipo(),
     ]);
-    return { empresa, cuentas, mediosPago, categoriasGasto, categoriasIngreso, comisiones };
+    return { empresa, cuentas, mediosPago, categoriasGasto, categoriasIngreso, comisiones, tiposEquipo };
   }
 
   // Datos con los que se emite un recibo: la empresa tal como está HOY y quién recibió el dinero.
@@ -380,6 +384,61 @@ export class ConfiguracionService {
     }
   }
 
+  // ---------- Tipos de equipo (RF-MAQ-02) ----------
+  // Los administra el gerente: se desactivan en vez de borrarse (la base de datos lo impide).
+
+  listarTiposEquipo() {
+    return this.prisma.tipoEquipo.findMany({ orderBy: { nombre: 'asc' } });
+  }
+
+  async crearTipoEquipo(dto: CrearTipoEquipoDto, usuario: UsuarioAutenticado) {
+    const nombre = dto.nombre.trim();
+    await this.exigirNombreDeTipoEquipoLibre(nombre);
+    return this.prisma.$transaction(async (tx) => {
+      const tipo = await tx.tipoEquipo.create({ data: { nombre } });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'CONFIGURACION_TIPO_EQUIPO',
+        entidad: 'CONFIGURACION',
+        entidadId: tipo.id,
+        resumen: `Creó el tipo de equipo "${tipo.nombre}"`,
+        despues: { nombre: tipo.nombre, activo: tipo.activo },
+      });
+      return tipo;
+    });
+  }
+
+  async actualizarTipoEquipo(id: string, dto: ActualizarTipoEquipoDto, usuario: UsuarioAutenticado) {
+    const tipo = await this.prisma.tipoEquipo.findUnique({ where: { id } });
+    if (!tipo) {
+      throw new NotFoundException(`No existe el tipo de equipo ${id}`);
+    }
+    const nombre = dto.nombre?.trim();
+    if (nombre !== undefined && nombre !== tipo.nombre) {
+      await this.exigirNombreDeTipoEquipoLibre(nombre, id);
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const actualizado = await tx.tipoEquipo.update({ where: { id }, data: { nombre, activo: dto.activo } });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'CONFIGURACION_TIPO_EQUIPO',
+        entidad: 'CONFIGURACION',
+        entidadId: id,
+        resumen: `Cambió el tipo de equipo "${tipo.nombre}"${dto.activo === undefined ? '' : actualizado.activo ? ': lo activó' : ': lo desactivó'}`,
+        antes: { nombre: tipo.nombre, activo: tipo.activo },
+        despues: { nombre: actualizado.nombre, activo: actualizado.activo },
+      });
+      return actualizado;
+    });
+  }
+
+  private async exigirNombreDeTipoEquipoLibre(nombre: string, ignorarId?: string) {
+    const existente = await this.prisma.tipoEquipo.findFirst({ where: { nombre: { equals: nombre, mode: 'insensitive' } } });
+    if (existente && existente.id !== ignorarId) {
+      throw new ConflictException(`Ya existe el tipo de equipo "${existente.nombre}"`);
+    }
+  }
+
   // ---------- Categorías de gasto y de ingreso ----------
   // Las dos listas se administran igual: nombre único, se desactivan en vez de borrarse y las "del sistema"
   // (las que usan procesos automáticos) no se pueden renombrar ni desactivar.
@@ -417,14 +476,14 @@ export class ConfiguracionService {
     const nombre = dto.nombre.trim();
     await this.exigirNombreDeCategoriaLibre(tipo, nombre);
     return this.prisma.$transaction(async (tx) => {
-      const categoria = await this.tablaCategoria(tx, tipo).create({ data: { nombre } });
+      const categoria = await this.tablaCategoria(tx, tipo).create({ data: { nombre, ...(tipo === 'gasto' && dto.soloMaquinaria ? { soloMaquinaria: true } : {}) } });
       await registrarAuditoria(tx, {
         usuario,
         accion: 'CONFIGURACION_CATEGORIA',
         entidad: 'CONFIGURACION',
         entidadId: categoria.id,
-        resumen: `Creó la categoría de ${tipo} "${categoria.nombre}"`,
-        despues: { tipo, nombre: categoria.nombre, activa: categoria.activa },
+        resumen: `Creó la categoría de ${tipo} "${categoria.nombre}"${categoria.soloMaquinaria ? ' (solo maquinaria)' : ''}`,
+        despues: { tipo, nombre: categoria.nombre, activa: categoria.activa, soloMaquinaria: categoria.soloMaquinaria ?? false },
       });
       return categoria;
     });

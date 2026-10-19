@@ -5,6 +5,11 @@ export class CrearCategoriaGastoDto {
   @MinLength(2)
   @MaxLength(60)
   nombre!: string;
+
+  // RF-MAQ-06: una categoría propia de la maquinaria solo se ofrece en proyectos de maquinaria. Solo se define al crearla.
+  @IsOptional()
+  @IsBoolean()
+  soloMaquinaria?: boolean;
 }
 
 // Las categorías de ingreso (RF-CFG-11) se administran igual que las de gasto.

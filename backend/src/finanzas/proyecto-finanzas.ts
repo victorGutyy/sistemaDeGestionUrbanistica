@@ -22,6 +22,8 @@ export interface FilaFinanza {
   // Solo en abonos: número del recibo y venta a la que pertenece.
   recibo: string | null;
   ventaId: string | null;
+  // Solo en proyectos de maquinaria: el equipo del movimiento, o "Flota (general)".
+  equipo: string | null;
 }
 
 export interface ResumenFinanzasProyecto {

@@ -34,6 +34,7 @@ import {
   CrearCategoriaIngresoDto,
 } from './dto/categoria-gasto.dto.js';
 import { ActualizarCuentaBancariaDto, CrearCuentaBancariaDto } from './dto/cuenta-bancaria.dto.js';
+import { ActualizarTipoEquipoDto, CrearTipoEquipoDto } from '../equipos/dto/equipo.dto.js';
 
 const TAMANO_MAXIMO_LOGO = 2 * 1024 * 1024;
 
@@ -146,6 +147,18 @@ export class ConfiguracionController {
   @Patch('categorias-ingreso/:id')
   actualizarCategoriaIngreso(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarCategoriaIngresoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
     return this.configuracionService.actualizarCategoriaIngreso(id, dto, usuario);
+  }
+
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
+  @Post('tipos-equipo')
+  crearTipoEquipo(@Body() dto: CrearTipoEquipoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.crearTipoEquipo(dto, usuario);
+  }
+
+  @Permiso(PERMISOS.CONFIGURACION_EDITAR)
+  @Patch('tipos-equipo/:id')
+  actualizarTipoEquipo(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ActualizarTipoEquipoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.configuracionService.actualizarTipoEquipo(id, dto, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)

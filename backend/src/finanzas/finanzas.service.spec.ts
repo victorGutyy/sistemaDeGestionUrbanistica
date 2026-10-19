@@ -21,6 +21,8 @@ function crearPrismaFalso() {
     categoriaIngreso: { findUnique: vi.fn().mockResolvedValue({ id: 'cat-ingreso', nombre: 'Otros servicios', activa: true }) },
     movimientoFinanciero: { create: vi.fn().mockResolvedValue({ id: 'm-1' }), updateMany: vi.fn() },
     registroAuditoria: { create: vi.fn() },
+    proyecto: { findUnique: vi.fn().mockResolvedValue({ tipo: 'LOTES' }) },
+    equipo: { findUnique: vi.fn() },
   };
   const prisma = {
     proyecto: { findUnique: vi.fn().mockResolvedValue({ id: 'p-1', nombre: 'Proyecto de prueba', tipo: 'LOTES' }) },

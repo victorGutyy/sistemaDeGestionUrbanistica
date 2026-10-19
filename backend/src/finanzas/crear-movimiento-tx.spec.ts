@@ -11,6 +11,8 @@ function crearTxFalso() {
   return {
     $executeRaw: vi.fn().mockResolvedValue(0),
     registroAuditoria: { create: vi.fn() },
+    proyecto: { findUnique: vi.fn().mockResolvedValue({ tipo: 'LOTES' }) },
+    equipo: { findUnique: vi.fn() },
     cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
     categoriaGasto: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     categoriaIngreso: { findUnique: vi.fn() },
@@ -29,6 +31,94 @@ const EGRESO: DatosMovimiento = {
   motivoSinSoporte: 'El proveedor no entregó factura',
   usuario: { id: 'u-1', nombre: 'Usuario de Prueba', email: 'usuario@ejemplo.test' },
 };
+
+describe('crearMovimientoEnTx · proyectos de maquinaria (RF-MAQ-03, 04 y 06)', () => {
+  let tx: ReturnType<typeof crearTxFalso>;
+  const ejecutar = (datos: DatosMovimiento) => crearMovimientoEnTx(tx as never, datos);
+  const EQUIPO = { id: 'eq-1', nombre: 'Excavadora 320', proyectoId: 'p-1', bajaEn: null };
+  const EGRESO_DE_EQUIPO: DatosMovimiento = { ...EGRESO, equipoId: 'eq-1' };
+  const ALQUILER: DatosMovimiento = {
+    ...EGRESO,
+    tipo: TipoMovimiento.INGRESO,
+    categoriaId: 'cat-ingreso',
+    motivoSinSoporte: 'Pago en efectivo, sin recibo del cliente',
+    equipoId: 'eq-1',
+    terceroNombre: 'Cliente de Prueba',
+    terceroDocumento: '1000000001',
+    periodoDesde: new Date(2026, 9, 1),
+    periodoHasta: new Date(2026, 9, 15),
+  };
+
+  beforeEach(() => {
+    tx = crearTxFalso();
+    tx.proyecto.findUnique.mockResolvedValue({ tipo: 'MAQUINARIA' });
+    tx.equipo.findUnique.mockResolvedValue(EQUIPO);
+    tx.categoriaGasto.findUnique.mockResolvedValue({ id: 'cat-gasto', nombre: 'Combustible', activa: true, soloMaquinaria: true });
+    tx.categoriaIngreso.findUnique.mockResolvedValue({ id: 'cat-ingreso', nombre: 'Alquiler', activa: true });
+  });
+
+  it('un egreso de un equipo guarda el equipo y lo deja en la auditoría', async () => {
+    await ejecutar(EGRESO_DE_EQUIPO);
+    expect(tx.movimientoFinanciero.create.mock.calls[0][0].data).toMatchObject({ equipoId: 'eq-1', flota: false, periodoDesde: null, periodoHasta: null });
+    expect(auditoriaDe(tx.registroAuditoria.create, 'MOVIMIENTO_REGISTRAR').despues).toMatchObject({ equipo: 'Excavadora 320', flota: false });
+  });
+
+  it('un gasto general de la flota no lleva equipo', async () => {
+    await ejecutar({ ...EGRESO, flota: true });
+    expect(tx.movimientoFinanciero.create.mock.calls[0][0].data).toMatchObject({ equipoId: null, flota: true });
+    expect(tx.equipo.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('un ingreso por alquiler guarda cliente y período', async () => {
+    await ejecutar(ALQUILER);
+    expect(tx.movimientoFinanciero.create.mock.calls[0][0].data).toMatchObject({
+      tipo: 'INGRESO',
+      equipoId: 'eq-1',
+      terceroNombre: 'Cliente de Prueba',
+      terceroDocumento: '1000000001',
+      periodoDesde: new Date(2026, 9, 1),
+      periodoHasta: new Date(2026, 9, 15),
+    });
+    expect(auditoriaDe(tx.registroAuditoria.create, 'MOVIMIENTO_REGISTRAR').despues).toMatchObject({ periodo: { desde: '2026-10-01', hasta: '2026-10-15' } });
+  });
+
+  it('rechaza el movimiento sin equipo ni flota, sin guardar nada ni auditar', async () => {
+    await expect(ejecutar(EGRESO)).rejects.toThrow(/Indica el equipo/);
+    expect(tx.movimientoFinanciero.create).not.toHaveBeenCalled();
+    expect(auditoriasDe(tx.registroAuditoria.create)).toEqual([]);
+  });
+
+  it('rechaza un ingreso sin soporte ni motivo (también se exige a los ingresos)', async () => {
+    await expect(ejecutar({ ...ALQUILER, motivoSinSoporte: undefined })).rejects.toThrow(/soporte adjunto o el motivo/);
+  });
+
+  it('rechaza un equipo que no existe o que es de otro proyecto', async () => {
+    tx.equipo.findUnique.mockResolvedValue(null);
+    await expect(ejecutar(EGRESO_DE_EQUIPO)).rejects.toThrow(/El equipo no existe en este proyecto/);
+    tx.equipo.findUnique.mockResolvedValue({ ...EQUIPO, proyectoId: 'otro-proyecto' });
+    await expect(ejecutar(EGRESO_DE_EQUIPO)).rejects.toThrow(/El equipo no existe en este proyecto/);
+    expect(tx.movimientoFinanciero.create).not.toHaveBeenCalled();
+  });
+
+  it('un equipo dado de baja ya no recibe movimientos', async () => {
+    tx.equipo.findUnique.mockResolvedValue({ ...EQUIPO, bajaEn: new Date() });
+    await expect(ejecutar(EGRESO_DE_EQUIPO)).rejects.toThrow(/dado de baja/);
+    expect(tx.movimientoFinanciero.create).not.toHaveBeenCalled();
+  });
+
+  it('una categoría propia de la maquinaria no se acepta en un proyecto de lotes ni en un gasto general', async () => {
+    tx.proyecto.findUnique.mockResolvedValue({ tipo: 'LOTES' });
+    await expect(ejecutar(EGRESO)).rejects.toThrow(/es propia de la maquinaria/);
+    await expect(ejecutar({ ...EGRESO, proyectoId: null })).rejects.toThrow(/es propia de la maquinaria/);
+  });
+
+  it('un equipo en un proyecto de lotes se rechaza', async () => {
+    tx.proyecto.findUnique.mockResolvedValue({ tipo: 'LOTES' });
+    tx.categoriaGasto.findUnique.mockResolvedValue({ id: 'cat-gasto', nombre: 'Materiales', activa: true, soloMaquinaria: false });
+    await expect(ejecutar(EGRESO_DE_EQUIPO)).rejects.toThrow(/Solo los proyectos de maquinaria/);
+  });
+});
+
 
 describe('crearMovimientoEnTx', () => {
   let tx: ReturnType<typeof crearTxFalso>;

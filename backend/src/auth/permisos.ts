@@ -35,6 +35,8 @@ export const PERMISOS = {
   AUDITORIA_VER: 'auditoria.ver', // consultar la auditoría (solo gerente)
   IMPORTACION_GESTIONAR: 'importacion.gestionar', // cargar datos desde Excel (solo gerente)
   EXPORTACION_COMPLETA: 'exportacion.completa', // exportar todos los datos a Excel (solo gerente)
+  EQUIPOS_GESTIONAR: 'equipos.gestionar', // registrar y editar equipos de maquinaria
+  EQUIPOS_BAJA: 'equipos.baja', // dar de baja o reactivar un equipo (solo gerente)
 } as const;
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -83,6 +85,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.AUDITORIA_VER &&
         permiso !== PERMISOS.IMPORTACION_GESTIONAR &&
         permiso !== PERMISOS.EXPORTACION_COMPLETA &&
+        permiso !== PERMISOS.EQUIPOS_BAJA &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,

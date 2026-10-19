@@ -23,6 +23,7 @@ function fila(sobrescribir: Partial<FilaFinanza>): FilaFinanza {
     estado: 'ACTIVO',
     recibo: null,
     ventaId: null,
+    equipo: null,
     ...sobrescribir,
   };
 }

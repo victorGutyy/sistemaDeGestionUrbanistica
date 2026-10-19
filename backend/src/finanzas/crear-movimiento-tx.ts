@@ -3,7 +3,8 @@ import { registrarAuditoria, type ActorAuditoria } from '../auditoria/auditoria.
 import { exigirFechaAbiertaEnTx } from '../cierres-caja/fecha-abierta.js';
 import { formatearCOP } from '../common/formato.util.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { MedioPago, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
+import { MedioPago, OrigenMovimiento, TipoMovimiento, TipoProyecto } from '../generated/prisma/enums.js';
+import { validarMovimientoMaquinaria } from './reglas-maquinaria.js';
 
 // Egreso del sistema que se crea solo al registrar el desistimiento de una venta con valor a devolver.
 // Es una categoría "del sistema": el gerente no la puede renombrar ni desactivar.
@@ -27,11 +28,20 @@ export interface DatosMovimiento {
   motivoSinSoporte?: string | null;
   origen?: OrigenMovimiento;
   ventaId?: string | null;
+  // Solo proyectos de maquinaria (RF-MAQ-03 y 04): el equipo, o "general de la flota", y el período alquilado.
+  equipoId?: string | null;
+  flota?: boolean;
+  periodoDesde?: Date | null;
+  periodoHasta?: Date | null;
   // Quien registra el movimiento (queda en el movimiento y en la auditoría).
   usuario: ActorAuditoria;
 }
 
 const limpiar = (texto: string | null | undefined) => texto?.trim() || null;
+
+// Un día calendario como "aaaa-mm-dd" (las fechas de negocio se guardan a medianoche local).
+const aDia = (fecha: Date | null | undefined) =>
+  fecha ? `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}` : null;
 
 // Único lugar donde se crea un movimiento financiero (lo usan el registro manual y el desistimiento).
 // Valida lo que la base de datos también exige, para dar mensajes claros en vez de errores de restricción.
@@ -60,6 +70,33 @@ export async function crearMovimientoEnTx(tx: Prisma.TransactionClient, datos: D
     throw new BadRequestException('Adjunta el soporte del egreso o explica por qué no hay soporte');
   }
 
+  // Proyectos de maquinaria: equipo o flota, cliente y período del alquiler (RF-MAQ-03, 04 y 06).
+  const proyecto = datos.proyectoId ? await tx.proyecto.findUnique({ where: { id: datos.proyectoId }, select: { tipo: true } }) : null;
+  validarMovimientoMaquinaria({
+    tipo: datos.tipo,
+    esProyectoMaquinaria: proyecto?.tipo === TipoProyecto.MAQUINARIA,
+    equipoId: datos.equipoId,
+    flota: datos.flota,
+    periodoDesde: aDia(datos.periodoDesde),
+    periodoHasta: aDia(datos.periodoHasta),
+    terceroNombre: datos.terceroNombre,
+    terceroDocumento: datos.terceroDocumento,
+    tieneSoporte: soporteRuta !== null,
+    motivoSinSoporte,
+    categoriaSoloMaquinaria: 'soloMaquinaria' in categoria && categoria.soloMaquinaria ? categoria.nombre : null,
+  });
+  let nombreEquipo: string | null = null;
+  if (datos.equipoId) {
+    const equipo = await tx.equipo.findUnique({ where: { id: datos.equipoId } });
+    if (!equipo || equipo.proyectoId !== datos.proyectoId) {
+      throw new BadRequestException('El equipo no existe en este proyecto');
+    }
+    if (equipo.bajaEn) {
+      throw new BadRequestException(`El equipo "${equipo.nombre}" está dado de baja: ya no recibe movimientos nuevos`);
+    }
+    nombreEquipo = equipo.nombre;
+  }
+
   const movimiento = await tx.movimientoFinanciero.create({
     data: {
       tipo: datos.tipo,
@@ -80,6 +117,10 @@ export async function crearMovimientoEnTx(tx: Prisma.TransactionClient, datos: D
       motivoSinSoporte: soporteRuta ? null : motivoSinSoporte,
       origen: datos.origen ?? OrigenMovimiento.MANUAL,
       ventaId: datos.ventaId ?? null,
+      equipoId: datos.equipoId ?? null,
+      flota: Boolean(datos.flota),
+      periodoDesde: datos.periodoDesde ?? null,
+      periodoHasta: datos.periodoHasta ?? null,
       registradoPorId: datos.usuario.id,
     },
   });
@@ -106,6 +147,9 @@ export async function crearMovimientoEnTx(tx: Prisma.TransactionClient, datos: D
       motivoSinSoporte: movimiento.motivoSinSoporte,
       origen: movimiento.origen,
       ventaId: movimiento.ventaId,
+      equipo: nombreEquipo,
+      flota: movimiento.flota,
+      periodo: movimiento.periodoDesde ? { desde: aDia(movimiento.periodoDesde), hasta: aDia(movimiento.periodoHasta) } : null,
     },
   });
 

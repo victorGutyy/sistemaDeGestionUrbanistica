@@ -11,6 +11,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoMovimiento, EstadoVenta, TipoMovimiento } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { diaDeColumnaDate } from '../cierres-caja/periodo.js';
 import { calcularConsolidado, fechaEnRango } from './consolidado.js';
 import { crearMovimientoEnTx } from './crear-movimiento-tx.js';
 import { AnularMovimientoDto } from './dto/anular-movimiento.dto.js';
@@ -35,6 +36,7 @@ const INCLUIR_MOVIMIENTO = {
   categoriaGasto: { select: { id: true, nombre: true } },
   categoriaIngreso: { select: { id: true, nombre: true } },
   cuenta: { select: { id: true, banco: true, alias: true } },
+  equipo: { select: { id: true, nombre: true, placaSerie: true } },
   registradoPor: { select: { nombre: true } },
   anuladoPor: { select: { nombre: true } },
 } satisfies Prisma.MovimientoFinancieroInclude;
@@ -42,9 +44,12 @@ const INCLUIR_MOVIMIENTO = {
 type MovimientoConRelaciones = Prisma.MovimientoFinancieroGetPayload<{ include: typeof INCLUIR_MOVIMIENTO }>;
 
 function presentarMovimiento(movimiento: MovimientoConRelaciones) {
-  const { soporteRuta, categoriaGasto, categoriaIngreso, ...resto } = movimiento;
+  const { soporteRuta, categoriaGasto, categoriaIngreso, periodoDesde, periodoHasta, ...resto } = movimiento;
   return {
     ...resto,
+    // Período alquilado como día calendario "aaaa-mm-dd".
+    periodoDesde: periodoDesde ? diaDeColumnaDate(periodoDesde) : null,
+    periodoHasta: periodoHasta ? diaDeColumnaDate(periodoHasta) : null,
     categoria: categoriaGasto ?? categoriaIngreso,
     tieneSoporte: soporteRuta !== null,
   };
@@ -117,6 +122,10 @@ export class FinanzasService {
         numeroDocumento: dto.numeroDocumento,
         soporteRuta,
         motivoSinSoporte: dto.motivoSinSoporte,
+        equipoId: dto.equipoId,
+        flota: dto.flota === 'true',
+        periodoDesde: dto.periodoDesde ? parsearFechaLocal(dto.periodoDesde) : null,
+        periodoHasta: dto.periodoHasta ? parsearFechaLocal(dto.periodoHasta) : null,
         usuario,
       }),
     );
@@ -285,6 +294,7 @@ export class FinanzasService {
       estado: movimiento.estado,
       recibo: null,
       ventaId: movimiento.ventaId,
+      equipo: movimiento.equipo ? movimiento.equipo.nombre : movimiento.flota ? 'Flota (general)' : null,
     }));
 
     for (const venta of ventas) {
@@ -308,6 +318,7 @@ export class FinanzasService {
           estado: abono.estado === EstadoAbono.ACTIVO ? EstadoMovimiento.ACTIVO : EstadoMovimiento.ANULADO,
           recibo: abono.recibo?.numeroTexto ?? null,
           ventaId: venta.id,
+          equipo: null,
         });
       }
     }

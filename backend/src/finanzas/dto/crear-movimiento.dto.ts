@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 import { MedioPago, TipoMovimiento } from '../../generated/prisma/enums.js';
 
 // Se envía como formulario con archivo (el soporte es opcional), así que todo llega como texto.
@@ -62,4 +62,23 @@ export class CrearMovimientoDto {
   @IsString()
   @MaxLength(300)
   motivoSinSoporte?: string;
+
+  // Solo proyectos de maquinaria (RF-MAQ-03 y 04). Llegan como texto porque el formulario lleva archivo.
+  @IsOptional()
+  @IsUUID()
+  equipoId?: string;
+
+  // "true" = gasto (o ingreso) general de la flota.
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  flota?: string;
+
+  // Período alquilado (ingresos por alquiler), "YYYY-MM-DD".
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'periodoDesde debe tener el formato YYYY-MM-DD' })
+  periodoDesde?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'periodoHasta debe tener el formato YYYY-MM-DD' })
+  periodoHasta?: string;
 }
