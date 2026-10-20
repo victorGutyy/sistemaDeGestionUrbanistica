@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
 import { ejecutarRecordatorios, exportarDashboard, obtenerDashboard, type ResumenDashboard } from '../lib/api'
@@ -163,6 +164,19 @@ export function DashboardPage() {
               <p className="mt-1 text-lg font-semibold text-blue-900">{formatearCOP(resumen.finanzas.cajaNeta)}</p>
             </div>
           </div>
+
+          {resumen.comisionesPendientes && (
+            <Link
+              to="/comisiones?estado=PENDIENTE"
+              className="mt-3 block rounded-lg border border-amber-200 bg-amber-50 p-4 hover:bg-amber-100"
+            >
+              <p className="text-xs text-amber-800">Comisiones por pagar</p>
+              <p className="mt-1 text-lg font-semibold text-amber-900">
+                {formatearCOP(resumen.comisionesPendientes.valor)}{' '}
+                <span className="text-sm font-normal">({resumen.comisionesPendientes.cantidad} pendiente{resumen.comisionesPendientes.cantidad === 1 ? '' : 's'})</span>
+              </p>
+            </Link>
+          )}
 
           <h2 className="mt-6 text-sm font-semibold text-slate-900">Cartera</h2>
           <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">

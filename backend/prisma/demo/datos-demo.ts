@@ -175,13 +175,13 @@ export async function cargarDemo(ctx: Contexto, { gerente, admin, emailSocio, pa
   }
 
   // Contado
-  await vender({ lote: 'A1', cliente: 1, forma: 'CONTADO', fechaVenta: hace(200), vendedor: 0 });
+  const ventaA1 = await vender({ lote: 'A1', cliente: 1, forma: 'CONTADO', fechaVenta: hace(200), vendedor: 0 });
   await vender({ lote: 'A2', cliente: 2, forma: 'CONTADO', fechaVenta: hace(90), medioInicial: 'TRANSFERENCIA', vendedor: 1 });
   await vender({ lote: 'A3', cliente: 3, forma: 'CONTADO', fechaVenta: hace(40), medioInicial: 'CONSIGNACION' });
 
   // Financiadas al día
   const alDia = await vender({ lote: 'B1', cliente: 4, forma: 'FINANCIADO', fechaVenta: hace(100), pagadas: 3, vendedor: 0 });
-  await vender({ lote: 'B2', cliente: 5, forma: 'FINANCIADO', fechaVenta: hace(160), pagadas: 5, medioInicial: 'TRANSFERENCIA', vendedor: 2 });
+  const ventaB2 = await vender({ lote: 'B2', cliente: 5, forma: 'FINANCIADO', fechaVenta: hace(160), pagadas: 5, medioInicial: 'TRANSFERENCIA', vendedor: 2 });
   await vender({ lote: 'B3', cliente: 6, forma: 'FINANCIADO', fechaVenta: hace(250), pagadas: 8, vendedor: 1 });
   await vender({ lote: 'B4', cliente: 7, forma: 'FINANCIADO', fechaVenta: hace(70), pagadas: 2 });
   await vender({ lote: 'B5', cliente: 8, forma: 'FINANCIADO', fechaVenta: hace(130), pagadas: 4, medioInicial: 'CONSIGNACION' });
@@ -218,7 +218,7 @@ export async function cargarDemo(ctx: Contexto, { gerente, admin, emailSocio, pa
   await vender({ lote: 'D3', cliente: 15, forma: 'FINANCIADO', fechaVenta: hoy(), porcentaje: 10, sinCuotaInicialRecibida: true, motivoExcepcion: 'Cuota inicial del 10 % por convenio con la empresa del comprador (demostración)' });
 
   // Desistimiento con devolución parcial (queda como egreso).
-  const desistida = await vender({ lote: 'D4', cliente: 5, forma: 'FINANCIADO', fechaVenta: hace(80), pagadas: 2 });
+  const desistida = await vender({ lote: 'D4', cliente: 5, forma: 'FINANCIADO', fechaVenta: hace(80), pagadas: 2, vendedor: 0 });
   const pagado = numero(desistida.cuotaInicial) + desistida.cuotas.filter((c) => c.numero === 1 || c.numero === 2).reduce((total, c) => total + numero(c.valor), 0);
   const devolver = redondear(pagado * 0.6);
   await ctx.ventas.desistir(
@@ -231,6 +231,8 @@ export async function cargarDemo(ctx: Contexto, { gerente, admin, emailSocio, pa
       medioPagoDevolucion: 'TRANSFERENCIA',
       cuentaDevolucionId: cuentas[1],
       referenciaDevolucion: `DEMO-DEV-${++secuencia}`,
+      // RF-COM-04: la comisión pendiente de esta venta se anula junto con el desistimiento.
+      anularComision: true,
     },
     gerente,
   );
@@ -243,6 +245,15 @@ export async function cargarDemo(ctx: Contexto, { gerente, admin, emailSocio, pa
   const extra = await ctx.abonos.crear({ ventaId: alDia.id, fecha: hace(1), valor: '200000', medioPago: 'EFECTIVO' }, admin);
   await ctx.abonos.anular(extra.id, { motivo: 'Abono digitado dos veces por error (demostración)' }, gerente);
   log('Ventas, abonos con recibo, venta liquidada con recibos históricos, excepciones, desistimiento, separaciones y un abono anulado');
+
+  // ---- Comisiones (las pendientes nacieron solas con cada venta con vendedor) ----
+  const comisionDe = (ventaId: string) => ctx.prisma.comision.findUniqueOrThrow({ where: { ventaId } });
+  // Una pagada en efectivo y otra por transferencia (cada pago crea su egreso en Finanzas).
+  await ctx.comisiones.pagar((await comisionDe(ventaA1.id)).id, { fecha: hace(150), medioPago: 'EFECTIVO', motivoSinSoporte: 'Se pagó en efectivo y el asesor no entregó recibo (demostración)' }, gerente);
+  await ctx.comisiones.pagar((await comisionDe(ventaB2.id)).id, { fecha: hace(120), medioPago: 'TRANSFERENCIA', cuentaId: cuentas[0], referencia: `DEMO-COM-${++secuencia}`, motivoSinSoporte: 'Soporte pendiente de escanear (demostración)' }, admin);
+  // Una anulada con su motivo.
+  await ctx.comisiones.anular((await comisionDe(liquidada.id)).id, { motivo: 'La comisión de esta venta antigua ya se pagó por fuera del sistema (demostración)' }, gerente);
+  log('Comisiones: dos pagadas (con su egreso), una anulada, una anulada por desistimiento y las demás pendientes');
 
   // ---- Finanzas de La Floresta ----
   const categoriasGasto = new Map((await ctx.configuracion.listarCategoriasGasto()).map((c) => [c.nombre, c.id]));

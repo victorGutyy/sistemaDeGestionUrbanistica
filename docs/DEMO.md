@@ -69,6 +69,7 @@ Abrir <http://localhost:5174>.
 | 2 lotes **separados** | E1, E2 |
 | 1 **abono anulado** (el recibo queda con la marca ANULADO) | Venta B1 |
 | 15 egresos y 2 ingresos propios del proyecto | Finanzas |
+| **Comisiones**: las ventas con vendedor generan la suya; 2 ya pagadas (con su egreso en Finanzas), 1 anulada a mano y 1 anulada junto con un desistimiento; el resto pendientes | Comisiones |
 
 Además:
 
@@ -85,10 +86,11 @@ Valores de ejemplo que **no son del cliente**: la tasa de mora (2 %), las dos cu
 1. **Gerente**: Tablero → cartera por semáforo → ficha de un cliente en rojo → estado de cuenta en PDF.
 2. **Administrador**: registrar un abono (desde un celular, a 375 px) → recibo en PDF → verlo en el cierre de caja.
 3. **Ventas**: excepción pendiente (D3) → el gerente la autoriza.
-4. **Finanzas**: egresos de La Floresta, finanzas de la remodelación y utilidad por equipo de la maquinaria.
-5. **Socio (Consulta)**: entra y solo ve La Floresta; no puede crear ni anular nada.
-6. **Auditoría** (gerente): el abono anulado, con quién y por qué.
-7. **Configuración → Exportar todo a Excel**: la empresa se lleva todos sus datos cuando quiera.
+4. **Comisiones**: lista con totales, pagar una pendiente (crea el egreso) y anularla como gerente; el administrador no ve el botón Anular.
+5. **Finanzas**: egresos de La Floresta, finanzas de la remodelación y utilidad por equipo de la maquinaria.
+6. **Socio (Consulta)**: entra y solo ve La Floresta; no puede crear ni anular nada.
+7. **Auditoría** (gerente): el abono anulado, con quién y por qué.
+8. **Configuración → Exportar todo a Excel**: la empresa se lleva todos sus datos cuando quiera.
 
 ## Volumen y rendimiento
 

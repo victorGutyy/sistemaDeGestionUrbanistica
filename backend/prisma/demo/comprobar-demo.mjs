@@ -69,6 +69,9 @@ const porEstado = (e) => cierres.filter((c) => c.estado === e).length;
 revisar(porEstado('APROBADO') === 2 && porEstado('CERRADO') === 1, 'Cierres de caja: 2 aprobados y 1 cerrado pendiente', cierres.map((c) => c.estado));
 revisar(cierres.some((c) => c.explicacionDiferencia), 'Un cierre tiene diferencia explicada');
 
+const comisiones = (await llamar(gerente, 'GET', '/comisiones')).datos;
+revisar(comisiones.totales.PAGADA.cantidad === 2 && comisiones.totales.ANULADA.cantidad === 2 && comisiones.totales.PENDIENTE.cantidad >= 5, 'Comisiones: 2 pagadas, 2 anuladas y varias pendientes', comisiones.totales);
+
 const equipos = (await llamar(gerente, 'GET', `/equipos?proyectoId=${maquinaria.id}&incluirBajas=true`)).datos;
 revisar(Array.isArray(equipos) && equipos.length === 4, 'Maquinaria con 4 equipos (uno dado de baja)', Array.isArray(equipos) ? equipos.length : equipos);
 const finanzasRemodelacion = await llamar(gerente, 'GET', `/finanzas/proyectos/${remodelacion.id}`);
@@ -81,6 +84,9 @@ revisar((await llamar(admin, 'GET', '/ventas')).status === 200, 'Ve las ventas')
 const pendiente = ventas.find((v) => v.estado === 'PENDIENTE_APROBACION');
 revisar(prohibido(await llamar(admin, 'POST', `/ventas/${pendiente.id}/aprobar`)), 'No puede autorizar la excepción (solo el gerente)');
 revisar(prohibido(await llamar(admin, 'GET', '/auditoria')), 'No ve la auditoría');
+const pendienteDeComision = comisiones.comisiones.find((c) => c.estado === 'PENDIENTE');
+revisar((await llamar(admin, 'GET', '/comisiones')).status === 200, 'Ve las comisiones');
+revisar(prohibido(await llamar(admin, 'POST', `/comisiones/${pendienteDeComision.id}/anular`, { motivo: 'No debería poder' })), 'No puede anular comisiones (solo el gerente)');
 revisar(prohibido(await llamar(admin, 'GET', '/exportacion/completa')), 'No exporta todos los datos');
 
 console.log('Socio (Consulta, solo La Floresta)');
@@ -92,6 +98,7 @@ revisar((await llamar(socio, 'GET', `/finanzas/proyectos/${floresta.id}`)).statu
 const ventasSocio = (await llamar(socio, 'GET', '/ventas')).datos;
 revisar(Array.isArray(ventasSocio) && ventasSocio.length > 0 && ventasSocio.every((v) => ventas.find((x) => x.id === v.id)), 'Ve ventas, solo las de su proyecto', ventasSocio.length);
 revisar(prohibido(await llamar(socio, 'POST', '/clientes', { nombre: 'X', documento: '1', tipoDocumento: 'CC' })), 'No puede crear clientes');
+revisar(prohibido(await llamar(socio, 'GET', '/comisiones')), 'No ve las comisiones');
 revisar(prohibido(await llamar(socio, 'GET', '/auditoria')), 'No ve la auditoría');
 revisar(prohibido(await llamar(socio, 'GET', '/usuarios')), 'No ve los usuarios');
 revisar(prohibido(await llamar(socio, 'GET', '/exportacion/completa')), 'No exporta todos los datos');

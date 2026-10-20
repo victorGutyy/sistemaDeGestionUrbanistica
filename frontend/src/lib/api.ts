@@ -603,6 +603,8 @@ export interface Venta {
   resueltaPor?: { nombre: string } | null
   documentos?: DocumentoVenta[]
   desistimiento?: Desistimiento | null
+  // Solo viene para quien puede ver comisiones.
+  comision?: ComisionResumen | null
   abonos?: Abono[]
   // Solo viene en la respuesta de obtenerVenta (GET /ventas/:id), no al crear.
   estadoCuenta?: EstadoCuenta
@@ -633,6 +635,8 @@ export interface DesistirVentaPayload {
   medioPagoDevolucion?: MedioPago
   cuentaDevolucionId?: string
   referenciaDevolucion?: string
+  // Anula, en el mismo acto, la comisión de la venta si todavía está pendiente.
+  anularComision?: boolean
 }
 
 export function desistirVenta(id: string, datos: DesistirVentaPayload) {
@@ -780,7 +784,7 @@ export function obtenerReporteCartera() {
 
 export type TipoMovimiento = 'INGRESO' | 'GASTO'
 export type EstadoMovimiento = 'ACTIVO' | 'ANULADO'
-export type OrigenMovimiento = 'MANUAL' | 'DEVOLUCION_DESISTIMIENTO'
+export type OrigenMovimiento = 'MANUAL' | 'DEVOLUCION_DESISTIMIENTO' | 'COMISION'
 
 export interface Movimiento {
   id: string
@@ -1404,6 +1408,8 @@ export interface ResumenDashboard {
     saldoPorVencer: string
   }
   porProyecto: ResumenFilaProyecto[]
+  // Comisiones por pagar; solo viene para quien puede ver comisiones.
+  comisionesPendientes?: { cantidad: number; valor: string }
 }
 
 function construirQueryPeriodo(filtro?: { desde?: string; hasta?: string }) {
@@ -1736,4 +1742,96 @@ export function actualizarCategoriaIngreso(id: string, payload: { nombre?: strin
 
 export function actualizarComision(tipo: TipoVendedor, valor: string) {
   return solicitar<ComisionConfig>(`/configuracion/comisiones/${tipo}`, { method: 'PUT', body: JSON.stringify({ valor }) })
+}
+
+// ---------- Comisiones de venta (RF-COM-01 a 04, RF-REP-08) ----------
+
+export type EstadoComision = 'PENDIENTE' | 'PAGADA' | 'ANULADA'
+
+// Lo que trae el detalle de una venta.
+export interface ComisionResumen {
+  id: string
+  estado: EstadoComision
+  valor: string
+  tipoVendedor: TipoVendedor
+  motivoAnulacion: string | null
+}
+
+export interface Comision {
+  id: string
+  ventaId: string
+  vendedorId: string
+  tipoVendedor: TipoVendedor
+  valor: string
+  estado: EstadoComision
+  pagadaEn: string | null
+  anuladaEn: string | null
+  motivoAnulacion: string | null
+  createdAt: string
+  vendedor: { id: string; nombre: string; documento: string; tipo: TipoVendedor }
+  venta: {
+    id: string
+    fechaVenta: string
+    estado: EstadoVenta
+    cliente: { id: string; nombre: string }
+    lote: { id: string; numero: string; manzana: { nombre: string } | null; proyecto: { id: string; nombre: string } }
+  }
+  // El egreso que pagó la comisión (también lo conserva una comisión pagada y luego anulada).
+  movimiento: {
+    id: string
+    fecha: string
+    medioPago: MedioPago
+    referencia: string | null
+    estado: EstadoMovimiento
+    motivoSinSoporte: string | null
+    tieneSoporte: boolean
+    cuenta: { id: string; banco: string; alias: string } | null
+  } | null
+  pagadaPor: { nombre: string } | null
+  anuladaPor: { nombre: string } | null
+}
+
+export interface ListaComisiones {
+  comisiones: Comision[]
+  totales: Record<EstadoComision, { cantidad: number; valor: string }>
+}
+
+export interface FiltroComisiones {
+  vendedorId?: string
+  estado?: EstadoComision
+  proyectoId?: string
+  desde?: string
+  hasta?: string
+  // A qué fecha se refiere el rango: la de la venta (por defecto) o la del pago.
+  fechaPor?: 'venta' | 'pago'
+}
+
+function construirQueryComisiones(filtro: FiltroComisiones) {
+  const params = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(filtro)) {
+    if (valor) params.set(clave, valor)
+  }
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
+export function listarComisiones(filtro: FiltroComisiones = {}) {
+  return solicitar<ListaComisiones>(`/comisiones${construirQueryComisiones(filtro)}`)
+}
+
+export function obtenerComision(id: string) {
+  return solicitar<Comision>(`/comisiones/${id}`)
+}
+
+// El pago se envía como formulario porque puede llevar el archivo del soporte (campo "soporte").
+export function pagarComision(id: string, formData: FormData) {
+  return solicitar<Comision>(`/comisiones/${id}/pagar`, { method: 'POST', body: formData })
+}
+
+export function anularComision(id: string, motivo: string) {
+  return solicitar<Comision>(`/comisiones/${id}/anular`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
+export function exportarComisiones(filtro: FiltroComisiones = {}) {
+  return descargarArchivo(`/comisiones/exportar${construirQueryComisiones(filtro)}`, 'comisiones.xlsx')
 }

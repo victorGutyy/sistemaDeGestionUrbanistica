@@ -8,6 +8,7 @@ import type { AbonosService } from '../../src/abonos/abonos.service.js';
 import type { UsuarioAutenticado } from '../../src/auth/usuario-autenticado.js';
 import type { CarteraService } from '../../src/cartera/cartera.service.js';
 import type { CierresCajaService } from '../../src/cierres-caja/cierres-caja.service.js';
+import type { ComisionesService } from '../../src/comisiones/comisiones.service.js';
 import type { ClientesService } from '../../src/clientes/clientes.service.js';
 import type { ConfiguracionService } from '../../src/configuracion/configuracion.service.js';
 import type { EquiposService } from '../../src/equipos/equipos.service.js';
@@ -36,6 +37,7 @@ export interface Contexto {
   trabajadores: TrabajadoresService;
   nomina: NominaService;
   cierres: CierresCajaService;
+  comisiones: ComisionesService;
   usuarios: UsuariosService;
   cartera: CarteraService;
   // Abono con recibo HISTÓRICO (serie H-), como los que entran al importar un Excel.
@@ -79,6 +81,7 @@ export async function abrirContexto(): Promise<Contexto> {
     trabajadores: await obtener<TrabajadoresService>('../../src/trabajadores/trabajadores.service.js', 'TrabajadoresService'),
     nomina: await obtener<NominaService>('../../src/nomina/nomina.service.js', 'NominaService'),
     cierres: await obtener<CierresCajaService>('../../src/cierres-caja/cierres-caja.service.js', 'CierresCajaService'),
+    comisiones: await obtener<ComisionesService>('../../src/comisiones/comisiones.service.js', 'ComisionesService'),
     usuarios: await obtener<UsuariosService>('../../src/usuarios/usuarios.service.js', 'UsuariosService'),
     cartera: await obtener<CarteraService>('../../src/cartera/cartera.service.js', 'CarteraService'),
     abonoHistorico: async ({ ventaId, fecha, valor, medioPago, cuentaDestinoId, referencia, usuario }) => {

@@ -34,6 +34,9 @@ export const PERMISOS = {
   EXPORTACION_COMPLETA: 'exportacion.completa',
   EQUIPOS_GESTIONAR: 'equipos.gestionar',
   EQUIPOS_BAJA: 'equipos.baja',
+  COMISIONES_VER: 'comisiones.ver',
+  COMISIONES_PAGAR: 'comisiones.pagar',
+  COMISIONES_ANULAR: 'comisiones.anular',
 } as const
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS]

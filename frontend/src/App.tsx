@@ -10,6 +10,7 @@ import { CajaPage } from './pages/CajaPage'
 import { EquipoDetallePage } from './pages/EquipoDetallePage'
 import { ClienteDetallePage } from './pages/ClienteDetallePage'
 import { ClientesPage } from './pages/ClientesPage'
+import { ComisionesPage } from './pages/ComisionesPage'
 import { ImportacionPage } from './pages/ImportacionPage'
 import { CarteraPage } from './pages/CarteraPage'
 import { CierreDetallePage } from './pages/CierreDetallePage'
@@ -83,6 +84,9 @@ function App() {
               <Route path="/finanzas/nuevo" element={<RegistrarMovimientoPage />} />
               <Route path="/finanzas/movimientos/:id" element={<MovimientoDetallePage />} />
               <Route path="/proyectos/:id/finanzas" element={<ProyectoFinanzasPage />} />
+              <Route element={<ProtectedRoute permiso={PERMISOS.COMISIONES_VER} />}>
+                <Route path="/comisiones" element={<ComisionesPage />} />
+              </Route>
               <Route path="/contabilidad" element={<Navigate to="/finanzas" replace />} />
 
               <Route element={<ProtectedRoute permiso={PERMISOS.NOMINA_VER} />}>

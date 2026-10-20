@@ -47,11 +47,22 @@ export async function verificar(ctx: Contexto, emailGerente: string, esperados: 
          + (SELECT COUNT(*) FROM "MovimientoFinanciero" WHERE valor <> TRUNC(valor)) AS n`);
   revisar(conCentavos === 0, 'Abonos, cuotas y movimientos en pesos enteros', conCentavos);
 
-  // 5. La auditoría cubre las acciones sobre dinero.
+  // 5. Comisiones: toda venta activa o desistida con vendedor (y valor configurado) tiene la suya, y cada pagada tiene su egreso vigente.
+  const sinComision = await contar(prisma.$queryRaw`
+    SELECT COUNT(*) AS n FROM "Venta" v JOIN "Vendedor" d ON d.id = v."vendedorId"
+    JOIN "ComisionTipoVendedor" t ON t.tipo = d.tipo AND t.valor >= 0.5
+    WHERE v.estado IN ('ACTIVA', 'DESISTIDA') AND NOT EXISTS (SELECT 1 FROM "Comision" c WHERE c."ventaId" = v.id)`);
+  revisar(sinComision === 0, 'Toda venta con vendedor tiene su comisión', sinComision);
+  const pagadasSinEgreso = await contar(prisma.$queryRaw`
+    SELECT COUNT(*) AS n FROM "Comision" c LEFT JOIN "MovimientoFinanciero" m ON m.id = c."movimientoId"
+    WHERE c.estado = 'PAGADA' AND (m.id IS NULL OR m.estado <> 'ACTIVO' OR m.valor <> c.valor)`);
+  revisar(pagadasSinEgreso === 0, 'Toda comisión pagada tiene su egreso vigente por el mismo valor', pagadasSinEgreso);
+
+  // 6. La auditoría cubre las acciones sobre dinero.
   const auditoria = await prisma.registroAuditoria.count();
   revisar(auditoria > 0, `Auditoría con ${auditoria} registros`);
 
-  // 6. Semáforo de cartera (solo la demostración promete los tres colores).
+  // 7. Semáforo de cartera (solo la demostración promete los tres colores).
   const gerente = await actorDe(prisma, emailGerente);
   const cartera = await ctx.cartera.listarPorCliente(gerente);
   const cuenta = (color: string) => cartera.filter((c) => c.semaforo === color).length;

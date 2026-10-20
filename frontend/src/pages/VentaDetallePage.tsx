@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
+import { TarjetaComision } from '../components/TarjetaComision'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
 import {
@@ -11,11 +12,13 @@ import {
   listarMediosPago,
   subirDocumentosVenta,
   anularAbono,
+  obtenerComision,
   obtenerVenta,
   rechazarVenta,
   abrirComprobante,
   abrirRecibo,
   type Abono,
+  type Comision,
   type CuentaBancaria,
   type MedioPago,
   type MedioPagoConfig,
@@ -60,6 +63,9 @@ export function VentaDetallePage() {
   const [mostrarDesistir, setMostrarDesistir] = useState(false)
   const [desistimiento, setDesistimiento] = useState({ fecha: hoyEnBogota(), motivo: '', valorDevolver: '', valorRetener: '' })
   const [desistiendo, setDesistiendo] = useState(false)
+  // RF-COM-04: si la comisión sigue pendiente, el gerente decide aquí si se anula junto con el desistimiento.
+  const [anularComision, setAnularComision] = useState(false)
+  const [comision, setComision] = useState<Comision | null>(null)
   // La devolución es un egreso: necesita medio de pago y, si no es efectivo, la cuenta de donde sale el dinero.
   const [mediosDevolucion, setMediosDevolucion] = useState<MedioPagoConfig[]>([])
   const [cuentasDevolucion, setCuentasDevolucion] = useState<CuentaBancaria[]>([])
@@ -123,6 +129,7 @@ export function VentaDetallePage() {
         motivo: desistimiento.motivo.trim(),
         valorDevolver: desistimiento.valorDevolver || undefined,
         valorRetener: desistimiento.valorRetener || undefined,
+        ...(anularComision && venta.comision?.estado === 'PENDIENTE' ? { anularComision: true } : {}),
         ...(Number(desistimiento.valorDevolver) > 0 && medioDevolucion
           ? {
               medioPagoDevolucion: medioDevolucion,
@@ -213,6 +220,15 @@ Motivo (queda registrado):`,
       .then(setVenta)
       .catch((err: Error) => setError(err.message))
   }, [id, recarga])
+
+  // La comisión completa (con su pago, si lo hay) se pide aparte: el detalle de la venta solo trae su resumen.
+  const comisionId = venta?.comision?.id
+  useEffect(() => {
+    if (!comisionId) return
+    obtenerComision(comisionId)
+      .then(setComision)
+      .catch(() => setComision(null))
+  }, [comisionId, recarga])
 
   if (error && !venta) {
     return <p className="text-sm text-red-600">{error}</p>
@@ -426,6 +442,24 @@ Motivo (queda registrado):`,
         )}
       </section>
 
+      {venta.comision && comision && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-slate-900">Comisión de la venta</h2>
+          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <TarjetaComision
+              comision={comision}
+              puedePagar={tiene(PERMISOS.COMISIONES_PAGAR)}
+              puedeAnular={tiene(PERMISOS.COMISIONES_ANULAR)}
+              mostrarVenta={false}
+              onCambio={(actualizada) => {
+                setComision(actualizada)
+                setRecarga((n) => n + 1)
+              }}
+            />
+          </div>
+        </section>
+      )}
+
       {activa && tiene(PERMISOS.VENTAS_DESISTIR) && (
         <section className="mt-8">
           <button
@@ -481,6 +515,19 @@ Motivo (queda registrado):`,
                 <label htmlFor="desMotivo" className="block text-sm text-slate-700">Motivo</label>
                 <textarea id="desMotivo" required minLength={5} maxLength={500} rows={2} value={desistimiento.motivo} onChange={(e) => setDesistimiento({ ...desistimiento, motivo: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900" />
               </div>
+              {venta.comision?.estado === 'PENDIENTE' && (
+                <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  <input type="checkbox" checked={anularComision} onChange={(e) => setAnularComision(e.target.checked)} className="mt-0.5" />
+                  <span>
+                    Esta venta tiene una comisión <strong>pendiente</strong> de {formatearCOP(venta.comision.valor)}. Marca la casilla para anularla junto con el desistimiento; si no, queda pendiente y la decides después en Comisiones.
+                  </span>
+                </label>
+              )}
+              {venta.comision?.estado === 'PAGADA' && (
+                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  La comisión de esta venta ({formatearCOP(venta.comision.valor)}) <strong>ya se pagó</strong>. El desistimiento no la toca: si hay que recuperarla, anúlala después en Comisiones.
+                </p>
+              )}
               <button type="submit" disabled={desistiendo} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">
                 {desistiendo ? 'Registrando...' : 'Confirmar desistimiento'}
               </button>
