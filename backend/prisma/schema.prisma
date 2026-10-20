@@ -139,6 +139,15 @@ enum EstadoMovimiento {
 enum OrigenMovimiento {
   MANUAL
   DEVOLUCION_DESISTIMIENTO
+  // El egreso que se crea solo al pagar la comisión de una venta (RF-COM-03).
+  COMISION
+}
+
+// Estado de la comisión de una venta (RF-COM-02): nace PENDIENTE; se paga o se anula (la pagada también se puede anular).
+enum EstadoComision {
+  PENDIENTE
+  PAGADA
+  ANULADA
 }
 
 enum EstadoTrabajador {
@@ -211,6 +220,8 @@ model Usuario {
   importaciones             Importacion[]
   clientesAutorizados       Cliente[]              @relation("AutorizacionesRegistradas")
   equiposDadosDeBaja        Equipo[]               @relation("EquiposDadosDeBaja")
+  comisionesPagadas         Comision[]             @relation("ComisionesPagadas")
+  comisionesAnuladas        Comision[]             @relation("ComisionesAnuladas")
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -417,14 +428,15 @@ model Desistimiento {
 // Persona que trajo la venta (asesor inmobiliario o referido). Se reutiliza entre
 // ventas y la Etapa 2 la usa para calcular comisiones.
 model Vendedor {
-  id        String       @id @default(uuid())
-  tipo      TipoVendedor
-  nombre    String
-  documento String       @unique
-  telefono  String?
-  ventas    Venta[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id         String       @id @default(uuid())
+  tipo       TipoVendedor
+  nombre     String
+  documento  String       @unique
+  telefono   String?
+  ventas     Venta[]
+  comisiones Comision[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 }
 
 // Transacción de venta de un Lote a un Cliente. Se guarda como historial:
@@ -470,6 +482,7 @@ model Venta {
   desistimiento     Desistimiento?
   movimientos       MovimientoFinanciero[]
   separacion        Separacion?
+  comision          Comision?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -611,10 +624,12 @@ model MovimientoFinanciero {
   // Proyectos de maquinaria (RF-MAQ-03 y 04): el equipo al que se asigna el movimiento, o "gasto general de la flota";
   // y, en el ingreso por alquiler, el período alquilado.
   equipoId           String?
-  equipo             Equipo?           @relation(fields: [equipoId], references: [id])
+  equipo             Equipo?           @relation(fields: [equipoId], references: [id], onDelete: Restrict)
   flota              Boolean           @default(false)
   periodoDesde       DateTime?         @db.Date
   periodoHasta       DateTime?         @db.Date
+  // La comisión que este egreso pagó (solo cuando origen = COMISION).
+  comision           Comision?
   estado             EstadoMovimiento  @default(ACTIVO)
   registradoPorId    String?
   registradoPor      Usuario?          @relation("MovimientosRegistrados", fields: [registradoPorId], references: [id])
@@ -911,4 +926,36 @@ model ComisionTipoVendedor {
   tipo      TipoVendedor @id
   valor     Decimal      @db.Decimal(14, 2)
   updatedAt DateTime     @updatedAt
+}
+
+// Comisión de una venta (RF-COM-01 a 04): una por venta con vendedor, con el valor fijo de su tipo VIGENTE al generarla
+// (si luego cambia la configuración, las ya generadas no cambian). Se genera sola cuando la venta queda ACTIVA.
+// Al pagarla se crea su egreso (categoría Comisiones) en la misma transacción. Nunca se borra (la base lo impide) y
+// una anulada no vuelve a cambiar; el valor, la venta y el vendedor tampoco se modifican.
+model Comision {
+  id              String                @id @default(uuid())
+  ventaId         String                @unique
+  venta           Venta                 @relation(fields: [ventaId], references: [id])
+  vendedorId      String
+  vendedor        Vendedor              @relation(fields: [vendedorId], references: [id])
+  // El tipo del vendedor al momento de generarla (el vendedor podría cambiar de tipo en el futuro).
+  tipoVendedor    TipoVendedor
+  valor           Decimal               @db.Decimal(14, 2)
+  estado          EstadoComision        @default(PENDIENTE)
+  // Pago: el egreso trae la fecha, el medio, la cuenta, la referencia y el soporte.
+  movimientoId    String?               @unique
+  movimiento      MovimientoFinanciero? @relation(fields: [movimientoId], references: [id], onDelete: Restrict)
+  pagadaPorId     String?
+  pagadaPor       Usuario?              @relation("ComisionesPagadas", fields: [pagadaPorId], references: [id], onDelete: Restrict)
+  pagadaEn        DateTime?
+  // Anulación (de una pendiente o de una pagada): quién, cuándo y por qué.
+  anuladaPorId    String?
+  anuladaPor      Usuario?              @relation("ComisionesAnuladas", fields: [anuladaPorId], references: [id], onDelete: Restrict)
+  anuladaEn       DateTime?
+  motivoAnulacion String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([vendedorId])
+  @@index([estado])
 }

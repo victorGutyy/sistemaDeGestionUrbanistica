@@ -46,6 +46,10 @@ function crearPrismaFalso() {
     separacion: { updateMany: vi.fn() },
     desistimiento: { create: vi.fn() },
     documentoVenta: { create: vi.fn(), findFirst: vi.fn() },
+    comision: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn(), update: vi.fn() },
+    comisionTipoVendedor: { findUnique: vi.fn() },
+    movimientoFinanciero: { findUniqueOrThrow: vi.fn(), updateMany: vi.fn() },
+    $queryRaw: vi.fn(),
   };
 
   type Tx = typeof tx;
@@ -733,5 +737,134 @@ describe('VentasService: documentos firmados (RF-VEN-06)', () => {
     storage.leer.mockResolvedValue(PDF);
 
     expect(await service.leerDocumento('venta-1', 'doc-1', USUARIO)).toEqual({ buffer: PDF, contentType: 'application/pdf', nombre: 'contrato.pdf' });
+  });
+});
+
+describe('VentasService: comisiones de la venta (RF-COM-01 y RF-COM-04)', () => {
+  let prisma: ReturnType<typeof crearPrismaFalso>['prisma'];
+  let tx: ReturnType<typeof crearPrismaFalso>['tx'];
+  let service: VentasService;
+
+  const VENDEDOR = { id: 'vend-1', tipo: TipoVendedor.ASESOR_INMOBILIARIO, nombre: 'Luis Gómez', documento: '555' };
+  const COMISION_PENDIENTE = {
+    id: 'com-1',
+    estado: 'PENDIENTE',
+    valor: D('1000000'),
+    movimientoId: null,
+    vendedor: VENDEDOR,
+    venta: { lote: { numero: 'L-1' } },
+  };
+
+  beforeEach(() => {
+    ({ prisma, tx } = crearPrismaFalso());
+    vi.mocked(crearMovimientoEnTx).mockReset();
+    const configuracion = {
+      obtenerEmpresa: vi.fn().mockResolvedValue(CONFIG),
+      exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined),
+      contextoRecibo: vi.fn(),
+    };
+    service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO());
+
+    tx.lote.findUnique.mockResolvedValue(LOTE);
+    tx.cliente.findFirst.mockResolvedValue({ id: 'cliente-1' });
+    tx.vendedor.findUnique.mockResolvedValue(VENDEDOR);
+    tx.comisionTipoVendedor.findUnique.mockResolvedValue({ tipo: TipoVendedor.ASESOR_INMOBILIARIO, valor: D('1000000') });
+    tx.comision.create.mockImplementation(({ data }: { data: object }) => Promise.resolve({ id: 'com-1', estado: 'PENDIENTE', ...data }));
+    tx.venta.create.mockImplementation(({ data }: { data: object }) => Promise.resolve({ id: 'venta-1', ...data }));
+    tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
+    tx.cuota.create.mockResolvedValue({ id: 'cuota-0' });
+  });
+
+  it('una venta activa con vendedor genera su comisión con el valor configurado del tipo, en la misma transacción', async () => {
+    await service.crear({ ...BASE_CONTADO, vendedorId: 'vend-1' }, USUARIO);
+
+    const { data } = tx.comision.create.mock.calls[0][0];
+    expect(data).toMatchObject({ ventaId: 'venta-1', vendedorId: 'vend-1', tipoVendedor: TipoVendedor.ASESOR_INMOBILIARIO });
+    expect(data.valor.toString()).toBe('1000000');
+    expect(auditoriaDe(tx.registroAuditoria.create, 'COMISION_GENERAR')).toMatchObject({ entidad: 'COMISION', entidadId: 'com-1', usuarioId: USUARIO.id });
+  });
+
+  it('una venta sin vendedor no genera comisión', async () => {
+    await service.crear(BASE_CONTADO, USUARIO);
+    expect(tx.comision.create).not.toHaveBeenCalled();
+  });
+
+  it('si el tipo de vendedor no tiene valor configurado, no se genera comisión', async () => {
+    tx.comisionTipoVendedor.findUnique.mockResolvedValue({ tipo: TipoVendedor.ASESOR_INMOBILIARIO, valor: D('0') });
+    await service.crear({ ...BASE_CONTADO, vendedorId: 'vend-1' }, USUARIO);
+    expect(tx.comision.create).not.toHaveBeenCalled();
+  });
+
+  it('una excepción pendiente de aprobación todavía no genera comisión', async () => {
+    // Cuota inicial del 10 % (la configurada es 30 %): queda pendiente porque quien registra no puede autorizar.
+    await service.crear({ ...BASE_FINANCIADA, cuotaInicial: '10000000', motivoExcepcion: 'Convenio con la empresa del comprador', vendedorId: 'vend-1' }, USUARIO);
+    expect(tx.venta.create.mock.calls[0][0].data.estado).toBe(EstadoVenta.PENDIENTE_APROBACION);
+    expect(tx.comision.create).not.toHaveBeenCalled();
+  });
+
+  it('al aprobar la excepción, la comisión nace en la misma transacción', async () => {
+    tx.venta.findFirst.mockResolvedValue({
+      id: 'venta-1',
+      estado: EstadoVenta.PENDIENTE_APROBACION,
+      vendedorId: 'vend-1',
+      valorTotal: D('100000000'),
+      cuotaInicial: D('10000000'),
+      numeroCuotas: 12,
+      tasaInteres: null,
+      formaPago: FormaPago.FINANCIADO,
+      fechaVenta: new Date(2026, 9, 1),
+      fechaCuotaInicial: new Date(2026, 9, 1),
+      separoElLote: true,
+      lote: { id: 'lote-1', numero: 'L-1', estado: EstadoLote.SEPARADO },
+    });
+    await service.aprobar('venta-1', GERENTE);
+
+    expect(tx.comision.create).toHaveBeenCalledTimes(1);
+    expect(tx.comision.create.mock.calls[0][0].data).toMatchObject({ ventaId: 'venta-1', vendedorId: 'vend-1' });
+  });
+
+  describe('desistimiento', () => {
+    const VENTA = {
+      id: 'venta-1',
+      estado: EstadoVenta.ACTIVA,
+      lote: { id: 'lote-1', numero: 'L-1', estado: EstadoLote.VENDIDO, proyectoId: 'p-1' },
+      cliente: { nombre: 'Cliente de Prueba', documento: '1000000001' },
+      abonos: [{ valor: D('30000000') }],
+    };
+    const DTO = { fecha: '2026-10-16', motivo: 'El cliente no pudo continuar con los pagos' };
+
+    beforeEach(() => {
+      tx.venta.findFirst.mockResolvedValue(VENTA);
+    });
+
+    it('con la casilla marcada anula la comisión pendiente junto con el desistimiento, con el motivo del desistimiento', async () => {
+      tx.comision.findUnique.mockResolvedValue(COMISION_PENDIENTE);
+      tx.comision.update.mockResolvedValue({ ...COMISION_PENDIENTE, estado: 'ANULADA' });
+
+      await service.desistir('venta-1', { ...DTO, anularComision: true }, GERENTE);
+
+      expect(tx.comision.update).toHaveBeenCalledWith({
+        where: { id: 'com-1' },
+        data: expect.objectContaining({ estado: 'ANULADA', anuladaPorId: GERENTE.id, motivoAnulacion: `Desistimiento de la venta: ${DTO.motivo}` }),
+      });
+      expect(auditoriaDe(tx.registroAuditoria.create, 'COMISION_ANULAR')).toMatchObject({ entidadId: 'com-1', antes: { estado: 'PENDIENTE' } });
+    });
+
+    it('sin la casilla, la comisión no se toca (el gerente decide después)', async () => {
+      tx.comision.findUnique.mockResolvedValue(COMISION_PENDIENTE);
+      await service.desistir('venta-1', DTO, GERENTE);
+      expect(tx.comision.update).not.toHaveBeenCalled();
+    });
+
+    it('pedir anular una comisión que ya no está pendiente se rechaza y no desiste nada', async () => {
+      tx.comision.findUnique.mockResolvedValue({ ...COMISION_PENDIENTE, estado: 'PAGADA' });
+      await expect(service.desistir('venta-1', { ...DTO, anularComision: true }, GERENTE)).rejects.toBeInstanceOf(BadRequestException);
+      expect(tx.venta.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('pedir anular la comisión de una venta que no tiene comisión también se rechaza', async () => {
+      tx.comision.findUnique.mockResolvedValue(null);
+      await expect(service.desistir('venta-1', { ...DTO, anularComision: true }, GERENTE)).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 });

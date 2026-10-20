@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 import { MedioPago } from '../../generated/prisma/enums.js';
 
 const SOLO_PESOS = /^\d{1,12}$/;
@@ -37,4 +37,9 @@ export class DesistirVentaDto {
   @IsString()
   @MaxLength(80)
   referenciaDevolucion?: string;
+
+  // RF-COM-04: anular, en el mismo acto, la comisión de la venta si todavía está pendiente.
+  @IsOptional()
+  @IsBoolean()
+  anularComision?: boolean;
 }

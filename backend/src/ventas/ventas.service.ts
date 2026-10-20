@@ -7,6 +7,8 @@ import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
 import { resumirCartera } from '../cartera/cartera-venta.js';
 import { datosDeAutorizacion } from '../clientes/autorizacion.js';
 import { PERMISOS } from '../auth/permisos.js';
+import { anularComisionEnTx } from '../comisiones/comision-tx.js';
+import { generarComisionEnTx } from '../comisiones/generar-comision-tx.js';
 import { categoriaDevolucionDesistimientoEnTx, crearMovimientoEnTx } from '../finanzas/crear-movimiento-tx.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
@@ -14,7 +16,7 @@ import { parsearFechaLocal } from '../common/fecha.util.js';
 import { formatearCOP } from '../common/formato.util.js';
 import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento, type TipoDocumento } from '../common/tipo-archivo.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoAbono, EstadoLote, EstadoVenta, FormaPago, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoComision, EstadoLote, EstadoVenta, FormaPago, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
 import { aplicarAccionLote } from '../lotes/aplicar-accion.js';
 import { puedeAplicar } from '../lotes/estado-lote.js';
 import { convertirSeparacionEnTx } from '../lotes/separacion.js';
@@ -215,6 +217,8 @@ export class VentasService {
         // El cambio de estado pasa por la máquina de estados: valida, deja historial y evita vender dos veces el mismo lote.
         await aplicarAccionLote(tx, lote, 'VENDER', usuario, { ventaId: venta.id });
         await convertirSeparacionEnTx(tx, lote.id, venta.id);
+        // RF-COM-01: la venta ya es ACTIVA, así que su comisión nace en esta misma transacción.
+        await generarComisionEnTx(tx, { id: venta.id, vendedorId: venta.vendedorId, numeroLote: lote.numero }, usuario);
 
         if (dto.cuotaInicialRecibida && cuotaInicialId && contextoRecibo) {
           await crearAbonoEnTx(
@@ -269,6 +273,8 @@ export class VentasService {
       await this.crearPlanDeCuotas(tx, venta);
       await aplicarAccionLote(tx, venta.lote, 'VENDER', usuario, { ventaId: id, motivo: 'Excepción aprobada' });
       await convertirSeparacionEnTx(tx, venta.lote.id, id);
+      // RF-COM-01: la comisión de una excepción nace cuando el gerente la aprueba (si se rechaza, no hay comisión).
+      await generarComisionEnTx(tx, { id, vendedorId: venta.vendedorId, numeroLote: venta.lote.numero }, usuario);
 
       await registrarAuditoria(tx, {
         usuario,
@@ -342,6 +348,10 @@ export class VentasService {
         resueltaPor: { select: { nombre: true } },
         documentos: { orderBy: { createdAt: 'asc' }, include: { subidoPor: { select: { nombre: true } } } },
         desistimiento: { include: { registradoPor: { select: { nombre: true } } } },
+        // La comisión solo la ve quien tiene permiso para consultarlas (Consulta no).
+        comision: usuario.permisos.includes(PERMISOS.COMISIONES_VER)
+          ? { select: { id: true, estado: true, valor: true, tipoVendedor: true, motivoAnulacion: true } }
+          : false,
       },
     });
     if (!venta) {
@@ -423,6 +433,12 @@ export class VentasService {
         throw new BadRequestException(`Lo que se devuelve más lo que se retiene supera lo pagado por el cliente (${pagado.toString()})`);
       }
 
+      // RF-COM-04: si la comisión sigue pendiente, el gerente decide en este mismo acto si se anula; si ya se pagó, solo se avisa.
+      const comision = await tx.comision.findUnique({ where: { ventaId: id }, select: { id: true, estado: true } });
+      if (dto.anularComision && comision?.estado !== EstadoComision.PENDIENTE) {
+        throw new BadRequestException('La comisión de esta venta no está pendiente: no hay nada que anular junto con el desistimiento');
+      }
+
       const { count } = await tx.venta.updateMany({
         where: { id, estado: EstadoVenta.ACTIVA },
         data: { estado: EstadoVenta.DESISTIDA },
@@ -467,6 +483,10 @@ export class VentasService {
         });
       }
 
+      if (dto.anularComision && comision) {
+        await anularComisionEnTx(tx, comision.id, `Desistimiento de la venta: ${dto.motivo.trim()}`, usuario);
+      }
+
       await registrarAuditoria(tx, {
         usuario,
         accion: 'VENTA_DESISTIR',
@@ -477,7 +497,7 @@ export class VentasService {
         despues: { estado: EstadoVenta.DESISTIDA, fecha, motivo: dto.motivo.trim(), valorDevolver, valorRetener, medioPagoDevolucion: dto.medioPagoDevolucion },
       });
 
-      return tx.venta.findUniqueOrThrow({ where: { id }, include: { cliente: true, lote: true, desistimiento: true } });
+      return tx.venta.findUniqueOrThrow({ where: { id }, include: { cliente: true, lote: true, desistimiento: true, comision: true } });
     });
   }
 

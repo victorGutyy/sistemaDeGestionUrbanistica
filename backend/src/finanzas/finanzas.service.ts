@@ -8,7 +8,7 @@ import { parsearFechaLocal } from '../common/fecha.util.js';
 import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento, type TipoDocumento } from '../common/tipo-archivo.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoAbono, EstadoMovimiento, EstadoVenta, TipoMovimiento } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoMovimiento, EstadoVenta, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { diaDeColumnaDate } from '../cierres-caja/periodo.js';
@@ -164,10 +164,14 @@ export class FinanzasService {
   async anular(id: string, dto: AnularMovimientoDto, usuario: UsuarioAutenticado) {
     const existente = await this.prisma.movimientoFinanciero.findFirst({
       where: { id, AND: [filtroMovimiento(usuario)] },
-      select: { id: true, tipo: true, valor: true, descripcion: true, fecha: true },
+      select: { id: true, tipo: true, valor: true, descripcion: true, fecha: true, origen: true },
     });
     if (!existente) {
       throw new NotFoundException(`No existe el movimiento ${id}`);
+    }
+    // El egreso de una comisión se anula desde la comisión: así los dos quedan siempre coherentes.
+    if (existente.origen === OrigenMovimiento.COMISION) {
+      throw new ConflictException('Este egreso es el pago de una comisión: anula la comisión desde la pantalla de Comisiones');
     }
 
     await this.prisma.$transaction(async (tx) => {

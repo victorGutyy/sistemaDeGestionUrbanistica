@@ -156,6 +156,15 @@ describe('FinanzasService.anular (RF-EGR-04)', () => {
     expect(auditoriasDe(tx.registroAuditoria.create)).toEqual([]);
   });
 
+  it('el egreso de una comisión no se anula desde Finanzas: se anula la comisión, para que ambos queden coherentes (RF-COM-03)', async () => {
+    const { prisma, tx } = crearPrismaFalso();
+    const service = new FinanzasService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
+    prisma.movimientoFinanciero.findFirst.mockResolvedValue({ id: 'm-1', tipo: 'GASTO', valor: D('1000000'), descripcion: 'Comisión de venta', fecha: new Date(), origen: 'COMISION' });
+    await expect(service.anular('m-1', { motivo: 'Quiero anularlo' }, USUARIO)).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.movimientoFinanciero.updateMany).not.toHaveBeenCalled();
+    expect(auditoriasDe(tx.registroAuditoria.create)).toEqual([]);
+  });
+
   it('un movimiento ya anulado no se vuelve a anular', async () => {
     const { prisma } = crearPrismaFalso();
     const service = new FinanzasService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);

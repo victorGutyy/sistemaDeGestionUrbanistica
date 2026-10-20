@@ -37,6 +37,9 @@ export const PERMISOS = {
   EXPORTACION_COMPLETA: 'exportacion.completa', // exportar todos los datos a Excel (solo gerente)
   EQUIPOS_GESTIONAR: 'equipos.gestionar', // registrar y editar equipos de maquinaria
   EQUIPOS_BAJA: 'equipos.baja', // dar de baja o reactivar un equipo (solo gerente)
+  COMISIONES_VER: 'comisiones.ver', // ver las comisiones de venta y su reporte
+  COMISIONES_PAGAR: 'comisiones.pagar', // pagar una comisión (crea su egreso)
+  COMISIONES_ANULAR: 'comisiones.anular', // anular una comisión, pendiente o pagada (solo gerente)
 } as const;
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -86,6 +89,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.IMPORTACION_GESTIONAR &&
         permiso !== PERMISOS.EXPORTACION_COMPLETA &&
         permiso !== PERMISOS.EQUIPOS_BAJA &&
+        permiso !== PERMISOS.COMISIONES_ANULAR &&
         permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
     ),
     limitablePorProyecto: false,

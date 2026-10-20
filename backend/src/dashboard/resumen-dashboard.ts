@@ -16,4 +16,6 @@ export interface ResumenDashboard {
     saldoPorVencer: Prisma.Decimal;
   };
   porProyecto: FilaResumenProyecto[];
+  // Comisiones por pagar (RF-REP-02); solo viene para quien tiene permiso de ver comisiones.
+  comisionesPendientes?: { cantidad: number; valor: Prisma.Decimal };
 }
