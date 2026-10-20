@@ -1,0 +1,9 @@
+# Información confidencial de la empresa (Acuerdo de Confidencialidad): nunca va a Git.
+# Aquí se guardan el Excel real, el logo original y cualquier archivo que entregue el cliente.
+/datos-reales/
+
+# Libros de Excel y CSV: pueden traer datos reales de clientes, valores y trabajadores.
+*.xlsx
+*.xls
+*.xlsm
+*.csv

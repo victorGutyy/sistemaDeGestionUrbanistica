@@ -21,6 +21,7 @@
     "demo:api": "node dist-scripts/prisma/demo/iniciar.js",
     "demo:medir": "node prisma/demo/medir-rendimiento.mjs",
     "demo:comprobar": "node prisma/demo/comprobar-demo.mjs",
+    "datos:convertir-ventas": "npm run demo:compilar && node dist-scripts/herramientas/convertir-ventas.js",
     "db:limpiar": "npm run demo:compilar && node dist-scripts/prisma/limpiar.js",
     "lint": "oxlint --type-aware src/ test/",
     "test": "vitest run",
