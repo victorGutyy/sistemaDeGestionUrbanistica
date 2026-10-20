@@ -38,10 +38,10 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <LogoEmpresa className="h-14 w-14" />
-        <h1 className="mt-4 text-xl font-semibold text-slate-900">{marca.nombreComercial || marca.nombreProducto}</h1>
-        {marca.nombreComercial && <p className="text-xs text-slate-400">{marca.nombreProducto}</p>}
-        <p className="mt-1 text-sm text-slate-500">Ingresa con tu cuenta para continuar.</p>
+        <LogoEmpresa grande />
+        <h1 className="mt-4 text-center text-lg font-semibold text-slate-900">{marca.nombreComercial || marca.nombreProducto}</h1>
+        {marca.nombreComercial && <p className="text-center text-xs text-slate-400">{marca.nombreProducto}</p>}
+        <p className="mt-1 text-center text-sm text-slate-500">Ingresa con tu cuenta para continuar.</p>
 
         {avisoSesion && !error && (
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
