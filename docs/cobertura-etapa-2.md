@@ -16,7 +16,7 @@ Una etapa se acepta cuando están todos sus **Debe**. Los "Debería" y "Podría"
 
 Total: 26 requerimientos funcionales de la Etapa 2 (los 24 del reparto original más RF-REP-11 y RF-MAQ-05, que aportaron CC-01 y CC-02).
 
-**La Etapa 2 está completa en código:** los 19 "Debe" y los 7 "Debería" están construidos, con pruebas y verificados en vivo. La auditoría encontró un "Debe" parcial (RF-NOT-01) que se cerró el mismo día (ver abajo). Lo que queda no es código: la cuenta de correo del cliente y la medición de rendimiento de lo nuevo.
+**La Etapa 2 está completa en código:** los 19 "Debe" y los 7 "Debería" están construidos, con pruebas, verificados en vivo y medidos en rendimiento. La auditoría encontró un "Debe" parcial (RF-NOT-01) que se cerró el mismo día (ver abajo). Lo que queda no es código: la cuenta de correo del cliente.
 
 ## Lo que se encontró y se cerró
 
@@ -27,7 +27,7 @@ Total: 26 requerimientos funcionales de la Etapa 2 (los 24 del reparto original 
 ## Observaciones que no impiden aceptar la etapa
 
 1. **Todo lo que envía correo depende de la cuenta SMTP de Balder** (RF-NOT-01, 02, 03 y RF-USR-06). El código está y está probado de punta a punta contra un servidor SMTP de prueba local (`npm run correo:sumidero`); sin la cuenta real los avisos quedan registrados como "omitidos: correo de la empresa no configurado". Está en los pendientes con el cliente.
-2. **Rendimiento (RNF-REN) sin repetir para lo nuevo.** La última medición de `docs/rendimiento.md` cubre los reportes de recaudo, cartera por edades, egresos, inventario y flujo de caja. Todavía no se midieron el informe del proyecto, maquinaria por equipo, el reporte de comisiones, el panel con sus consultas nuevas, `Por verificar` ni el historial de notificaciones. Se repite con `npm run demo:medir` sobre la base de volumen.
+2. **Rendimiento (RNF-REN) medido para lo nuevo el 21/10/2026** (`docs/rendimiento.md`): con 800 comisiones, un proyecto de maquinaria con 10 equipos, 3.626 pagos por verificar y 5.439 avisos, todas las pantallas nuevas responden en menos de 0,4 s (p95), los reportes nuevos se descargan en menos de 0,5 s y 10 usuarios con la mezcla de la Etapa 2 dan p95 de 422 ms, sin errores. Pendiente solo repetirlo en el servidor de producción.
 3. **RF-REP-11 (flujo de caja) usa definiciones provisionales** de semana (lunes a domingo) y quincena (1 al 15 y 16 al fin de mes), pendientes de confirmar con el cliente (`backend/src/cierres-caja/periodo.ts`). Es una pregunta abierta, no una falta.
 4. **RF-REP-01:** el rango de fechas filtra lo que se mueve en el tiempo (recaudado, egresos y utilidad). La cartera y los lotes por estado son la foto de hoy, como corresponde.
 5. **Límites conocidos de la etapa** (no son requerimientos de la Etapa 2): no se puede cambiar el vendedor de una venta ya registrada ni generar la comisión si se le agrega un vendedor después; el PDF del reporte de comisiones sale por el motor de reportes, no como un documento aparte; RF-CAR-06 (pagar el interés de mora por separado) sigue en espera de lo que confirme el cliente y es de la Etapa 1.
@@ -104,5 +104,5 @@ Total: 26 requerimientos funcionales de la Etapa 2 (los 24 del reparto original 
 ## Siguiente paso sugerido
 
 1. Configurar la cuenta de correo del cliente (se recomienda una cuenta exclusiva para el sistema, a nombre de la empresa) y comprobarla con **Configuración → Correo de avisos → Enviar correo de prueba**.
-2. Repetir la medición de rendimiento con los reportes y pantallas nuevos.
+2. Repetir la medición de rendimiento en el servidor de producción cuando esté montado.
 3. Con eso la Etapa 2 se puede aceptar.

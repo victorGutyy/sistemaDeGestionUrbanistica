@@ -4,10 +4,26 @@ import { hace, hoy, menor } from './fechas.js';
 import { correoInventado, documentoInventado, generador, nombreInventado, telefonoInventado } from './nombres.js';
 
 // Volumen realista para medir el rendimiento (RNF-REN-01..04): 10 proyectos, 1.000 lotes, 400 clientes, unas 800 ventas
-// y cerca de 5.000 abonos, con egresos y nómina. Todo con los servicios reales y una "casualidad" con semilla fija:
-// cada corrida produce los mismos datos.
+// y cerca de 5.000 abonos, con egresos y nómina; y, para medir la Etapa 2, una comisión por venta (un tercio ya pagada),
+// un proyecto de maquinaria con sus equipos y alquileres, y los pagos por consignación o transferencia por verificar.
+// Todo con los servicios reales y una "casualidad" con semilla fija: cada corrida produce los mismos datos.
 
-export const META_VOLUMEN = { proyectos: 10, manzanasPorProyecto: 4, lotesPorManzana: 25, clientes: 400, ventas: 800, egresos: 600, trabajadores: 20, semanasDeNomina: 10 };
+export const META_VOLUMEN = {
+  proyectos: 10,
+  manzanasPorProyecto: 4,
+  lotesPorManzana: 25,
+  clientes: 400,
+  ventas: 800,
+  egresos: 600,
+  trabajadores: 20,
+  semanasDeNomina: 10,
+  vendedores: 12,
+  comisionesPagadas: 300,
+  comisionesAnuladas: 15,
+  equipos: 10,
+  alquileresPorEquipo: 12,
+  gastosPorEquipo: 18,
+};
 
 const aISO = (fecha: Date) => `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 const redondear = (valor: number, a: number) => Math.round(valor / a) * a;
@@ -75,6 +91,14 @@ export async function cargarVolumen(ctx: Contexto, { gerente, admin }: { gerente
   }
   avance('Clientes creados', clientes.length, clientes.length, inicio);
 
+  // ---- Vendedores (cada venta lleva el suyo, así que cada venta genera su comisión) ----
+  const vendedores = Array.from({ length: META_VOLUMEN.vendedores }, (_, i) => ({
+    tipo: (i % 4 === 3 ? 'REFERIDO' : 'ASESOR_INMOBILIARIO') as 'REFERIDO' | 'ASESOR_INMOBILIARIO',
+    nombre: nombreInventado(900 + i),
+    documento: documentoInventado(9000 + i),
+    telefono: telefonoInventado(9000 + i),
+  }));
+
   // ---- Ventas y abonos ----
   let abonos = 0;
   const ayer = hace(1);
@@ -87,6 +111,7 @@ export async function cargarVolumen(ctx: Contexto, { gerente, admin }: { gerente
       {
         loteId: lote.id,
         clienteId: cliente.id,
+        vendedorNuevo: vendedores[v % vendedores.length],
         formaPago: contado ? 'CONTADO' : 'FINANCIADO',
         valorTotal: lote.valorVenta.toString(),
         ...(contado ? {} : { numeroCuotas: 12, cuotaInicialPorcentaje: '30' }),
@@ -110,6 +135,16 @@ export async function cargarVolumen(ctx: Contexto, { gerente, admin }: { gerente
     if ((v + 1) % 100 === 0) avance(`Ventas (${abonos} abonos con recibo)`, v + 1, META_VOLUMEN.ventas, inicio);
   }
 
+  // ---- Comisiones: un tercio pagadas (cada pago crea su egreso) y unas pocas anuladas ----
+  const pendientes = await ctx.prisma.comision.findMany({ where: { estado: 'PENDIENTE' }, orderBy: { createdAt: 'asc' }, select: { id: true } });
+  for (const { id } of pendientes.slice(0, META_VOLUMEN.comisionesPagadas)) {
+    await ctx.comisiones.pagar(id, { fecha: hace(3), medioPago: 'EFECTIVO', motivoSinSoporte: 'Dato de prueba de volumen' }, admin);
+  }
+  for (const { id } of pendientes.slice(-META_VOLUMEN.comisionesAnuladas)) {
+    await ctx.comisiones.anular(id, { motivo: 'Dato de prueba de volumen' }, gerente);
+  }
+  avance('Comisiones (pagadas y anuladas)', META_VOLUMEN.comisionesPagadas + META_VOLUMEN.comisionesAnuladas, pendientes.length, inicio);
+
   // ---- Egresos ----
   const categorias = (await ctx.configuracion.listarCategoriasGasto()).filter((c) => !c.esSistema && !c.soloMaquinaria);
   for (let i = 0; i < META_VOLUMEN.egresos; i++) {
@@ -132,6 +167,60 @@ export async function cargarVolumen(ctx: Contexto, { gerente, admin }: { gerente
   }
   avance('Egresos', META_VOLUMEN.egresos, META_VOLUMEN.egresos, inicio);
 
+  // ---- Maquinaria: equipos con sus alquileres (ingresos) y gastos, para el reporte de utilidad por equipo ----
+  const maquinaria = await ctx.proyectos.crear({ nombre: 'Maquinaria de volumen', tipo: 'MAQUINARIA', ubicacion: 'Patio (datos de prueba)', municipio: 'Armenia', areaTotal: '1' }, gerente);
+  const tiposEquipo = await ctx.configuracion.listarTiposEquipo();
+  const categoriasMaquinaria = (await ctx.configuracion.listarCategoriasGasto()).filter((c) => c.soloMaquinaria);
+  const categoriaAlquiler = (await ctx.configuracion.listarCategoriasIngreso()).find((c) => c.nombre === 'Otros servicios');
+  if (!categoriaAlquiler || categoriasMaquinaria.length === 0 || tiposEquipo.length === 0) throw new Error('Faltan los tipos de equipo o las categorías de maquinaria de la semilla');
+  let movimientosMaquinaria = 0;
+  for (let e = 0; e < META_VOLUMEN.equipos; e++) {
+    const equipo = await ctx.equipos.crear(
+      { proyectoId: maquinaria.id, nombre: `Equipo de volumen ${e + 1}`, tipoEquipoId: tiposEquipo[e % tiposEquipo.length].id, marca: 'Marca de prueba', modelo: `M-${e + 1}`, anio: 2010 + e, placaSerie: `VOL-EQ-${String(e + 1).padStart(3, '0')}` },
+      admin,
+    );
+    for (let a = 0; a < META_VOLUMEN.alquileresPorEquipo; a++) {
+      const dias = entre(10, 330);
+      await ctx.finanzas.crear(
+        {
+          tipo: 'INGRESO',
+          fecha: hace(dias),
+          valor: String(redondear(entre(900_000, 6_000_000), 1000)),
+          descripcion: 'Alquiler de equipo (prueba de volumen)',
+          proyectoId: maquinaria.id,
+          categoriaId: categoriaAlquiler.id,
+          medioPago: 'EFECTIVO',
+          equipoId: equipo.id,
+          terceroNombre: nombreInventado(200 + (a % 30)),
+          terceroDocumento: documentoInventado(200 + (a % 30)),
+          periodoDesde: hace(dias + 6),
+          periodoHasta: hace(dias),
+          motivoSinSoporte: 'Dato de prueba de volumen',
+        },
+        admin,
+      );
+      movimientosMaquinaria += 1;
+    }
+    for (let g = 0; g < META_VOLUMEN.gastosPorEquipo; g++) {
+      await ctx.finanzas.crear(
+        {
+          tipo: 'GASTO',
+          fecha: hace(entre(5, 330)),
+          valor: String(redondear(entre(60_000, 1_800_000), 1000)),
+          descripcion: 'Gasto de equipo (prueba de volumen)',
+          proyectoId: maquinaria.id,
+          categoriaId: categoriasMaquinaria[g % categoriasMaquinaria.length].id,
+          medioPago: 'EFECTIVO',
+          equipoId: equipo.id,
+          motivoSinSoporte: 'Dato de prueba de volumen',
+        },
+        admin,
+      );
+      movimientosMaquinaria += 1;
+    }
+  }
+  avance('Maquinaria (movimientos por equipo)', movimientosMaquinaria, movimientosMaquinaria, inicio);
+
   // ---- Nómina ----
   let pagosNomina = 0;
   for (let t = 0; t < META_VOLUMEN.trabajadores; t++) {
@@ -143,5 +232,7 @@ export async function cargarVolumen(ctx: Contexto, { gerente, admin }: { gerente
   }
   avance('Pagos de nómina', pagosNomina, pagosNomina, inicio);
 
-  console.log(`  · Resumen: ${lotes.length} lotes, ${clientes.length} clientes, ${META_VOLUMEN.ventas} ventas, ${abonos} abonos, ${META_VOLUMEN.egresos} egresos, ${pagosNomina} pagos de nómina (hasta ${hoy()})`);
+  console.log(
+    `  · Resumen: ${lotes.length} lotes, ${clientes.length} clientes, ${META_VOLUMEN.ventas} ventas, ${abonos} abonos, ${META_VOLUMEN.egresos} egresos, ${pagosNomina} pagos de nómina, ${META_VOLUMEN.ventas} comisiones y ${movimientosMaquinaria} movimientos de maquinaria (hasta ${hoy()})`,
+  );
 }

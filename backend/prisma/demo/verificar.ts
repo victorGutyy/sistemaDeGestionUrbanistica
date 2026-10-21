@@ -65,7 +65,12 @@ export async function verificar(ctx: Contexto, emailGerente: string, esperados: 
   revisar(sinVerificarElBanco === 0, 'Todo pago no efectivo (no histórico) pasa por la verificación', sinVerificarElBanco);
   const pendientesDemo = await prisma.abono.count({ where: { verificacion: 'POR_VERIFICAR', estado: 'ACTIVO' } });
   const verificadosDemo = await prisma.abono.count({ where: { verificacion: 'VERIFICADO', verificadoPorId: { not: null } } });
-  revisar(pendientesDemo === 6 && verificadosDemo > 0, `Hay ${pendientesDemo} abonos por verificar y ${verificadosDemo} verificados por un usuario`);
+  if (esperados.semaforos) {
+    // Solo la demostración promete 6 pendientes (y los demás ya verificados por un usuario); el volumen los deja todos pendientes.
+    revisar(pendientesDemo === 6 && verificadosDemo > 0, `Hay ${pendientesDemo} abonos por verificar y ${verificadosDemo} verificados por un usuario`);
+  } else {
+    console.log(`  · Verificación: ${pendientesDemo} abonos por verificar (todos los pagos no efectivo)`);
+  }
 
   // 6. La auditoría cubre las acciones sobre dinero.
   const auditoria = await prisma.registroAuditoria.count();

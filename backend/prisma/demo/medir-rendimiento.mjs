@@ -55,6 +55,26 @@ const token = await iniciarSesion();
 const tokenGerente = await iniciarSesion({ email: emailGerente, password: passwordGerente });
 const resultados = { fecha: new Date().toISOString(), url, repeticiones: REPETICIONES };
 
+// ---- Preparación para medir la Etapa 2 ----
+const proyectos = JSON.parse((await pedir(token, '/proyectos')).cuerpo.toString('utf8'));
+const proyectoVenta = proyectos.find((p) => /^Proyecto de volumen/.test(p.nombre)) ?? proyectos[0];
+const hoyISO = new Date().toISOString().slice(0, 10);
+// El historial de avisos arranca vacío: se genera una vez (recordatorios y avisos de mora; la API de volumen no tiene
+// correo, así que quedan como omitidos) para medir el historial con filas de verdad.
+{
+  const historial = JSON.parse((await pedir(token, '/notificaciones?limite=1')).cuerpo.toString('utf8'));
+  if (historial.total === 0) {
+    const respuesta = await fetch(`${url}/recordatorios/ejecutar`, { method: 'POST', headers: { Authorization: `Bearer ${tokenGerente}` } });
+    if (!respuesta.ok) throw new Error(`No se pudo generar el historial de avisos (${respuesta.status})`);
+  }
+}
+const conteos = {
+  comisiones: JSON.parse((await pedir(token, '/comisiones')).cuerpo.toString('utf8')).comisiones.length,
+  porVerificar: JSON.parse((await pedir(token, '/abonos/por-verificar')).cuerpo.toString('utf8')).total,
+  avisos: JSON.parse((await pedir(token, '/notificaciones?limite=1')).cuerpo.toString('utf8')).total,
+};
+resultados.volumenEtapa2 = conteos;
+
 // ---- RNF-REN-01: pantallas de consulta < 2 s ----
 const consultas = [
   ['Proyectos', '/proyectos'],
@@ -72,6 +92,18 @@ const consultas = [
   ['Cierres de caja', '/cierres-caja'],
   ['Reporte de cartera por edades (pantalla)', '/reportes/cartera-edades'],
   ['Reporte de recaudo (pantalla)', '/reportes/recaudo'],
+  // Pantallas y reportes de la Etapa 2.
+  ['Tablero de un proyecto', `/dashboard?proyectoId=${proyectoVenta.id}`],
+  ['Pagos por verificar', '/abonos/por-verificar'],
+  ['Notificaciones (historial)', '/notificaciones'],
+  ['Notificaciones (filtradas)', '/notificaciones?tipo=MORA&estado=OMITIDA'],
+  ['Comisiones', '/comisiones'],
+  ['Informe del proyecto (pantalla)', `/reportes/informe-proyecto?proyectoId=${proyectoVenta.id}`],
+  ['Maquinaria por equipo (pantalla)', '/reportes/maquinaria-equipos'],
+  ['Reporte de comisiones (pantalla)', '/reportes/comisiones'],
+  ['Inventario de lotes (pantalla)', '/reportes/inventario-lotes'],
+  ['Egresos por categoría (pantalla)', '/reportes/egresos'],
+  ['Flujo de caja mensual (pantalla)', `/reportes/flujo-caja?desde=2025-01-01&hasta=${hoyISO}&granularidad=MES`],
 ];
 resultados.consulta = [];
 for (const [nombre, ruta] of consultas) {
@@ -108,6 +140,14 @@ const reportes = [
   ['Egresos por categoría en PDF', '/reportes/egresos/exportar?formato=pdf'],
   ['Inventario de lotes en PDF', '/reportes/inventario-lotes/exportar?formato=pdf'],
   ['Flujo de caja mensual en PDF', `/reportes/flujo-caja/exportar?formato=pdf&desde=2025-01-01&hasta=${new Date().toISOString().slice(0, 10)}&granularidad=MES`],
+  ['Informe del proyecto en PDF', `/reportes/informe-proyecto/exportar?formato=pdf&proyectoId=${proyectoVenta.id}`],
+  ['Informe del proyecto en Excel', `/reportes/informe-proyecto/exportar?formato=excel&proyectoId=${proyectoVenta.id}`],
+  ['Tablero de un proyecto en PDF', `/dashboard/exportar?formato=pdf&proyectoId=${proyectoVenta.id}`],
+  ['Maquinaria por equipo en PDF', '/reportes/maquinaria-equipos/exportar?formato=pdf'],
+  ['Maquinaria por equipo en Excel', '/reportes/maquinaria-equipos/exportar?formato=excel'],
+  ['Reporte de comisiones en PDF', '/reportes/comisiones/exportar?formato=pdf'],
+  ['Reporte de comisiones en Excel', '/reportes/comisiones/exportar?formato=excel'],
+  ['Comisiones: listado en Excel', '/comisiones/exportar'],
   ['Flujo de caja diario en Excel', `/reportes/flujo-caja/exportar?formato=excel&desde=${new Date(Date.now() - 300 * 86400000).toISOString().slice(0, 10)}&hasta=${new Date().toISOString().slice(0, 10)}&granularidad=DIA`],
 ];
 resultados.reportes = [];
@@ -137,7 +177,7 @@ for (const [nombre, ruta, soloGerente] of reportes) {
 
   // Con pausas = personas reales (leen la pantalla 1 a 3 s antes de la siguiente acción); sin pausas = prueba de
   // esfuerzo (cada usuario dispara su siguiente petición apenas recibe la anterior).
-  const simular = async (usuarios, conPausas) => {
+  const simular = async (usuarios, conPausas, mezclaUsada = mezcla) => {
     const sesiones = await Promise.all(Array.from({ length: usuarios }, () => iniciarSesion()));
     const tiempos = [];
     let errores = 0;
@@ -145,9 +185,9 @@ for (const [nombre, ruta, soloGerente] of reportes) {
     await Promise.all(
       sesiones.map(async (sesion, indice) => {
         for (let ronda = 0; ronda < rondas; ronda++) {
-          for (let k = 0; k < mezcla.length; k++) {
+          for (let k = 0; k < mezclaUsada.length; k++) {
             try {
-              tiempos.push((await pedir(sesion, mezcla[(k + indice) % mezcla.length])).ms);
+              tiempos.push((await pedir(sesion, mezclaUsada[(k + indice) % mezclaUsada.length])).ms);
             } catch {
               errores += 1;
             }
@@ -162,7 +202,11 @@ for (const [nombre, ruta, soloGerente] of reportes) {
   const diez = await simular(10, true);
   const diezSinPausas = await simular(10, false);
   const treintaSinPausas = await simular(30, false);
-  resultados.concurrencia = { medianaIndividualMs: redondear(lineaBase), diez, diezSinPausas, treintaSinPausas, limiteMs: 2000, cumple: diez.errores === 0 && diez.p95Ms < 2000 };
+  // La misma prueba con las pantallas de la Etapa 2 mezcladas (pagos por verificar, notificaciones, comisiones, informe).
+  const mezclaEtapa2 = ['/proyectos', '/abonos/por-verificar', '/notificaciones', '/comisiones', '/cartera', `/dashboard?proyectoId=${proyectoVenta.id}`, `/reportes/informe-proyecto?proyectoId=${proyectoVenta.id}`, '/ventas'];
+  const diezEtapa2 = await simular(10, true, mezclaEtapa2);
+  const diezEtapa2SinPausas = await simular(10, false, mezclaEtapa2);
+  resultados.concurrencia = { medianaIndividualMs: redondear(lineaBase), diez, diezSinPausas, treintaSinPausas, diezEtapa2, diezEtapa2SinPausas, limiteMs: 2000, cumple: diez.errores === 0 && diez.p95Ms < 2000 && diezEtapa2.errores === 0 && diezEtapa2.p95Ms < 2000 };
 }
 
 const carpeta = join(process.cwd(), '.demo', 'volumen');
@@ -177,5 +221,6 @@ console.log('\nRNF-REN-03  Reportes PDF y Excel (límite 10 s)');
 for (const f of resultados.reportes) console.log(`  ${marca(f.cumple)} ${f.nombre.padEnd(30)} ${f.error ? f.error : `mediana ${f.mediana} ms · máx ${f.max} ms · ${(f.bytes / 1024).toFixed(0)} KB`}`);
 const c = resultados.concurrencia;
 console.log(`\nRNF-REN-04  Usuarios simultáneos (referencia individual: mediana ${c.medianaIndividualMs} ms)`);
-for (const f of [c.diez, c.diezSinPausas, c.treintaSinPausas]) console.log(`  ${f.errores === 0 ? '✔' : '✘'} ${String(f.usuarios).padStart(2)} usuarios ${f.conPausas ? 'con pausas  ' : 'sin pausas (esfuerzo)'}: ${f.peticiones} peticiones, ${f.errores} errores, mediana ${f.medianaMs} ms · p95 ${f.p95Ms} ms · máx ${f.maxMs} ms`);
-console.log(`\nDetalle guardado en backend/.demo/volumen/medicion.json`);
+for (const [mezcla, f] of [['pantallas de siempre', c.diez], ['pantallas de siempre', c.diezSinPausas], ['pantallas de siempre', c.treintaSinPausas], ['con las de la Etapa 2', c.diezEtapa2], ['con las de la Etapa 2', c.diezEtapa2SinPausas]]) console.log(`  ${f.errores === 0 ? '✔' : '✘'} ${String(f.usuarios).padStart(2)} usuarios ${f.conPausas ? 'con pausas  ' : 'sin pausas (esfuerzo)'} · ${mezcla}: ${f.peticiones} peticiones, ${f.errores} errores, mediana ${f.medianaMs} ms · p95 ${f.p95Ms} ms · máx ${f.maxMs} ms`);
+console.log(`\nVolumen de la Etapa 2: ${resultados.volumenEtapa2.comisiones} comisiones, ${resultados.volumenEtapa2.porVerificar} pagos por verificar y ${resultados.volumenEtapa2.avisos} avisos en el historial`);
+console.log(`Detalle guardado en backend/.demo/volumen/medicion.json`);
