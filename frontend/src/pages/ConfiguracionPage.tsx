@@ -553,11 +553,11 @@ function SeccionMediosPago({ medios, onCambio }: { medios: MedioPagoConfig[]; on
   const [error, setError] = useState<string | null>(null)
   const [cambiando, setCambiando] = useState<string | null>(null)
 
-  async function alternar(medio: MedioPagoConfig) {
+  async function cambiar(medio: MedioPagoConfig, cambios: { activo?: boolean; requiereVerificacion?: boolean }) {
     setError(null)
     setCambiando(medio.medio)
     try {
-      onCambio(await actualizarMedioPago(medio.medio, !medio.activo))
+      onCambio(await actualizarMedioPago(medio.medio, cambios))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cambiar el medio de pago')
     } finally {
@@ -566,22 +566,37 @@ function SeccionMediosPago({ medios, onCambio }: { medios: MedioPagoConfig[]; on
   }
 
   return (
-    <Seccion titulo="Medios de pago" descripcion="Los medios activos son los que aparecen al registrar un abono. Los abonos ya registrados no cambian.">
+    <Seccion titulo="Medios de pago" descripcion="Los medios activos son los que aparecen al registrar un abono. Si pides verificar un medio, sus pagos nuevos quedan “por verificar” hasta confirmarlos contra el extracto del banco. Los abonos ya registrados no cambian.">
       <Aviso error={error} ok={null} />
       <ul className="divide-y divide-slate-100">
         {medios.map((medio) => (
-          <li key={medio.medio} className="flex items-center justify-between gap-3 py-2.5">
-            <label htmlFor={`medio-${medio.medio}`} className="text-sm text-slate-800">
-              {medio.etiqueta}
-            </label>
-            <input
-              id={`medio-${medio.medio}`}
-              type="checkbox"
-              checked={medio.activo}
-              disabled={cambiando === medio.medio}
-              onChange={() => void alternar(medio)}
-              className="h-5 w-5 accent-blue-600"
-            />
+          <li key={medio.medio} className="py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor={`medio-${medio.medio}`} className="text-sm text-slate-800">
+                {medio.etiqueta}
+              </label>
+              <input
+                id={`medio-${medio.medio}`}
+                type="checkbox"
+                checked={medio.activo}
+                disabled={cambiando === medio.medio}
+                onChange={() => void cambiar(medio, { activo: !medio.activo })}
+                className="h-5 w-5 accent-blue-600"
+              />
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-3 pl-3">
+              <label htmlFor={`verificacion-${medio.medio}`} className="text-xs text-slate-500">
+                Verificar sus pagos contra el extracto
+              </label>
+              <input
+                id={`verificacion-${medio.medio}`}
+                type="checkbox"
+                checked={medio.requiereVerificacion}
+                disabled={cambiando === medio.medio}
+                onChange={() => void cambiar(medio, { requiereVerificacion: !medio.requiereVerificacion })}
+                className="h-4 w-4 accent-blue-600"
+              />
+            </div>
           </li>
         ))}
       </ul>

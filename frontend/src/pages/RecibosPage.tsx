@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { EtiquetaVerificacion } from '../components/EtiquetaVerificacion'
 import { abrirRecibo, buscarRecibos, type EstadoAbono, type ReciboResumen } from '../lib/api'
 import { formatearCOP, formatearFecha } from '../lib/formato'
 
@@ -132,6 +133,11 @@ export function RecibosPage() {
                         {recibo.recibo.numeroTexto}
                         {anulado && <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 font-sans text-xs font-medium text-red-700">ANULADO</span>}
                         {recibo.recibo.esHistorico && <span className="ml-2 font-sans text-xs text-slate-500">(histórico)</span>}
+                        {!anulado && (
+                          <span className="ml-2 font-sans">
+                            <EtiquetaVerificacion estado={recibo.verificacion} />
+                          </span>
+                        )}
                       </p>
                       <p className="text-slate-700">
                         {recibo.cliente.nombre} · {recibo.proyecto} · Lote {recibo.lote}

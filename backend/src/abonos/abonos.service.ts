@@ -198,6 +198,7 @@ export class AbonosService {
       cuenta: abono.cuentaDestino,
       referencia: abono.referencia,
       estado: abono.estado,
+      verificacion: abono.verificacion,
       cliente: abono.venta.cliente,
       lote: abono.venta.lote.numero,
       proyecto: abono.venta.lote.proyecto.nombre,

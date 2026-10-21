@@ -664,6 +664,9 @@ export function obtenerVenta(id: string) {
 
 export type EstadoAbono = 'ACTIVO' | 'ANULADO'
 
+// Verificación de un abono contra el extracto del banco (RF-REC-10).
+export type EstadoVerificacion = 'NO_REQUIERE' | 'POR_VERIFICAR' | 'VERIFICADO'
+
 export interface Abono {
   id: string
   ventaId: string
@@ -675,6 +678,9 @@ export interface Abono {
   estado: EstadoAbono
   anuladoEn: string | null
   motivoAnulacion: string | null
+  verificacion: EstadoVerificacion
+  verificadoEn: string | null
+  notaVerificacion: string | null
   recibo: { id: string; numeroTexto: string; esHistorico: boolean } | null
   cuentaDestino: { id: string; banco: string; alias: string } | null
   registradoPor: { nombre: string } | null
@@ -712,6 +718,50 @@ export function abrirRecibo(abonoId: string) {
   return abrirArchivo(`/abonos/${abonoId}/recibo`)
 }
 
+// ---------- Pagos por verificar (RF-REC-10) ----------
+
+export interface AbonoPorVerificar {
+  id: string
+  ventaId: string
+  cliente: { id: string; nombre: string }
+  lote: string
+  proyecto: { id: string; nombre: string }
+  valor: string
+  fecha: string
+  medioPago: MedioPago
+  cuenta: { id: string; banco: string; alias: string } | null
+  referencia: string | null
+  recibo: string | null
+  conSoporte: boolean
+  registradoPor: string | null
+  registradoEn: string
+  // Días desde que se registró el pago, y si ya pasó el umbral de alerta.
+  diasEspera: number
+  enAlerta: boolean
+}
+
+export interface ListaPorVerificar {
+  total: number
+  valorTotal: string
+  masAntiguaDias: number
+  diasAlerta: number
+  abonos: AbonoPorVerificar[]
+}
+
+export function listarPorVerificar(filtro: { cuentaId?: string; proyectoId?: string; desde?: string; hasta?: string } = {}) {
+  const params = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(filtro)) {
+    if (valor) params.set(clave, valor)
+  }
+  const texto = params.toString()
+  return solicitar<ListaPorVerificar>(`/abonos/por-verificar${texto ? `?${texto}` : ''}`)
+}
+
+// Confirma varios abonos contra el extracto: o se verifican todos o no se verifica ninguno.
+export function verificarAbonos(ids: string[], nota?: string) {
+  return solicitar<{ verificados: number; recibos: (string | null)[] }>('/abonos/verificar', { method: 'POST', body: JSON.stringify({ ids, nota }) })
+}
+
 export interface ReciboResumen {
   abonoId: string
   ventaId: string
@@ -722,6 +772,7 @@ export interface ReciboResumen {
   cuenta: { banco: string; alias: string } | null
   referencia: string | null
   estado: EstadoAbono
+  verificacion: EstadoVerificacion
   cliente: { nombre: string; documento: string }
   lote: string
   proyecto: string
@@ -1196,6 +1247,8 @@ export interface ResumenCierre {
   porMedio: { medioPago: MedioPago; entradas: string; salidas: string; neto: string }[]
   porCuenta: { cuentaId: string | null; nombre: string; entradas: string; salidas: string; neto: string }[]
   efectivo: { inicial: string; entradas: string; salidas: string; esperado: string }
+  // Abonos del período que faltan por confirmar contra el extracto; es un aviso, no bloquea el cierre (los cierres viejos no lo traen).
+  porVerificar?: { cantidad: number; valor: string; porCuenta: { nombre: string; cantidad: number; valor: string }[] }
 }
 
 export interface CierreCaja {
@@ -1422,6 +1475,8 @@ export interface ResumenDashboard {
   lotesPorEstado: Record<EstadoLote, number>
   // Cierres de caja cerrados que esperan la aprobación del gerente; solo para quien ve la caja.
   cierresPorAprobar?: number
+  // Pagos por consignación o transferencia que esperan confirmarse contra el extracto; solo para quien puede verificarlos.
+  consignacionesPorVerificar?: { cantidad: number; valor: string; masAntiguaDias: number; enAlerta: boolean }
 }
 
 export interface FiltroPanel {
@@ -1717,6 +1772,8 @@ export interface MedioPagoConfig {
   medio: MedioPago
   etiqueta: string
   activo: boolean
+  // Sus abonos quedan por verificar contra el extracto del banco.
+  requiereVerificacion: boolean
 }
 
 // Las categorías de ingreso tienen la misma forma que las de gasto.
@@ -1821,10 +1878,10 @@ export function actualizarCuenta(id: string, payload: Partial<CuentaPayload> & {
   return solicitar<CuentaBancaria>(`/configuracion/cuentas/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
-export function actualizarMedioPago(medio: MedioPago, activo: boolean) {
+export function actualizarMedioPago(medio: MedioPago, cambios: { activo?: boolean; requiereVerificacion?: boolean }) {
   return solicitar<MedioPagoConfig[]>(`/configuracion/medios-pago/${medio}`, {
     method: 'PATCH',
-    body: JSON.stringify({ activo }),
+    body: JSON.stringify(cambios),
   })
 }
 

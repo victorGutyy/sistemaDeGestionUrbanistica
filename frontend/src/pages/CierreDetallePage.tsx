@@ -189,6 +189,29 @@ export function CierreDetallePage() {
         </p>
       )}
 
+      {resumen.porVerificar && resumen.porVerificar.cantidad > 0 && (
+        <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">
+            Hay {resumen.porVerificar.cantidad} pago{resumen.porVerificar.cantidad === 1 ? '' : 's'} del período por verificar contra el extracto, por {formatearCOP(resumen.porVerificar.valor)}.
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {resumen.porVerificar.porCuenta.map((cuenta) => (
+              <li key={cuenta.nombre}>
+                {cuenta.nombre}: {cuenta.cantidad} · {formatearCOP(cuenta.valor)}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-amber-800">
+            Es solo un aviso: no impide cerrar ni aprobar la caja.{' '}
+            {tiene(PERMISOS.ABONOS_VERIFICAR) && (
+              <Link to="/por-verificar" className="font-medium underline">
+                Ir a verificar
+              </Link>
+            )}
+          </p>
+        </div>
+      )}
+
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-900">Efectivo de la caja</h2>
         <div className="mt-2 divide-y divide-slate-100">

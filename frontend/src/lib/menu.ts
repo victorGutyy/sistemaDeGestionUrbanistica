@@ -1,4 +1,4 @@
-import { Banknote, BellRing, Building2, FileBarChart, HandCoins, Calculator, FileSpreadsheet, FileText, History, Receipt, UserRound, LayoutDashboard, Settings, Shield, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Banknote, BadgeCheck, BellRing, Building2, FileBarChart, HandCoins, Calculator, FileSpreadsheet, FileText, History, Receipt, UserRound, LayoutDashboard, Settings, Shield, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { PERMISOS } from './permisos'
 
 export interface ItemMenu {
@@ -18,6 +18,7 @@ export const ITEMS_MENU: ItemMenu[] = [
   { to: '/ventas', label: 'Ventas', icon: FileText, permiso: PERMISOS.VENTAS_VER },
   { to: '/clientes', label: 'Clientes', icon: UserRound, permiso: PERMISOS.CLIENTES_VER },
   { to: '/recibos', label: 'Recibos', icon: Receipt, permiso: PERMISOS.ABONOS_VER },
+  { to: '/por-verificar', label: 'Por verificar', icon: BadgeCheck, permiso: PERMISOS.ABONOS_VERIFICAR },
   { to: '/caja', label: 'Caja', icon: Banknote, permiso: PERMISOS.CAJA_VER, soloAlcanceTotal: true },
   { to: '/cartera', label: 'Cartera', icon: Wallet, permiso: PERMISOS.CARTERA_VER },
   { to: '/finanzas', label: 'Finanzas', icon: Calculator, permiso: PERMISOS.FINANZAS_VER },

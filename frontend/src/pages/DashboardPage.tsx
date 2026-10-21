@@ -5,6 +5,7 @@ import { PERMISOS } from '../lib/permisos'
 import { ejecutarRecordatorios, exportarDashboard, listarProyectos, obtenerDashboard, type ConteoAvisos, type Proyecto, type ResumenDashboard } from '../lib/api'
 import { ETIQUETA_ESTADO_LOTE } from '../lib/estadoLote'
 import { formatearCOP } from '../lib/formato'
+import { textoDeEspera } from '../lib/verificacion'
 
 export function DashboardPage() {
   const { tiene } = useAuth()
@@ -198,7 +199,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {(resumen.comisionesPendientes || resumen.cierresPorAprobar !== undefined) && <h2 className="mt-6 text-sm font-semibold text-slate-900">Pendientes</h2>}
+          {(resumen.comisionesPendientes || resumen.cierresPorAprobar !== undefined || resumen.consignacionesPorVerificar !== undefined) && <h2 className="mt-6 text-sm font-semibold text-slate-900">Pendientes</h2>}
           <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {resumen.cierresPorAprobar !== undefined && (
             <Link
@@ -207,6 +208,29 @@ export function DashboardPage() {
             >
               <p className={`text-xs ${resumen.cierresPorAprobar > 0 ? 'text-amber-800' : 'text-slate-500'}`}>Cierres de caja por aprobar</p>
               <p className={`mt-1 text-lg font-semibold ${resumen.cierresPorAprobar > 0 ? 'text-amber-900' : 'text-slate-900'}`}>{resumen.cierresPorAprobar}</p>
+            </Link>
+          )}
+          {resumen.consignacionesPorVerificar !== undefined && (
+            <Link
+              to="/por-verificar"
+              className={`block rounded-lg border p-4 ${
+                resumen.consignacionesPorVerificar.enAlerta
+                  ? 'border-red-200 bg-red-50 hover:bg-red-100'
+                  : resumen.consignacionesPorVerificar.cantidad > 0
+                    ? 'border-amber-200 bg-amber-50 hover:bg-amber-100'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
+              }`}
+            >
+              <p className={`text-xs ${resumen.consignacionesPorVerificar.enAlerta ? 'text-red-700' : resumen.consignacionesPorVerificar.cantidad > 0 ? 'text-amber-800' : 'text-slate-500'}`}>
+                Pagos por verificar contra el extracto
+              </p>
+              <p className={`mt-1 text-lg font-semibold ${resumen.consignacionesPorVerificar.enAlerta ? 'text-red-900' : resumen.consignacionesPorVerificar.cantidad > 0 ? 'text-amber-900' : 'text-slate-900'}`}>
+                {resumen.consignacionesPorVerificar.cantidad}
+                {resumen.consignacionesPorVerificar.cantidad > 0 && <span className="text-sm font-normal"> por {formatearCOP(resumen.consignacionesPorVerificar.valor)}</span>}
+              </p>
+              {resumen.consignacionesPorVerificar.cantidad > 0 && (
+                <p className="text-xs text-slate-600">El más antiguo lleva {textoDeEspera(resumen.consignacionesPorVerificar.masAntiguaDias)} sin verificar</p>
+              )}
             </Link>
           )}
           {resumen.comisionesPendientes && (

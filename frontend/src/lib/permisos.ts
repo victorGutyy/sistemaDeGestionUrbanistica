@@ -15,6 +15,7 @@ export const PERMISOS = {
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
   ABONOS_ANULAR: 'abonos.anular',
+  ABONOS_VERIFICAR: 'abonos.verificar',
   CARTERA_VER: 'cartera.ver',
   CAJA_VER: 'caja.ver',
   CAJA_CERRAR: 'caja.cerrar',

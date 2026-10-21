@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { BotonCorreoRecibo, BotonWhatsApp } from '../components/BotonesAviso'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
+import { EtiquetaVerificacion } from '../components/EtiquetaVerificacion'
 import { HistorialAvisos } from '../components/HistorialAvisos'
 import { TarjetaComision } from '../components/TarjetaComision'
 import { useAuth } from '../contexts/AuthContext'
@@ -559,6 +560,12 @@ Motivo (queda registrado):`,
                     {abono.referencia ? ` · Ref. ${abono.referencia}` : ''}
                   </p>
                   {abono.registradoPor && <p className="text-xs text-slate-400">Registró {abono.registradoPor.nombre}</p>}
+                  {abono.verificacion === 'VERIFICADO' && abono.verificadoEn && (
+                    <p className="text-xs text-slate-400">
+                      Verificado el {formatearFecha(abono.verificadoEn)}
+                      {abono.notaVerificacion ? ` · ${abono.notaVerificacion}` : ''}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   {abono.recibo && (
@@ -568,6 +575,11 @@ Motivo (queda registrado):`,
                     </p>
                   )}
                   {anulado && <span className="mt-0.5 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">ANULADO</span>}
+                  {!anulado && (
+                    <div className="mt-0.5">
+                      <EtiquetaVerificacion estado={abono.verificacion} />
+                    </div>
+                  )}
                 </div>
               </div>
               {anulado && (
