@@ -1,6 +1,7 @@
 import { ETIQUETA_MEDIO_PAGO } from '../../common/medio-pago.js';
 import { Prisma } from '../../generated/prisma/client.js';
-import type { MedioPago } from '../../generated/prisma/enums.js';
+import { ETIQUETA_VERIFICACION } from '../../abonos/verificacion.js';
+import type { EstadoVerificacion, MedioPago } from '../../generated/prisma/enums.js';
 import { pesos, recortarDetalle, type FilaReporte, type SeccionReporte } from '../modelo.js';
 
 // Un abono vigente de un cliente (RF-REP-04). Los anulados no entran: su dinero se revirtió.
@@ -16,6 +17,8 @@ export interface AbonoParaRecaudo {
   referencia: string | null;
   valor: Prisma.Decimal;
   registradoPor: string | null;
+  // Opcional: sin dato se trata como "no requiere".
+  verificacion?: EstadoVerificacion;
 }
 
 interface Grupo {
@@ -67,6 +70,7 @@ export function construirRecaudo(abonos: AbonoParaRecaudo[]): SeccionReporte[] {
       cuenta: abono.cuenta ?? '—',
       referencia: abono.referencia ?? '—',
       usuario: abono.registradoPor ?? '—',
+      verificacion: ETIQUETA_VERIFICACION[abono.verificacion ?? 'NO_REQUIERE'],
       valor: pesos(abono.valor),
     }));
   const detalle = recortarDetalle(detalleCompleto);
@@ -75,6 +79,7 @@ export function construirRecaudo(abonos: AbonoParaRecaudo[]): SeccionReporte[] {
     seccionDeResumen('Por medio de pago', 'Medio de pago', agrupar(abonos, (a) => ETIQUETA_MEDIO_PAGO[a.medioPago]), total, cantidad),
     seccionDeResumen('Por cuenta', 'Cuenta', agrupar(abonos, (a) => a.cuenta ?? 'Efectivo (sin cuenta)'), total, cantidad),
     seccionDeResumen('Por usuario que lo registró', 'Usuario', agrupar(abonos, (a) => a.registradoPor ?? 'Sin registrar'), total, cantidad),
+    seccionDeResumen('Por verificación bancaria', 'Verificación', agrupar(abonos, (a) => ETIQUETA_VERIFICACION[a.verificacion ?? 'NO_REQUIERE']), total, cantidad),
     {
       titulo: 'Detalle de abonos',
       columnas: [
@@ -86,7 +91,8 @@ export function construirRecaudo(abonos: AbonoParaRecaudo[]): SeccionReporte[] {
         { clave: 'medio', encabezado: 'Medio', tipo: 'texto', peso: 1.3 },
         { clave: 'cuenta', encabezado: 'Cuenta', tipo: 'texto', peso: 1.6 },
         { clave: 'referencia', encabezado: 'Referencia', tipo: 'texto', peso: 1.3 },
-        { clave: 'usuario', encabezado: 'Registrado por', tipo: 'texto', peso: 2 },
+        { clave: 'usuario', encabezado: 'Registrado por', tipo: 'texto', peso: 1.8 },
+        { clave: 'verificacion', encabezado: 'Verificación', tipo: 'texto', peso: 1.3 },
         { clave: 'valor', encabezado: 'Valor', tipo: 'pesos', peso: 1.4 },
       ],
       filas: detalle.filas,

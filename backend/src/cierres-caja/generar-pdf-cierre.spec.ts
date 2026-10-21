@@ -125,3 +125,23 @@ describe('generarPdfCierre (RF-CAJ-06)', () => {
     expect(esPdf(pdf)).toBe(true);
   });
 });
+
+describe('PDF del cierre con abonos por verificar (RF-REC-10)', () => {
+  it('se genera igual, con el aviso de lo que falta confirmar (máximo dos hojas)', async () => {
+    const pdf = await generarPdfCierre(
+      datosPdf({
+        abonos: [
+          abono('a1', 13, '400000'),
+          abono('a2', 14, '1000000', { medioPago: 'TRANSFERENCIA', cuenta: CUENTA, verificacion: 'POR_VERIFICAR' }),
+          abono('a3', 15, '250000', { medioPago: 'CONSIGNACION', cuenta: CUENTA, verificacion: 'POR_VERIFICAR' }),
+        ],
+        movimientos: [],
+        nominas: [],
+      }),
+      { empresa: EMPRESA },
+    );
+
+    expect(esPdf(pdf)).toBe(true);
+    expect(paginas(pdf)).toBeLessThanOrEqual(2);
+  });
+});

@@ -191,6 +191,7 @@ export class ReportesService {
         referencia: abono.referencia,
         valor: abono.valor,
         registradoPor: abono.registradoPor?.nombre ?? null,
+        verificacion: abono.verificacion,
       })),
     );
   }

@@ -48,6 +48,7 @@ export async function cargarDemo(ctx: Contexto, { gerente, admin, emailSocio, pa
       // Apagado en la demo: al cargar los datos se registran decenas de abonos y cada uno dispararía un aviso (omitido,
       // porque la demo no tiene correo). Se enciende desde Configuración al demostrar el envío del recibo.
       enviarReciboPorCorreo: false,
+      diasAlertaVerificacion: empresa.diasAlertaVerificacion,
       intentosMaximosLogin: empresa.intentosMaximosLogin,
       minutosBloqueoLogin: empresa.minutosBloqueoLogin,
       minutosInactividad: empresa.minutosInactividad,
@@ -402,6 +403,21 @@ export async function cargarDemo(ctx: Contexto, { gerente, admin, emailSocio, pa
     await ctx.nomina.crearPago({ trabajadorId: trabajador.id, periodoInicio: hace(7), periodoFin: hace(1), fechaPago: hoy(), medioPago: 'EFECTIVO', novedades: i === 2 ? [{ tipo: 'DESCUENTO', valor: '40000', descripcion: 'Descuento por anticipo' }] : undefined }, admin);
   }
   log(`${trabajadores.length} trabajadores y 8 pagos de nómina`);
+
+  // ---- Verificación contra el extracto (RF-REC-10) ----
+  // Los pagos que no son en efectivo nacen "por verificar". El administrador ya confirmó casi todos contra el extracto; se
+  // dejan 6 pendientes, tres de ellos con varios días de espera para que se vea la alerta del panel.
+  const porVerificar = await ctx.prisma.abono.findMany({ where: { verificacion: 'POR_VERIFICAR', estado: 'ACTIVO' }, orderBy: { createdAt: 'asc' }, select: { id: true } });
+  const pendientes = porVerificar.slice(-6).map((abono) => abono.id);
+  const yaConfirmados = porVerificar.slice(0, -6).map((abono) => abono.id);
+  for (let i = 0; i < yaConfirmados.length; i += 150) {
+    await ctx.verificacion.verificar(yaConfirmados.slice(i, i + 150), 'Confirmado contra el extracto (demostración)', admin);
+  }
+  for (const [indice, dias] of [6, 4, 1].entries()) {
+    const id = pendientes[indice];
+    if (id) await ctx.prisma.$executeRaw`UPDATE "Abono" SET "createdAt" = now() - make_interval(days => ${dias}) WHERE "id" = ${id}`;
+  }
+  log(`Verificación: ${yaConfirmados.length} abonos confirmados y ${pendientes.length} por verificar (tres con 1, 4 y 6 días de espera)`);
 
   // ---- Cierres de caja (al final: un día cerrado no admite registros nuevos) ----
   const primero = await ctx.cierres.crear({ tipo: 'DIARIO', desde: hace(3), efectivoInicial: '500000' }, admin);

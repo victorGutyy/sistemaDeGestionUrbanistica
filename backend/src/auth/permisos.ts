@@ -18,6 +18,7 @@ export const PERMISOS = {
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
   ABONOS_ANULAR: 'abonos.anular', // anular un abono y su recibo (solo gerente)
+  ABONOS_VERIFICAR: 'abonos.verificar', // confirmar los pagos por consignación o transferencia contra el extracto
   CARTERA_VER: 'cartera.ver',
   CAJA_VER: 'caja.ver', // ver los cierres de caja
   CAJA_CERRAR: 'caja.cerrar', // generar y cerrar cierres de caja

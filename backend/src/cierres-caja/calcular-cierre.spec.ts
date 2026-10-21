@@ -52,6 +52,53 @@ const nomina = (id: string, dia: number, valor: string, extra: Partial<PagoNomin
 const VACIO: DatosCierre = { abonos: [], movimientos: [], nominas: [] };
 const SEMANA = { desde: '2026-10-12', hasta: '2026-10-18', efectivoInicial: D('100000') };
 
+describe('abonos por verificar en el cierre (RF-REC-10)', () => {
+  const periodo = { desde: '2026-10-01', hasta: '2026-10-07', efectivoInicial: D('0') };
+  const datos = (abonos: AbonoCaja[]): DatosCierre => ({ abonos, movimientos: [], nominas: [] });
+
+  it('cuenta, por cuenta bancaria, los abonos vigentes del período que esperan confirmación', () => {
+    const resultado = calcularCierre(
+      periodo,
+      datos([
+        abono('a1', 2, '1000000', { medioPago: 'TRANSFERENCIA', cuenta: BANCO, verificacion: 'POR_VERIFICAR' }),
+        abono('a2', 3, '500000', { medioPago: 'TRANSFERENCIA', cuenta: BANCO, verificacion: 'POR_VERIFICAR' }),
+        abono('a3', 4, '250000', { medioPago: 'CONSIGNACION', cuenta: OTRO_BANCO, verificacion: 'POR_VERIFICAR' }),
+      ]),
+    );
+
+    expect(resultado.porVerificar).toEqual({
+      cantidad: 3,
+      valor: '1750000',
+      porCuenta: [
+        { nombre: 'Ahorros — Banco de prueba', cantidad: 2, valor: '1500000' },
+        { nombre: 'Corriente — Otro banco', cantidad: 1, valor: '250000' },
+      ],
+    });
+  });
+
+  it('no cuenta los verificados, los que no requieren verificación, los anulados ni los de otro período', () => {
+    const resultado = calcularCierre(
+      periodo,
+      datos([
+        abono('a1', 2, '1000000', { medioPago: 'TRANSFERENCIA', cuenta: BANCO, verificacion: 'VERIFICADO' }),
+        abono('a2', 3, '500000'),
+        abono('a3', 4, '250000', { medioPago: 'TRANSFERENCIA', cuenta: BANCO, verificacion: 'POR_VERIFICAR', estado: 'ANULADO', anuladoEn: instante(5) }),
+        abono('a4', 20, '700000', { medioPago: 'TRANSFERENCIA', cuenta: BANCO, verificacion: 'POR_VERIFICAR' }),
+      ]),
+    );
+
+    expect(resultado.porVerificar).toEqual({ cantidad: 0, valor: '0', porCuenta: [] });
+  });
+
+  it('es solo un aviso: los totales y el efectivo esperado no cambian por estar pendientes', () => {
+    const con = calcularCierre(periodo, datos([abono('a1', 2, '1000000', { medioPago: 'TRANSFERENCIA', cuenta: BANCO, verificacion: 'POR_VERIFICAR' })]));
+    const sin = calcularCierre(periodo, datos([abono('a1', 2, '1000000', { medioPago: 'TRANSFERENCIA', cuenta: BANCO, verificacion: 'VERIFICADO' })]));
+
+    expect(con.totales).toEqual(sin.totales);
+    expect(con.efectivo).toEqual(sin.efectivo);
+  });
+});
+
 describe('calcularCierre (RF-CAJ-02 y 03)', () => {
   it('un período sin movimientos deja el efectivo esperado en el efectivo inicial', () => {
     const r = calcularCierre(SEMANA, VACIO);

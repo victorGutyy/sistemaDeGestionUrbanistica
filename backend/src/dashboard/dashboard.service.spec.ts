@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CarteraService } from '../cartera/cartera.service.js';
 import type { ComisionesService } from '../comisiones/comisiones.service.js';
+import type { VerificacionService } from '../abonos/verificacion.service.js';
 import type { FinanzasService } from '../finanzas/finanzas.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -36,9 +37,10 @@ const CARTERA = {
 describe('DashboardService.resumen (RF-REP-01 y 02)', () => {
   let prisma: { lote: { groupBy: ReturnType<typeof vi.fn> }; cierreCaja: { count: ReturnType<typeof vi.fn> }; proyecto: { findUnique: ReturnType<typeof vi.fn> } };
   let comisiones: { pendientes: ReturnType<typeof vi.fn> };
+  let verificacion: { resumenPorVerificar: ReturnType<typeof vi.fn> };
   let service: DashboardService;
 
-  const GERENTE = { ...usuarioDePrueba(), permisos: ['dashboard.ver', 'comisiones.ver', 'caja.ver'] };
+  const GERENTE = { ...usuarioDePrueba(), permisos: ['dashboard.ver', 'comisiones.ver', 'caja.ver', 'abonos.verificar'] };
 
   beforeEach(() => {
     prisma = {
@@ -47,11 +49,13 @@ describe('DashboardService.resumen (RF-REP-01 y 02)', () => {
       proyecto: { findUnique: vi.fn().mockResolvedValue({ id: P1, nombre: 'Proyecto Uno' }) },
     };
     comisiones = { pendientes: vi.fn().mockResolvedValue({ cantidad: 4, valor: D(3_000_000) }) };
+    verificacion = { resumenPorVerificar: vi.fn().mockResolvedValue({ cantidad: 3, valor: D(2_500_000), masAntiguaDias: 4, enAlerta: true }) };
     service = new DashboardService(
       { consolidado: vi.fn().mockResolvedValue(FINANZAS) } as unknown as FinanzasService,
       { reportePorProyecto: vi.fn().mockResolvedValue(CARTERA) } as unknown as CarteraService,
       comisiones as unknown as ComisionesService,
       prisma as unknown as PrismaService,
+      verificacion as unknown as VerificacionService,
     );
   });
 
@@ -65,6 +69,18 @@ describe('DashboardService.resumen (RF-REP-01 y 02)', () => {
     expect(resumen.porProyecto).toHaveLength(2);
     expect(resumen.comisionesPendientes?.cantidad).toBe(4);
     expect(resumen.cierresPorAprobar).toBe(2);
+    expect(resumen.consignacionesPorVerificar).toMatchObject({ cantidad: 3, masAntiguaDias: 4, enAlerta: true });
+    expect(verificacion.resumenPorVerificar).toHaveBeenCalledWith(GERENTE, undefined);
+  });
+
+  it('las consignaciones por verificar se piden con el proyecto elegido y solo a quien puede verificar abonos', async () => {
+    await service.resumen({ proyectoId: P1 }, GERENTE);
+    expect(verificacion.resumenPorVerificar).toHaveBeenCalledWith(GERENTE, P1);
+
+    verificacion.resumenPorVerificar.mockClear();
+    const sinPermiso = await service.resumen({}, { ...usuarioDePrueba(), permisos: ['dashboard.ver', 'caja.ver'] });
+    expect(sinPermiso.consignacionesPorVerificar).toBeUndefined();
+    expect(verificacion.resumenPorVerificar).not.toHaveBeenCalled();
   });
 
   it('con un proyecto elegido todo el panel es de ese proyecto', async () => {
@@ -102,6 +118,7 @@ describe('DashboardService.resumen (RF-REP-01 y 02)', () => {
       { reportePorProyecto: vi.fn().mockResolvedValue({ ...CARTERA, porProyecto: [] }) } as unknown as CarteraService,
       comisiones as unknown as ComisionesService,
       prisma as unknown as PrismaService,
+      verificacion as unknown as VerificacionService,
     );
     const vacio = await service.resumen({ proyectoId: P1 }, GERENTE);
     expect(vacio.finanzas.cajaNeta.toString()).toBe('0');

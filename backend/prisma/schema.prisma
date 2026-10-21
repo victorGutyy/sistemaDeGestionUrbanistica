@@ -223,6 +223,7 @@ model Usuario {
   comisionesPagadas         Comision[]             @relation("ComisionesPagadas")
   comisionesAnuladas        Comision[]             @relation("ComisionesAnuladas")
   notificaciones            Notificacion[]
+  abonosVerificados         Abono[]                @relation("AbonosVerificados")
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -542,6 +543,13 @@ model Abono {
   anuladoPor      Usuario?          @relation("AbonosAnulados", fields: [anuladoPorId], references: [id])
   anuladoEn       DateTime?
   motivoAnulacion String?
+  // Verificación contra el extracto del banco (RF-REC-10): los pagos que no son en efectivo nacen POR_VERIFICAR.
+  // Un abono por verificar cuenta igual en el saldo y tiene su recibo; la marca solo dice que falta confirmarlo.
+  verificacion       EstadoVerificacion @default(NO_REQUIERE)
+  verificadoPorId    String?
+  verificadoPor      Usuario?           @relation("AbonosVerificados", fields: [verificadoPorId], references: [id], onDelete: Restrict)
+  verificadoEn       DateTime?
+  notaVerificacion   String?
   aplicaciones    AplicacionAbono[]
   recibo          Recibo?
   notificaciones  Notificacion[]
@@ -823,6 +831,8 @@ model ConfiguracionEmpresa {
   diasEntreAvisosMora     Int      @default(7)
   // Si el recibo de cada abono nuevo sale solo al correo del cliente (RF-NOT-01).
   enviarReciboPorCorreo   Boolean  @default(true)
+  // Desde cuántos días de antigüedad un abono por verificar se resalta en rojo en el panel (RF-NOT-07).
+  diasAlertaVerificacion  Int      @default(3)
   // Seguridad de sesión: bloqueo tras intentos fallidos y cierre por inactividad.
   intentosMaximosLogin    Int      @default(5)
   minutosBloqueoLogin     Int      @default(15)
@@ -927,6 +937,9 @@ model CategoriaIngreso {
 model MedioPagoConfig {
   medio     MedioPago @id
   activo    Boolean   @default(true)
+  // Los abonos con este medio quedan "por verificar" hasta que el administrador los confirma contra el extracto
+  // (RF-REC-10). El efectivo no se verifica en el banco: se cuadra en el cierre de caja.
+  requiereVerificacion Boolean @default(true)
   updatedAt DateTime  @updatedAt
 }
 
@@ -967,6 +980,13 @@ model Comision {
 
   @@index([vendedorId])
   @@index([estado])
+}
+
+// Verificación de un abono contra el extracto bancario (RF-REC-10).
+enum EstadoVerificacion {
+  NO_REQUIERE
+  POR_VERIFICAR
+  VERIFICADO
 }
 
 // Qué se le avisa al cliente (RF-NOT-01 a 03).

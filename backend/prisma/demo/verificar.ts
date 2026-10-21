@@ -58,6 +58,15 @@ export async function verificar(ctx: Contexto, emailGerente: string, esperados: 
     WHERE c.estado = 'PAGADA' AND (m.id IS NULL OR m.estado <> 'ACTIVO' OR m.valor <> c.valor)`);
   revisar(pagadasSinEgreso === 0, 'Toda comisión pagada tiene su egreso vigente por el mismo valor', pagadasSinEgreso);
 
+  // 5b. Verificación de abonos (RF-REC-10).
+  const efectivoPorVerificar = await contar(prisma.$queryRaw`SELECT COUNT(*) AS n FROM "Abono" WHERE "medioPago" = 'EFECTIVO' AND "verificacion" <> 'NO_REQUIERE'`);
+  revisar(efectivoPorVerificar === 0, 'El efectivo no pide verificación', efectivoPorVerificar);
+  const sinVerificarElBanco = await contar(prisma.$queryRaw`SELECT COUNT(*) AS n FROM "Abono" WHERE "medioPago" <> 'EFECTIVO' AND "verificacion" = 'NO_REQUIERE' AND "estado" = 'ACTIVO' AND NOT EXISTS (SELECT 1 FROM "Recibo" r WHERE r."abonoId" = "Abono"."id" AND r."esHistorico")`);
+  revisar(sinVerificarElBanco === 0, 'Todo pago no efectivo (no histórico) pasa por la verificación', sinVerificarElBanco);
+  const pendientesDemo = await prisma.abono.count({ where: { verificacion: 'POR_VERIFICAR', estado: 'ACTIVO' } });
+  const verificadosDemo = await prisma.abono.count({ where: { verificacion: 'VERIFICADO', verificadoPorId: { not: null } } });
+  revisar(pendientesDemo === 6 && verificadosDemo > 0, `Hay ${pendientesDemo} abonos por verificar y ${verificadosDemo} verificados por un usuario`);
+
   // 6. La auditoría cubre las acciones sobre dinero.
   const auditoria = await prisma.registroAuditoria.count();
   revisar(auditoria > 0, `Auditoría con ${auditoria} registros`);

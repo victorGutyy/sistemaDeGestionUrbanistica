@@ -37,6 +37,7 @@ export async function generarExcelResumen(resumen: ResumenDashboard, empresa: Em
   for (const [estado, cantidad] of Object.entries(resumen.lotesPorEstado)) hoja.addRow([ETIQUETA_ESTADO_LOTE[estado as keyof typeof ETIQUETA_ESTADO_LOTE], cantidad]);
   if (resumen.comisionesPendientes) hoja.addRow(['Comisiones por pagar', `${resumen.comisionesPendientes.cantidad} (${resumen.comisionesPendientes.valor.toString()})`]);
   if (resumen.cierresPorAprobar !== undefined) hoja.addRow(['Cierres de caja por aprobar', resumen.cierresPorAprobar]);
+  if (resumen.consignacionesPorVerificar) hoja.addRow(['Consignaciones por verificar', resumen.consignacionesPorVerificar.cantidad]);
   hoja.addRow([]);
 
   const encabezado = hoja.addRow([

@@ -5,6 +5,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import type { Prisma } from '../../src/generated/prisma/client.js';
 import type { MedioPago } from '../../src/generated/prisma/enums.js';
 import type { AbonosService } from '../../src/abonos/abonos.service.js';
+import type { VerificacionService } from '../../src/abonos/verificacion.service.js';
 import type { UsuarioAutenticado } from '../../src/auth/usuario-autenticado.js';
 import type { CarteraService } from '../../src/cartera/cartera.service.js';
 import type { CierresCajaService } from '../../src/cierres-caja/cierres-caja.service.js';
@@ -32,6 +33,7 @@ export interface Contexto {
   clientes: ClientesService;
   ventas: VentasService;
   abonos: AbonosService;
+  verificacion: VerificacionService;
   finanzas: FinanzasService;
   equipos: EquiposService;
   trabajadores: TrabajadoresService;
@@ -76,6 +78,7 @@ export async function abrirContexto(): Promise<Contexto> {
     clientes: await obtener<ClientesService>('../../src/clientes/clientes.service.js', 'ClientesService'),
     ventas: await obtener<VentasService>('../../src/ventas/ventas.service.js', 'VentasService'),
     abonos: await obtener<AbonosService>('../../src/abonos/abonos.service.js', 'AbonosService'),
+    verificacion: await obtener<VerificacionService>('../../src/abonos/verificacion.service.js', 'VerificacionService'),
     finanzas: await obtener<FinanzasService>('../../src/finanzas/finanzas.service.js', 'FinanzasService'),
     equipos: await obtener<EquiposService>('../../src/equipos/equipos.service.js', 'EquiposService'),
     trabajadores: await obtener<TrabajadoresService>('../../src/trabajadores/trabajadores.service.js', 'TrabajadoresService'),

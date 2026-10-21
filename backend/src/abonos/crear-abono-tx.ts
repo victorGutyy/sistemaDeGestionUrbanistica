@@ -7,12 +7,13 @@ import {
   siguienteConsecutivo,
 } from '../consecutivos/consecutivo.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoAbono, EstadoCuota, MedioPago } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoCuota, EstadoVerificacion, MedioPago } from '../generated/prisma/enums.js';
 import { registrarAuditoria, type ActorAuditoria } from '../auditoria/auditoria.js';
 import { exigirFechaAbiertaEnTx } from '../cierres-caja/fecha-abierta.js';
 import { formatearCOP } from '../common/formato.util.js';
 import { construirContenidoRecibo, type EmpresaRecibo } from './recibo-contenido.js';
 import { repartirAbono, type ParteAplicada } from './repartir-abono.js';
+import { medioRequiereVerificacion } from './verificacion.js';
 
 // Contexto con el que se emite el recibo de un abono: la empresa tal como está HOY en la configuración y
 // quién recibió el dinero. Se resuelve antes de abrir la transacción.
@@ -103,6 +104,11 @@ export async function crearAbonoEnTx(tx: Prisma.TransactionClient, datos: DatosA
     );
   }
 
+  // RF-REC-10: lo que no es efectivo nace "por verificar" (según la configuración del medio de pago). Los abonos
+  // históricos (importados o anteriores al sistema) no se verifican: son historia.
+  const requiereVerificacion =
+    !datos.esHistorico && medioRequiereVerificacion(datos.medioPago, await tx.medioPagoConfig.findUnique({ where: { medio: datos.medioPago } }));
+
   let abono;
   try {
     abono = await tx.abono.create({
@@ -115,6 +121,7 @@ export async function crearAbonoEnTx(tx: Prisma.TransactionClient, datos: DatosA
         referencia,
         comprobanteUrl: datos.comprobanteUrl,
         registradoPorId: datos.registradoPorId,
+        verificacion: requiereVerificacion ? EstadoVerificacion.POR_VERIFICAR : EstadoVerificacion.NO_REQUIERE,
       },
     });
   } catch (error) {
@@ -169,6 +176,7 @@ export async function crearAbonoEnTx(tx: Prisma.TransactionClient, datos: DatosA
       cuentaDestinoId: datos.cuentaDestinoId ?? null,
       referencia,
       conSoporte: Boolean(datos.comprobanteUrl),
+      verificacion: abono.verificacion,
       recibo: recibo.numeroTexto,
       cuotasCubiertas: partes.map(cuotaCubierta),
       saldoAnterior,

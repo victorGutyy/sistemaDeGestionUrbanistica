@@ -49,6 +49,12 @@ export class ActualizarParametrosDto {
   @IsBoolean()
   enviarReciboPorCorreo!: boolean;
 
+  // Desde cuántos días de espera un abono por verificar se resalta en rojo (RF-NOT-07).
+  @IsInt()
+  @Min(0)
+  @Max(90)
+  diasAlertaVerificacion!: number;
+
   @IsInt()
   @Min(1)
   @Max(20)

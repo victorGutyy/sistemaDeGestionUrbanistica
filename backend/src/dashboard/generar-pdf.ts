@@ -59,6 +59,10 @@ export function generarPdfResumen(resumen: ResumenDashboard, empresa: EmpresaPar
     for (const [estado, cantidad] of Object.entries(resumen.lotesPorEstado)) documento.text(`${ETIQUETA_ESTADO_LOTE[estado as keyof typeof ETIQUETA_ESTADO_LOTE]}: ${cantidad}`);
     if (resumen.comisionesPendientes) documento.text(`Comisiones por pagar: ${resumen.comisionesPendientes.cantidad} (${formatearCOP(resumen.comisionesPendientes.valor)})`);
     if (resumen.cierresPorAprobar !== undefined) documento.text(`Cierres de caja por aprobar: ${resumen.cierresPorAprobar}`);
+    if (resumen.consignacionesPorVerificar) {
+      const { cantidad, valor, masAntiguaDias } = resumen.consignacionesPorVerificar;
+      documento.text(`Consignaciones por verificar: ${cantidad}${cantidad > 0 ? ` por ${formatearCOP(valor)} (la más antigua lleva ${masAntiguaDias} día(s))` : ''}`);
+    }
     documento.moveDown();
 
     documento.fontSize(14).text('Por proyecto');

@@ -178,6 +178,17 @@ export function generarPdfCierre(datos: DatosPdfCierre, opciones: OpcionesPdfCie
       fila([{ texto: cuenta.nombre, ancho: cm[0].ancho }, { texto: formatearCOP(cuenta.entradas), ancho: cm[1].ancho, derecha: true }, { texto: formatearCOP(cuenta.salidas), ancho: cm[2].ancho, derecha: true }, { texto: formatearCOP(cuenta.neto), ancho: cm[3].ancho, derecha: true }]);
     }
 
+    // ---- Abonos por verificar (RF-REC-10): solo un aviso, no cambia los totales ----
+    if (resumen.porVerificar && resumen.porVerificar.cantidad > 0) {
+      seccion('Abonos por verificar contra el extracto');
+      const cv = [{ ancho: ancho * 0.6 }, { ancho: ancho * 0.15 }, { ancho: ancho * 0.25 }];
+      fila([{ texto: 'Cuenta', ancho: cv[0].ancho, negrita: true }, { texto: 'Abonos', ancho: cv[1].ancho, derecha: true, negrita: true }, { texto: 'Valor', ancho: cv[2].ancho, derecha: true, negrita: true }]);
+      for (const cuenta of resumen.porVerificar.porCuenta) {
+        fila([{ texto: cuenta.nombre, ancho: cv[0].ancho }, { texto: String(cuenta.cantidad), ancho: cv[1].ancho, derecha: true }, { texto: formatearCOP(cuenta.valor), ancho: cv[2].ancho, derecha: true }]);
+      }
+      fila([{ texto: 'Total por verificar', ancho: cv[0].ancho, negrita: true }, { texto: String(resumen.porVerificar.cantidad), ancho: cv[1].ancho, derecha: true, negrita: true }, { texto: formatearCOP(resumen.porVerificar.valor), ancho: cv[2].ancho, derecha: true, negrita: true }]);
+    }
+
     // ---- Movimientos ----
     seccion(`Movimientos del período (${resumen.eventos.length})`);
     const ce = [{ ancho: ancho * 0.11 }, { ancho: ancho * 0.1 }, { ancho: ancho * 0.45 }, { ancho: ancho * 0.12 }, { ancho: ancho * 0.22 }];

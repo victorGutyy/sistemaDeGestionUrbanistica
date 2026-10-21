@@ -70,6 +70,7 @@ const CAMPOS_PARAMETROS = [
   'diasAntesRecordatorio',
   'diasEntreAvisosMora',
   'enviarReciboPorCorreo',
+  'diasAlertaVerificacion',
   'intentosMaximosLogin',
   'minutosBloqueoLogin',
   'minutosInactividad',
@@ -202,6 +203,7 @@ export class ConfiguracionService {
           diasAntesRecordatorio: dto.diasAntesRecordatorio,
           diasEntreAvisosMora: dto.diasEntreAvisosMora,
           enviarReciboPorCorreo: dto.enviarReciboPorCorreo,
+          diasAlertaVerificacion: dto.diasAlertaVerificacion,
           intentosMaximosLogin: dto.intentosMaximosLogin,
           minutosBloqueoLogin: dto.minutosBloqueoLogin,
           minutosInactividad: dto.minutosInactividad,
@@ -342,7 +344,7 @@ export class ConfiguracionService {
     const faltantes = todos.filter((medio) => !existentes.some((fila) => fila.medio === medio));
     if (faltantes.length > 0) {
       await this.prisma.medioPagoConfig.createMany({
-        data: faltantes.map((medio) => ({ medio, activo: MEDIOS_ACTIVOS_POR_DEFECTO[medio] })),
+        data: faltantes.map((medio) => ({ medio, activo: MEDIOS_ACTIVOS_POR_DEFECTO[medio], requiereVerificacion: medio !== MedioPago.EFECTIVO })),
         skipDuplicates: true,
       });
       existentes = await this.prisma.medioPagoConfig.findMany();
@@ -353,8 +355,13 @@ export class ConfiguracionService {
       .map((fila) => ({ ...fila, etiqueta: ETIQUETA_MEDIO_PAGO[fila.medio] }));
   }
 
-  async actualizarMedioPago(medio: MedioPago, activo: boolean, usuario: UsuarioAutenticado) {
+  async actualizarMedioPago(medio: MedioPago, cambios: { activo?: boolean; requiereVerificacion?: boolean }, usuario: UsuarioAutenticado) {
+    if (cambios.activo === undefined && cambios.requiereVerificacion === undefined) {
+      throw new BadRequestException('Indica qué cambiar: si el medio está habilitado o si requiere verificación');
+    }
     const antes = (await this.listarMediosPago()).find((fila) => fila.medio === medio);
+    const activo = cambios.activo ?? antes?.activo ?? true;
+    const requiereVerificacion = cambios.requiereVerificacion ?? antes?.requiereVerificacion ?? medio !== MedioPago.EFECTIVO;
 
     if (!activo) {
       const otrosActivos = await this.prisma.medioPagoConfig.count({ where: { activo: true, medio: { not: medio } } });
@@ -364,15 +371,18 @@ export class ConfiguracionService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.medioPagoConfig.update({ where: { medio }, data: { activo } });
+      await tx.medioPagoConfig.update({ where: { medio }, data: { activo, requiereVerificacion } });
+      const cambioActivo = activo !== antes?.activo;
+      const resumenActivo = `${activo ? 'Habilitó' : 'Deshabilitó'} el medio de pago ${ETIQUETA_MEDIO_PAGO[medio]}`;
+      const resumenVerificacion = `${requiereVerificacion ? 'Pidió' : 'Dejó de pedir'} verificar contra el extracto los pagos por ${ETIQUETA_MEDIO_PAGO[medio]}`;
       await registrarAuditoria(tx, {
         usuario,
         accion: 'CONFIGURACION_MEDIO_PAGO',
         entidad: 'CONFIGURACION',
         entidadId: medio,
-        resumen: `${activo ? 'Habilitó' : 'Deshabilitó'} el medio de pago ${ETIQUETA_MEDIO_PAGO[medio]}`,
-        antes: { medio, activo: antes?.activo },
-        despues: { medio, activo },
+        resumen: cambioActivo ? resumenActivo : resumenVerificacion,
+        antes: { medio, activo: antes?.activo, requiereVerificacion: antes?.requiereVerificacion },
+        despues: { medio, activo, requiereVerificacion },
       });
     });
     return this.listarMediosPago();

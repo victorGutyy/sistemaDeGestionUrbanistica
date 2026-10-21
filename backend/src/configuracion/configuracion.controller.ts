@@ -122,7 +122,7 @@ export class ConfiguracionController {
     @Body() dto: ActualizarMedioPagoDto,
     @CurrentUsuario() usuario: UsuarioAutenticado,
   ) {
-    return this.configuracionService.actualizarMedioPago(medio, dto.activo, usuario);
+    return this.configuracionService.actualizarMedioPago(medio, { activo: dto.activo, requiereVerificacion: dto.requiereVerificacion }, usuario);
   }
 
   @Permiso(PERMISOS.CONFIGURACION_EDITAR)

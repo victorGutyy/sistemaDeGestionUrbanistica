@@ -1694,6 +1694,8 @@ export interface EmpresaConfig {
   diasEntreAvisosMora: number
   // Si el recibo de cada abono nuevo sale solo al correo del cliente.
   enviarReciboPorCorreo: boolean
+  // Desde cuántos días de espera un abono por verificar se resalta en rojo.
+  diasAlertaVerificacion: number
   intentosMaximosLogin: number
   minutosBloqueoLogin: number
   minutosInactividad: number
@@ -1784,6 +1786,7 @@ export interface ActualizarParametrosPayload {
   diasAntesRecordatorio: number
   diasEntreAvisosMora: number
   enviarReciboPorCorreo: boolean
+  diasAlertaVerificacion: number
   intentosMaximosLogin: number
   minutosBloqueoLogin: number
   minutosInactividad: number

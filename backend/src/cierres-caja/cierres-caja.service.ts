@@ -420,6 +420,7 @@ export class CierresCajaService {
         estado: abono.estado,
         anuladoEn: abono.anuladoEn,
         recibo: abono.recibo?.numeroTexto ?? null,
+        verificacion: abono.verificacion,
         cliente: abono.venta.cliente.nombre,
         lote: abono.venta.lote.numero,
         proyecto: abono.venta.lote.proyecto.nombre,

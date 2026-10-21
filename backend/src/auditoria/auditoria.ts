@@ -46,6 +46,7 @@ export const ACCIONES_AUDITORIA = {
   CLIENTE_EDITAR: 'Editó un cliente',
   ABONO_REGISTRAR: 'Registró un abono',
   ABONO_ANULAR: 'Anuló un abono',
+  ABONO_VERIFICAR: 'Verificó un abono contra el extracto',
   RECIBO_EMITIR: 'Emitió un recibo de caja',
   RECIBO_ANULAR: 'Anuló un recibo de caja',
   MOVIMIENTO_REGISTRAR: 'Registró un egreso o ingreso',

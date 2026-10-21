@@ -4,6 +4,7 @@ import { PERMISOS } from '../auth/permisos.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { CarteraService } from '../cartera/cartera.service.js';
 import { ComisionesService } from '../comisiones/comisiones.service.js';
+import { VerificacionService } from '../abonos/verificacion.service.js';
 import { FinanzasService } from '../finanzas/finanzas.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCierre, EstadoLote } from '../generated/prisma/enums.js';
@@ -21,6 +22,7 @@ export class DashboardService {
     private readonly carteraService: CarteraService,
     private readonly comisionesService: ComisionesService,
     private readonly prisma: PrismaService,
+    private readonly verificacionService: VerificacionService,
   ) {}
 
   async resumen(filtro: FiltroPanelDto, usuario: UsuarioAutenticado): Promise<ResumenDashboard> {
@@ -29,7 +31,7 @@ export class DashboardService {
       exigirProyecto(usuario, proyectoId, `No existe el proyecto ${proyectoId}`);
     }
 
-    const [finanzas, cartera, comisionesPendientes, lotes, cierresPorAprobar, proyecto] = await Promise.all([
+    const [finanzas, cartera, comisionesPendientes, lotes, cierresPorAprobar, proyecto, consignacionesPorVerificar] = await Promise.all([
       this.finanzasService.consolidado(filtro, usuario),
       this.carteraService.reportePorProyecto(usuario),
       // RF-REP-02: solo para quien puede consultar comisiones.
@@ -40,6 +42,8 @@ export class DashboardService {
         ? this.prisma.cierreCaja.count({ where: { estado: EstadoCierre.CERRADO } })
         : Promise.resolve(undefined),
       proyectoId ? this.prisma.proyecto.findUnique({ where: { id: proyectoId }, select: { id: true, nombre: true } }) : Promise.resolve(null),
+      // RF-NOT-07 y RF-REP-02: solo para quien puede verificar abonos.
+      usuario.permisos.includes(PERMISOS.ABONOS_VERIFICAR) ? this.verificacionService.resumenPorVerificar(usuario, proyectoId) : Promise.resolve(undefined),
     ]);
 
     const porProyecto = combinarPorProyecto(finanzas.porProyecto, cartera.porProyecto);
@@ -79,6 +83,7 @@ export class DashboardService {
       porProyecto: proyectoId ? (fila ? [fila] : []) : porProyecto,
       comisionesPendientes,
       cierresPorAprobar,
+      consignacionesPorVerificar,
     };
   }
 }

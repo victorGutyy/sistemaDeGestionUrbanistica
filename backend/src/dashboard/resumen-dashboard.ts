@@ -30,4 +30,6 @@ export interface ResumenDashboard {
   comisionesPendientes?: { cantidad: number; valor: Prisma.Decimal };
   // Cierres de caja cerrados que esperan la aprobación del gerente (RF-REP-02); solo para quien ve la caja.
   cierresPorAprobar?: number;
+  // Pagos por consignación o transferencia que esperan confirmarse contra el extracto; solo para quien puede verificarlos.
+  consignacionesPorVerificar?: { cantidad: number; valor: Prisma.Decimal; masAntiguaDias: number; enAlerta: boolean };
 }

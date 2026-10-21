@@ -69,6 +69,8 @@ function crearPrismaFalso() {
     cierreCaja: { findFirst: vi.fn().mockResolvedValue(null) },
     venta: { findUnique: vi.fn() },
     cuentaBancaria: { findUnique: vi.fn() },
+    // Sin fila de configuración del medio: se usa el valor por defecto (el efectivo no se verifica, los demás sí).
+    medioPagoConfig: { findUnique: vi.fn().mockResolvedValue(null) },
     abono: { create: vi.fn(), findFirst: vi.fn().mockResolvedValue(null), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
     aplicacionAbono: { createMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { valor: null } }) },
     cuota: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
@@ -190,6 +192,57 @@ describe('AbonosService.crear', () => {
     expect(tx.abono.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ comprobanteUrl: 'cliente-1/venta-1/soporte.png' }) }),
     );
+  });
+
+  describe('verificación contra el extracto (RF-REC-10)', () => {
+    const CUENTA = { id: 'cuenta-1', banco: 'Banco', alias: 'Ahorros', numero: '123' };
+    const datosDelAbono = () => tx.abono.create.mock.calls[0][0].data as { verificacion: string };
+
+    function prepararTransferencia() {
+      prisma.venta.findFirst.mockResolvedValue(VENTA_ACTIVA);
+      prisma.cuentaBancaria.findUnique.mockResolvedValue({ id: 'cuenta-1', alias: 'Ahorros', activa: true });
+      tx.cuentaBancaria.findUnique.mockResolvedValue(CUENTA);
+      prepararAbonoExitoso();
+    }
+    const transferencia = { ...DTO_BASE, medioPago: MedioPago.TRANSFERENCIA, cuentaDestinoId: 'cuenta-1', referencia: 'T-1' };
+
+    it('un pago por transferencia nace por verificar (valor por defecto del medio)', async () => {
+      prepararTransferencia();
+
+      await service.crear(transferencia, USUARIO);
+
+      expect(datosDelAbono().verificacion).toBe('POR_VERIFICAR');
+      expect(auditoriaDe(tx.registroAuditoria.create, 'ABONO_REGISTRAR').despues).toMatchObject({ medioPago: 'TRANSFERENCIA' });
+    });
+
+    it('un pago en efectivo no requiere verificación', async () => {
+      prisma.venta.findFirst.mockResolvedValue(VENTA_ACTIVA);
+      prepararAbonoExitoso();
+
+      await service.crear(DTO_BASE, USUARIO);
+
+      expect(datosDelAbono().verificacion).toBe('NO_REQUIERE');
+    });
+
+    it('manda lo que el gerente configuró para el medio: una transferencia que no requiere verificación', async () => {
+      prepararTransferencia();
+      tx.medioPagoConfig.findUnique.mockResolvedValue({ medio: 'TRANSFERENCIA', requiereVerificacion: false });
+
+      await service.crear(transferencia, USUARIO);
+
+      expect(tx.medioPagoConfig.findUnique).toHaveBeenCalledWith({ where: { medio: 'TRANSFERENCIA' } });
+      expect(datosDelAbono().verificacion).toBe('NO_REQUIERE');
+    });
+
+    it('y también el efectivo, si el gerente decide verificarlo', async () => {
+      prisma.venta.findFirst.mockResolvedValue(VENTA_ACTIVA);
+      prepararAbonoExitoso();
+      tx.medioPagoConfig.findUnique.mockResolvedValue({ medio: 'EFECTIVO', requiereVerificacion: true });
+
+      await service.crear(DTO_BASE, USUARIO);
+
+      expect(datosDelAbono().verificacion).toBe('POR_VERIFICAR');
+    });
   });
 
   it('no registra un abono con fecha dentro de un cierre de caja cerrado o aprobado (RF-CAJ-05)', async () => {

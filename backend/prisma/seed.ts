@@ -61,7 +61,8 @@ async function sembrarConfiguracion() {
   }
 
   await prisma.medioPagoConfig.createMany({
-    data: Object.values(MedioPago).map((medio) => ({ medio, activo: MEDIOS_ACTIVOS_POR_DEFECTO[medio] })),
+    // El efectivo no se verifica contra el extracto (se cuadra en el cierre de caja); los demás medios sí (RF-REC-10).
+    data: Object.values(MedioPago).map((medio) => ({ medio, activo: MEDIOS_ACTIVOS_POR_DEFECTO[medio], requiereVerificacion: medio !== MedioPago.EFECTIVO })),
     skipDuplicates: true,
   });
 

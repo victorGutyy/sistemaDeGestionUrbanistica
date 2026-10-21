@@ -111,6 +111,7 @@ describe('ConfiguracionService', () => {
         diasAntesRecordatorio: 3,
         diasEntreAvisosMora: 7,
         enviarReciboPorCorreo: true,
+        diasAlertaVerificacion: 3,
         intentosMaximosLogin: 5,
         minutosBloqueoLogin: 15,
         minutosInactividad: 30,
@@ -136,6 +137,7 @@ describe('ConfiguracionService', () => {
         diasAntesRecordatorio: 3,
         diasEntreAvisosMora: 7,
         enviarReciboPorCorreo: true,
+        diasAlertaVerificacion: 3,
         intentosMaximosLogin: 5,
         minutosBloqueoLogin: 15,
         minutosInactividad: 30,
@@ -249,7 +251,7 @@ describe('ConfiguracionService', () => {
       );
       prisma.medioPagoConfig.count.mockResolvedValue(0);
 
-      await expect(service.actualizarMedioPago(MedioPago.EFECTIVO, false, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.actualizarMedioPago(MedioPago.EFECTIVO, { activo: false }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.medioPagoConfig.update).not.toHaveBeenCalled();
     });
   });
@@ -359,6 +361,7 @@ describe('ConfiguracionService: auditoría (RF-AUD-01)', () => {
     diasAntesRecordatorio: 3,
         diasEntreAvisosMora: 7,
         enviarReciboPorCorreo: true,
+        diasAlertaVerificacion: 3,
     intentosMaximosLogin: 5,
     minutosBloqueoLogin: 15,
     minutosInactividad: 30,
@@ -399,6 +402,7 @@ describe('ConfiguracionService: auditoría (RF-AUD-01)', () => {
         diasAntesRecordatorio: 3,
         diasEntreAvisosMora: 7,
         enviarReciboPorCorreo: true,
+        diasAlertaVerificacion: 3,
         intentosMaximosLogin: 5,
         minutosBloqueoLogin: 15,
         minutosInactividad: 30,
@@ -440,13 +444,31 @@ describe('ConfiguracionService: auditoría (RF-AUD-01)', () => {
     prisma.medioPagoConfig.findMany.mockResolvedValue(Object.values(MedioPago).map((medio) => ({ medio, activo: true })));
     prisma.medioPagoConfig.count.mockResolvedValue(3);
 
-    await service.actualizarMedioPago(MedioPago.NEQUI, false, USUARIO);
+    await service.actualizarMedioPago(MedioPago.NEQUI, { activo: false }, USUARIO);
 
     expect(auditoriaDe(prisma.registroAuditoria.create, 'CONFIGURACION_MEDIO_PAGO')).toMatchObject({
       entidadId: 'NEQUI',
       antes: { medio: 'NEQUI', activo: true },
       despues: { medio: 'NEQUI', activo: false },
     });
+  });
+
+  it('cambiar si un medio requiere verificación deja el antes y el después, sin tocar si está habilitado', async () => {
+    prisma.medioPagoConfig.findMany.mockResolvedValue(Object.values(MedioPago).map((medio) => ({ medio, activo: true, requiereVerificacion: medio !== MedioPago.EFECTIVO })));
+
+    await service.actualizarMedioPago(MedioPago.TRANSFERENCIA, { requiereVerificacion: false }, USUARIO);
+
+    expect(prisma.medioPagoConfig.update).toHaveBeenCalledWith({ where: { medio: 'TRANSFERENCIA' }, data: { activo: true, requiereVerificacion: false } });
+    const registro = auditoriaDe(prisma.registroAuditoria.create, 'CONFIGURACION_MEDIO_PAGO');
+    expect(registro).toMatchObject({
+      antes: { medio: 'TRANSFERENCIA', activo: true, requiereVerificacion: true },
+      despues: { medio: 'TRANSFERENCIA', activo: true, requiereVerificacion: false },
+    });
+    expect(registro.resumen).toContain('Dejó de pedir verificar');
+  });
+
+  it('actualizar un medio de pago sin indicar qué cambiar es un error', async () => {
+    await expect(service.actualizarMedioPago(MedioPago.NEQUI, {}, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('crear una categoría de gasto o de ingreso queda registrado', async () => {
@@ -471,7 +493,7 @@ describe('ConfiguracionService: auditoría (RF-AUD-01)', () => {
   it('un cambio rechazado no deja nada en la auditoría', async () => {
     prisma.medioPagoConfig.findMany.mockResolvedValue(Object.values(MedioPago).map((medio) => ({ medio, activo: medio === MedioPago.EFECTIVO })));
     prisma.medioPagoConfig.count.mockResolvedValue(0);
-    await expect(service.actualizarMedioPago(MedioPago.EFECTIVO, false, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.actualizarMedioPago(MedioPago.EFECTIVO, { activo: false }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
 
     prisma.cuentaBancaria.findUnique.mockResolvedValue({ id: 'x' });
     await expect(service.crearCuenta({ banco: 'B', tipo: 'AHORROS', numero: '1', alias: 'A' }, USUARIO)).rejects.toBeInstanceOf(ConflictException);

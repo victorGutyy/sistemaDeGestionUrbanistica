@@ -71,6 +71,27 @@ describe('construirRecaudo (RF-REP-04)', () => {
     expect(detalle.totales?.valor).toBe(String((MAXIMO_FILAS_DE_DETALLE + 10) * 1000));
   });
 
+  it('muestra la verificación de cada abono y la totaliza aparte (RF-REC-10)', () => {
+    const con = construirRecaudo([
+      abono({ recibo: 'RC-000010', medioPago: 'TRANSFERENCIA', valor: D(2_000_000), verificacion: 'POR_VERIFICAR' }),
+      abono({ recibo: 'RC-000011', medioPago: 'TRANSFERENCIA', valor: D(1_000_000), verificacion: 'VERIFICADO' }),
+      abono({ recibo: 'RC-000012', valor: D(500_000) }),
+    ]);
+
+    expect(seccion(con, 'Por verificación bancaria').filas.map((f) => [f.nombre, f.cantidad, f.total])).toEqual([
+      ['Por verificar', 1, '2000000'],
+      ['Verificado', 1, '1000000'],
+      ['No requiere', 1, '500000'],
+    ]);
+    const detalle = seccion(con, 'Detalle de abonos');
+    expect(detalle.columnas.map((c) => c.encabezado)).toContain('Verificación');
+    expect(Object.fromEntries(detalle.filas.map((f) => [f.recibo, f.verificacion]))).toEqual({
+      'RC-000010': 'Por verificar',
+      'RC-000011': 'Verificado',
+      'RC-000012': 'No requiere',
+    });
+  });
+
   it('sin abonos, las tablas salen vacías con total cero', () => {
     const vacio = construirRecaudo([]);
     expect(seccion(vacio, 'Por medio de pago').filas).toEqual([]);

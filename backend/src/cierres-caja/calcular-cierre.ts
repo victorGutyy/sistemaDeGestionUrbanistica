@@ -32,6 +32,8 @@ export interface AbonoCaja {
   cliente: string;
   lote: string;
   proyecto: string;
+  // Opcional: los datos viejos no lo traen (se tratan como "no requiere").
+  verificacion?: string;
 }
 
 export interface MovimientoCaja {
@@ -113,6 +115,8 @@ export interface ResultadoCierre {
   porMedio: FilaPorMedio[];
   porCuenta: FilaPorCuenta[];
   efectivo: { inicial: string; entradas: string; salidas: string; esperado: string };
+  // Abonos vigentes del período que todavía no se confirman contra el extracto (RF-REC-10): es un aviso, no bloquea el cierre.
+  porVerificar?: { cantidad: number; valor: string; porCuenta: { nombre: string; cantidad: number; valor: string }[] };
 }
 
 const CERO = () => new Prisma.Decimal(0);
@@ -259,6 +263,17 @@ export function calcularCierre(
   const efectivo = porMedio.get('EFECTIVO') ?? { entradas: CERO(), salidas: CERO() };
   const esperado = periodo.efectivoInicial.plus(efectivo.entradas).minus(efectivo.salidas);
 
+  // Abonos vigentes del período que todavía esperan la confirmación contra el extracto (RF-REC-10).
+  const pendientes = datos.abonos.filter((abono) => abono.estado === 'ACTIVO' && abono.verificacion === 'POR_VERIFICAR' && enPeriodo(diaLocal(abono.fecha)));
+  const pendientesPorCuenta = new Map<string, { nombre: string; cantidad: number; valor: Prisma.Decimal }>();
+  for (const abono of pendientes) {
+    const nombre = abono.cuenta ? `${abono.cuenta.alias} — ${abono.cuenta.banco}` : 'Sin cuenta';
+    const fila = pendientesPorCuenta.get(nombre) ?? { nombre, cantidad: 0, valor: CERO() };
+    fila.cantidad += 1;
+    fila.valor = fila.valor.plus(abono.valor);
+    pendientesPorCuenta.set(nombre, fila);
+  }
+
   return {
     desde,
     hasta,
@@ -290,6 +305,11 @@ export function calcularCierre(
       entradas: efectivo.entradas.toString(),
       salidas: efectivo.salidas.toString(),
       esperado: esperado.toString(),
+    },
+    porVerificar: {
+      cantidad: pendientes.length,
+      valor: pendientes.reduce((suma, abono) => suma.plus(abono.valor), CERO()).toString(),
+      porCuenta: Array.from(pendientesPorCuenta.values()).map((fila) => ({ nombre: fila.nombre, cantidad: fila.cantidad, valor: fila.valor.toString() })),
     },
   };
 }

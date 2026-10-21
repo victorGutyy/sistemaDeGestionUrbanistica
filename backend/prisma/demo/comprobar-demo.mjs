@@ -86,6 +86,8 @@ revisar(prohibido(await llamar(admin, 'POST', `/ventas/${pendiente.id}/aprobar`)
 revisar(prohibido(await llamar(admin, 'GET', '/auditoria')), 'No ve la auditoría');
 const pendienteDeComision = comisiones.comisiones.find((c) => c.estado === 'PENDIENTE');
 revisar((await llamar(admin, 'GET', '/comisiones')).status === 200, 'Ve las comisiones');
+const porVerificar = (await llamar(admin, 'GET', '/abonos/por-verificar')).datos;
+revisar(porVerificar.total === 6 && porVerificar.masAntiguaDias >= 6 && porVerificar.abonos.filter((a) => a.enAlerta).length >= 2, 'Ve 6 abonos por verificar, los más antiguos en alerta', porVerificar.total);
 revisar(prohibido(await llamar(admin, 'POST', `/comisiones/${pendienteDeComision.id}/anular`, { motivo: 'No debería poder' })), 'No puede anular comisiones (solo el gerente)');
 revisar(prohibido(await llamar(admin, 'GET', '/exportacion/completa')), 'No exporta todos los datos');
 
@@ -99,6 +101,7 @@ const ventasSocio = (await llamar(socio, 'GET', '/ventas')).datos;
 revisar(Array.isArray(ventasSocio) && ventasSocio.length > 0 && ventasSocio.every((v) => ventas.find((x) => x.id === v.id)), 'Ve ventas, solo las de su proyecto', ventasSocio.length);
 revisar(prohibido(await llamar(socio, 'POST', '/clientes', { nombre: 'X', documento: '1', tipoDocumento: 'CC' })), 'No puede crear clientes');
 revisar(prohibido(await llamar(socio, 'GET', '/comisiones')), 'No ve las comisiones');
+revisar(prohibido(await llamar(socio, 'GET', '/abonos/por-verificar')), 'No ve los abonos por verificar');
 revisar(prohibido(await llamar(socio, 'GET', '/auditoria')), 'No ve la auditoría');
 revisar(prohibido(await llamar(socio, 'GET', '/usuarios')), 'No ve los usuarios');
 revisar(prohibido(await llamar(socio, 'GET', '/exportacion/completa')), 'No exporta todos los datos');

@@ -26,6 +26,7 @@ export const PARAMETROS = {
   diasAntesRecordatorio: 3,
   diasEntreAvisosMora: 7,
   enviarReciboPorCorreo: true,
+  diasAlertaVerificacion: 3,
 };
 
 // Inactivas hasta que el gerente escriba los números reales.
