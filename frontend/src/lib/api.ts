@@ -1835,3 +1835,95 @@ export function anularComision(id: string, motivo: string) {
 export function exportarComisiones(filtro: FiltroComisiones = {}) {
   return descargarArchivo(`/comisiones/exportar${construirQueryComisiones(filtro)}`, 'comisiones.xlsx')
 }
+
+// ---------- Reportes (RF-REP-04 a 11) ----------
+
+export type TipoColumnaReporte = 'texto' | 'pesos' | 'fecha' | 'entero'
+
+export interface ColumnaReporte {
+  clave: string
+  encabezado: string
+  tipo: TipoColumnaReporte
+  peso?: number
+}
+
+// texto: tal cual · pesos: pesos enteros como texto · fecha: "aaaa-mm-dd" · entero: número.
+export type FilaReporte = Record<string, string | number | null>
+
+export interface SeccionReporte {
+  titulo: string
+  nota?: string
+  columnas: ColumnaReporte[]
+  filas: FilaReporte[]
+  totales?: FilaReporte
+  // Si el detalle se recortó en el servidor: cuántas filas había.
+  filasTotales?: number
+}
+
+export interface ReporteGenerado {
+  clave: string
+  titulo: string
+  descripcion: string
+  filtros: { etiqueta: string; valor: string }[]
+  generadoEn: string
+  secciones: SeccionReporte[]
+}
+
+export type TipoFiltroReporte = 'fecha' | 'proyecto' | 'medioPago' | 'cuenta' | 'usuario' | 'categoriaGasto' | 'estadoLote' | 'granularidad'
+export type ClaveFiltroReporte = 'desde' | 'hasta' | 'proyectoId' | 'medioPago' | 'cuentaId' | 'usuarioId' | 'categoriaId' | 'estadoLote' | 'granularidad'
+
+export interface FiltroDefinido {
+  clave: ClaveFiltroReporte
+  etiqueta: string
+  tipo: TipoFiltroReporte
+  obligatorio?: boolean
+}
+
+export interface DefinicionReporte {
+  clave: string
+  titulo: string
+  descripcion: string
+  filtros: FiltroDefinido[]
+}
+
+interface OpcionReporte {
+  valor: string
+  etiqueta: string
+}
+
+export interface CatalogoReportes {
+  reportes: DefinicionReporte[]
+  opciones: {
+    proyectos: { id: string; nombre: string }[]
+    cuentas: { id: string; alias: string; banco: string }[]
+    usuarios: { id: string; nombre: string }[]
+    categoriasGasto: { id: string; nombre: string }[]
+    mediosPago: OpcionReporte[]
+    estadosLote: OpcionReporte[]
+    granularidades: OpcionReporte[]
+  }
+}
+
+export type FiltrosReporte = Partial<Record<ClaveFiltroReporte, string>>
+
+function queryDeReporte(filtros: FiltrosReporte, extra: Record<string, string> = {}) {
+  const params = new URLSearchParams(extra)
+  for (const [clave, valor] of Object.entries(filtros)) {
+    if (valor) params.set(clave, valor)
+  }
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
+export function obtenerCatalogoReportes() {
+  return solicitar<CatalogoReportes>('/reportes')
+}
+
+export function generarReporte(clave: string, filtros: FiltrosReporte) {
+  return solicitar<ReporteGenerado>(`/reportes/${clave}${queryDeReporte(filtros)}`)
+}
+
+export function exportarReporte(clave: string, filtros: FiltrosReporte, formato: 'pdf' | 'excel') {
+  const rango = filtros.desde || filtros.hasta ? `-${filtros.desde ?? 'inicio'}-a-${filtros.hasta ?? 'hoy'}` : ''
+  return descargarArchivo(`/reportes/${clave}/exportar${queryDeReporte(filtros, { formato })}`, `${clave}${rango}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`)
+}

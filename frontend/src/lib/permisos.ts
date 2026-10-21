@@ -37,6 +37,7 @@ export const PERMISOS = {
   COMISIONES_VER: 'comisiones.ver',
   COMISIONES_PAGAR: 'comisiones.pagar',
   COMISIONES_ANULAR: 'comisiones.anular',
+  REPORTES_VER: 'reportes.ver',
 } as const
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS]

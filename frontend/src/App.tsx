@@ -36,6 +36,7 @@ import { RegistrarProyectoPage } from './pages/RegistrarProyectoPage'
 import { RegistrarTrabajadorPage } from './pages/RegistrarTrabajadorPage'
 import { RegistrarUsuarioPage } from './pages/RegistrarUsuarioPage'
 import { RegistrarVentaPage } from './pages/RegistrarVentaPage'
+import { ReportesPage } from './pages/ReportesPage'
 import { TrabajadorDetallePage } from './pages/TrabajadorDetallePage'
 import { UsuariosPage } from './pages/UsuariosPage'
 import { VentaDetallePage } from './pages/VentaDetallePage'
@@ -84,6 +85,9 @@ function App() {
               <Route path="/finanzas/nuevo" element={<RegistrarMovimientoPage />} />
               <Route path="/finanzas/movimientos/:id" element={<MovimientoDetallePage />} />
               <Route path="/proyectos/:id/finanzas" element={<ProyectoFinanzasPage />} />
+              <Route element={<ProtectedRoute permiso={PERMISOS.REPORTES_VER} />}>
+                <Route path="/reportes" element={<ReportesPage />} />
+              </Route>
               <Route element={<ProtectedRoute permiso={PERMISOS.COMISIONES_VER} />}>
                 <Route path="/comisiones" element={<ComisionesPage />} />
               </Route>

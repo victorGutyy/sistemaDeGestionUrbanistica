@@ -274,7 +274,7 @@ describe('construirFlujoDeCaja (RF-REP-11)', () => {
       ],
       { desde: '2026-10-01', hasta: '2026-10-31', granularidad: 'QUINCENA' },
     );
-    expect(flujo.nota).toContain('7000000');
+    expect(flujo.nota).toContain('$7.000.000');
     expect(flujo.filas).toEqual([
       { periodo: '01/10/2026 – 15/10/2026', ventas: '2000000', otros: '500000', egresos: '0', neto: '2500000', saldo: '9500000' },
       { periodo: '16/10/2026 – 31/10/2026', ventas: '0', otros: '0', egresos: '4000000', neto: '-4000000', saldo: '5500000' },

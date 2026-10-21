@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { finDelPeriodo, formatearDiaDDMMAAAA, sumarDias, ultimoDiaDelMes } from '../../cierres-caja/periodo.js';
+import { formatearCOP } from '../../common/formato.util.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { pesos, type FilaReporte, type SeccionReporte } from '../modelo.js';
 
@@ -106,7 +107,7 @@ export function construirFlujoDeCaja(partidas: PartidaDeCaja[], rango: { desde: 
   return [
     {
       titulo: `Flujo de caja por ${ETIQUETA_GRANULARIDAD[rango.granularidad].toLowerCase()}`,
-      nota: `Saldo inicial al ${formatearDiaDDMMAAAA(rango.desde)} (todo lo registrado antes): ${pesos(saldoInicial)} pesos. Los ingresos por ventas son los abonos de clientes; los egresos incluyen la nómina.`,
+      nota: `Saldo inicial al ${formatearDiaDDMMAAAA(rango.desde)} (todo lo registrado antes): ${formatearCOP(pesos(saldoInicial))}. Los ingresos por ventas son los abonos de clientes; los egresos incluyen la nómina.`,
       columnas: [
         { clave: 'periodo', encabezado: 'Período', tipo: 'texto', peso: 2.2 },
         { clave: 'ventas', encabezado: 'Ingresos por ventas', tipo: 'pesos', peso: 1.9 },
