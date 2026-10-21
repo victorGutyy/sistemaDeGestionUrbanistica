@@ -283,6 +283,8 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
   const [diasGracia, setDiasGracia] = useState(String(empresa.diasGraciaMora))
   const [diasAmarillo, setDiasAmarillo] = useState(String(empresa.diasSemaforoAmarillo))
   const [diasRecordatorio, setDiasRecordatorio] = useState(String(empresa.diasAntesRecordatorio))
+  const [diasEntreAvisosMora, setDiasEntreAvisosMora] = useState(String(empresa.diasEntreAvisosMora))
+  const [enviarRecibo, setEnviarRecibo] = useState(empresa.enviarReciboPorCorreo)
   const [intentosLogin, setIntentosLogin] = useState(String(empresa.intentosMaximosLogin))
   const [minutosBloqueo, setMinutosBloqueo] = useState(String(empresa.minutosBloqueoLogin))
   const [minutosInactividad, setMinutosInactividad] = useState(String(empresa.minutosInactividad))
@@ -304,6 +306,8 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
         diasGraciaMora: aNumero(diasGracia),
         diasSemaforoAmarillo: aNumero(diasAmarillo),
         diasAntesRecordatorio: aNumero(diasRecordatorio),
+        diasEntreAvisosMora: aNumero(diasEntreAvisosMora),
+        enviarReciboPorCorreo: enviarRecibo,
         intentosMaximosLogin: aNumero(intentosLogin),
         minutosBloqueoLogin: aNumero(minutosBloqueo),
         minutosInactividad: aNumero(minutosInactividad),
@@ -340,10 +344,27 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
           <Campo id="diasAmarillo" etiqueta="Días de aviso del semáforo amarillo" ayuda="Cuántos días antes del vencimiento el cliente pasa a “próximo a vencer”.">
             <input id="diasAmarillo" required inputMode="numeric" value={diasAmarillo} onChange={(e) => setDiasAmarillo(e.target.value)} className={CLASE_INPUT} />
           </Campo>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-800">Avisos a clientes</p>
+          <p className="text-xs text-slate-500">Los correos salen solos cada mañana (8:00 a. m., hora de Colombia). Cada aviso queda en el historial de Notificaciones.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="diasRecordatorio" etiqueta="Días antes del vencimiento para el recordatorio por correo">
             <input id="diasRecordatorio" required inputMode="numeric" value={diasRecordatorio} onChange={(e) => setDiasRecordatorio(e.target.value)} className={CLASE_INPUT} />
           </Campo>
+          <Campo id="diasEntreAvisosMora" etiqueta="Días entre avisos de mora" ayuda="Cada cuántos días se le repite el aviso a un cliente con cuotas vencidas.">
+            <input id="diasEntreAvisosMora" required inputMode="numeric" value={diasEntreAvisosMora} onChange={(e) => setDiasEntreAvisosMora(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
         </div>
+        <label className="flex items-start gap-2 text-sm text-slate-700">
+          <input type="checkbox" checked={enviarRecibo} onChange={(e) => setEnviarRecibo(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300" />
+          <span>
+            Enviar el recibo en PDF al correo del cliente al registrar un abono
+            <span className="block text-xs text-slate-500">Si el cliente no tiene correo, o el correo de la empresa no está configurado, el aviso queda como omitido.</span>
+          </span>
+        </label>
 
         <div className="border-t border-slate-100 pt-4">
           <p className="text-sm font-medium text-slate-800">Seguridad de la sesión</p>

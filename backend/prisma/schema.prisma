@@ -222,6 +222,7 @@ model Usuario {
   equiposDadosDeBaja        Equipo[]               @relation("EquiposDadosDeBaja")
   comisionesPagadas         Comision[]             @relation("ComisionesPagadas")
   comisionesAnuladas        Comision[]             @relation("ComisionesAnuladas")
+  notificaciones            Notificacion[]
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -363,6 +364,7 @@ model Cliente {
   autorizacionRegistradaPor   Usuario?      @relation("AutorizacionesRegistradas", fields: [autorizacionRegistradaPorId], references: [id])
   ventas                      Venta[]
   separaciones                Separacion[]
+  notificaciones              Notificacion[]
   createdAt                   DateTime      @default(now())
   updatedAt                   DateTime      @updatedAt
 }
@@ -483,6 +485,7 @@ model Venta {
   movimientos       MovimientoFinanciero[]
   separacion        Separacion?
   comision          Comision?
+  notificaciones    Notificacion[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -504,6 +507,7 @@ model Cuota {
   // no se ha enviado). Evita que el proceso diario le avise dos veces al
   // mismo cliente por la misma cuota.
   recordatorioEnviadoEn DateTime?
+  notificaciones        Notificacion[]
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
@@ -540,6 +544,7 @@ model Abono {
   motivoAnulacion String?
   aplicaciones    AplicacionAbono[]
   recibo          Recibo?
+  notificaciones  Notificacion[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -814,6 +819,10 @@ model ConfiguracionEmpresa {
   diasSemaforoAmarillo    Int      @default(5)
   prefijoRecibo           String   @default("RC-")
   diasAntesRecordatorio   Int      @default(3)
+  // Cada cuántos días se le repite el aviso de mora a una venta con cuotas vencidas (RF-NOT-03).
+  diasEntreAvisosMora     Int      @default(7)
+  // Si el recibo de cada abono nuevo sale solo al correo del cliente (RF-NOT-01).
+  enviarReciboPorCorreo   Boolean  @default(true)
   // Seguridad de sesión: bloqueo tras intentos fallidos y cierre por inactividad.
   intentosMaximosLogin    Int      @default(5)
   minutosBloqueoLogin     Int      @default(15)
@@ -958,4 +967,56 @@ model Comision {
 
   @@index([vendedorId])
   @@index([estado])
+}
+
+// Qué se le avisa al cliente (RF-NOT-01 a 03).
+enum TipoNotificacion {
+  RECIBO
+  RECORDATORIO
+  MORA
+}
+
+enum CanalNotificacion {
+  CORREO
+  WHATSAPP
+}
+
+// Resultado de un intento. WhatsApp no se envía desde el sistema (solo se abre el enlace con el mensaje listo),
+// por eso su único estado posible es ENLACE_ABIERTO.
+enum EstadoNotificacion {
+  ENVIADA
+  FALLIDA
+  OMITIDA
+  ENLACE_ABIERTO
+}
+
+// Historial de avisos a clientes (RF-NOT-06): un registro por intento, con su resultado. Solo se inserta (la base
+// impide editar o borrar). Un índice único parcial, escrito a mano en la migración, garantiza que una cuota no
+// reciba dos recordatorios por correo enviados (RF-NOT-05).
+model Notificacion {
+  id           String             @id @default(uuid())
+  createdAt    DateTime           @default(now())
+  tipo         TipoNotificacion
+  canal        CanalNotificacion
+  estado       EstadoNotificacion
+  clienteId    String
+  cliente      Cliente            @relation(fields: [clienteId], references: [id])
+  ventaId      String
+  venta        Venta              @relation(fields: [ventaId], references: [id])
+  cuotaId      String?
+  cuota        Cuota?             @relation(fields: [cuotaId], references: [id], onDelete: Restrict)
+  abonoId      String?
+  abono        Abono?             @relation(fields: [abonoId], references: [id], onDelete: Restrict)
+  // Correo o teléfono al que iba, tal como estaba ese día.
+  destinatario String?
+  asunto       String?
+  // Por qué falló o se omitió (mensaje de error, "sin correo", "correo no configurado"...).
+  detalle      String?
+  // Quién lo disparó; nulo cuando lo hizo el sistema (cron).
+  usuarioId    String?
+  usuario      Usuario?           @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([clienteId, createdAt])
+  @@index([ventaId, tipo, canal, estado, createdAt])
 }

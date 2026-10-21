@@ -12,6 +12,7 @@ import { FinanzasService } from './finanzas/finanzas.service.js';
 import { LotesService } from './lotes/lotes.service.js';
 import type { PrismaService } from './prisma/prisma.service.js';
 import { ProyectosService } from './proyectos/proyectos.service.js';
+import type { NotificacionesService } from './notificaciones/notificaciones.service.js';
 import type { StorageService } from './storage/storage.service.js';
 import { usuarioDePrueba } from './test-utils/usuario-prueba.js';
 import { VentasService } from './ventas/ventas.service.js';
@@ -146,7 +147,7 @@ describe('alcance por proyecto en los servicios', () => {
   describe('abonos y comprobantes', () => {
     function crearAbonos() {
       const configuracion = { exigirMedioPagoActivo: vi.fn() } as unknown as ConfiguracionService;
-      return new AbonosService(p(), { guardar: vi.fn(), leer: vi.fn() } as unknown as StorageService, configuracion);
+      return new AbonosService(p(), { guardar: vi.fn(), leer: vi.fn() } as unknown as StorageService, configuracion, { enviarReciboAlRegistrar: vi.fn() } as unknown as NotificacionesService);
     }
 
     it('no se pueden ver los abonos de una venta ajena', async () => {

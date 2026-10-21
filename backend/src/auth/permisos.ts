@@ -41,6 +41,8 @@ export const PERMISOS = {
   COMISIONES_PAGAR: 'comisiones.pagar', // pagar una comisión (crea su egreso)
   COMISIONES_ANULAR: 'comisiones.anular', // anular una comisión, pendiente o pagada (solo gerente)
   REPORTES_VER: 'reportes.ver', // consultar y exportar los reportes (cada uno respeta el alcance por proyecto)
+  NOTIFICACIONES_VER: 'notificaciones.ver', // consultar el historial de avisos a clientes
+  NOTIFICACIONES_ENVIAR: 'notificaciones.enviar', // reenviar un recibo por correo y abrir el mensaje de WhatsApp
 } as const;
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];

@@ -28,6 +28,7 @@ const ESCRITURA = /\.\w+\.(create|createMany|update|updateMany|upsert|delete|del
 const EXENTOS: Record<string, string> = {
   'auth/auth.service.ts': 'Sesiones: último ingreso, intentos fallidos y bloqueos de seguridad; no son cambios de datos de negocio.',
   'recordatorios/recordatorios.service.ts': 'Proceso automático del sistema (cron), sin una persona que actúe.',
+  'notificaciones/notificaciones.service.ts': 'Es el historial de avisos a clientes: cada intento se inserta y no se modifica (la base lo impide); no cambia datos de negocio ni dinero.',
   'roles/roles.service.ts': 'Sincroniza los roles del sistema al arrancar la aplicación, sin una persona que actúe.',
   'lotes/separacion.ts': 'Convierte la separación al vender: queda cubierta por el registro de la venta y el cambio de estado del lote.',
   'abonos/recibos-historicos.ts': 'Recibos históricos de abonos anteriores al sistema: los emite el seed, sin una persona que actúe.',

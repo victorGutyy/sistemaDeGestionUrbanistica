@@ -24,6 +24,8 @@ export const PARAMETROS = {
   diasGraciaMora: 0,
   diasSemaforoAmarillo: 5,
   diasAntesRecordatorio: 3,
+  diasEntreAvisosMora: 7,
+  enviarReciboPorCorreo: true,
 };
 
 // Inactivas hasta que el gerente escriba los números reales.

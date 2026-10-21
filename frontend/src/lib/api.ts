@@ -1448,9 +1448,16 @@ export function exportarDashboard(formato: 'pdf' | 'excel', filtro?: FiltroPanel
   return descargarArchivo(`/dashboard/exportar?${params.toString()}`, `reporte-general.${extension}`)
 }
 
-export interface ResultadoRecordatorios {
+export interface ConteoAvisos {
   enviados: number
-  omitidosSinCorreo: number
+  fallidos: number
+  // Sin correo del cliente o sin servidor de correo configurado.
+  omitidos: number
+}
+
+export interface ResultadoRecordatorios {
+  recordatorios: ConteoAvisos
+  mora: ConteoAvisos
 }
 
 export function ejecutarRecordatorios() {
@@ -1606,6 +1613,10 @@ export interface EmpresaConfig {
   diasGraciaMora: number
   diasSemaforoAmarillo: number
   diasAntesRecordatorio: number
+  // Cada cuántos días se repite el aviso de mora a una venta con cuotas vencidas.
+  diasEntreAvisosMora: number
+  // Si el recibo de cada abono nuevo sale solo al correo del cliente.
+  enviarReciboPorCorreo: boolean
   intentosMaximosLogin: number
   minutosBloqueoLogin: number
   minutosInactividad: number
@@ -1694,6 +1705,8 @@ export interface ActualizarParametrosPayload {
   diasGraciaMora: number
   diasSemaforoAmarillo: number
   diasAntesRecordatorio: number
+  diasEntreAvisosMora: number
+  enviarReciboPorCorreo: boolean
   intentosMaximosLogin: number
   minutosBloqueoLogin: number
   minutosInactividad: number

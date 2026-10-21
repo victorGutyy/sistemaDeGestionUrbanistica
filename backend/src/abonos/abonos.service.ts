@@ -5,15 +5,15 @@ import { parsearFechaLocal } from '../common/fecha.util.js';
 import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento, type TipoDocumento } from '../common/tipo-archivo.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoAbono, EstadoVenta } from '../generated/prisma/enums.js';
+import { EstadoVenta } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { anularAbonoEnTx, crearAbonoEnTx } from './crear-abono-tx.js';
 import { AnularAbonoDto } from './dto/anular-abono.dto.js';
 import { BuscarRecibosQueryDto } from './dto/buscar-recibos-query.dto.js';
 import { CrearAbonoDto } from './dto/crear-abono.dto.js';
-import { generarPdfRecibo } from './generar-pdf-recibo.js';
-import type { ContenidoRecibo } from './recibo-contenido.js';
+import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
+import { generarPdfDeReciboDeAbono } from './pdf-recibo-abono.js';
 import { exigirFechaNoFutura, validarCuentaDestino } from './validar-pago.js';
 
 const LIMITE_RECIBOS = 200;
@@ -24,6 +24,7 @@ export class AbonosService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly configuracion: ConfiguracionService,
+    private readonly notificaciones: NotificacionesService,
   ) {}
 
   // Registra un abono y emite su recibo en una sola operación (RF-REC-01, 02 y 03).
@@ -79,6 +80,10 @@ export class AbonosService {
       ),
     );
 
+    // El recibo sale por correo sin hacer esperar a quien registra el abono; si falla, el abono ya quedó guardado y
+    // la falla queda en el historial de notificaciones (RF-NOT-01 y 06).
+    void this.notificaciones.enviarReciboAlRegistrar(abono.id, usuario.id);
+
     return {
       ...abono,
       recibo: { id: recibo.id, numeroTexto: recibo.numeroTexto },
@@ -131,23 +136,11 @@ export class AbonosService {
   // PDF del recibo (RF-REC-04). Se dibuja siempre desde la fotografía guardada al emitirlo: reimprimirlo da
   // el mismo documento aunque hoy haya cambiado el cliente, el lote o la configuración de la empresa.
   async obtenerPdfRecibo(abonoId: string, usuario: UsuarioAutenticado) {
-    const abono = await this.prisma.abono.findFirst({
-      where: { id: abonoId, venta: filtroVenta(usuario) },
-      include: { recibo: true, anuladoPor: { select: { nombre: true } } },
-    });
-    if (!abono?.recibo) {
+    const pdf = await generarPdfDeReciboDeAbono(this.prisma, this.storage, { id: abonoId, venta: filtroVenta(usuario) });
+    if (!pdf) {
       throw new NotFoundException(`El abono ${abonoId} no tiene recibo`);
     }
-
-    const contenido = abono.recibo.contenido as unknown as ContenidoRecibo;
-    const logo = await this.leerLogo(contenido.empresa.logoRuta);
-    const anulacion =
-      abono.estado === EstadoAbono.ANULADO && abono.anuladoEn
-        ? { fecha: abono.anuladoEn, motivo: abono.motivoAnulacion ?? '', usuario: abono.anuladoPor?.nombre ?? 'Sistema' }
-        : undefined;
-
-    const buffer = await generarPdfRecibo(contenido, { logo, anulacion });
-    return { buffer, nombreArchivo: `recibo-${abono.recibo.numeroTexto}.pdf` };
+    return { buffer: pdf.buffer, nombreArchivo: pdf.nombreArchivo };
   }
 
   // Búsqueda de recibos por número, cliente, documento, lote o referencia (RF-REC-05).
@@ -209,17 +202,5 @@ export class AbonosService {
       lote: abono.venta.lote.numero,
       proyecto: abono.venta.lote.proyecto.nombre,
     }));
-  }
-
-  // El logo se lee del almacenamiento; pdfkit solo dibuja PNG y JPG (un WebP se omite sin impedir el recibo).
-  private async leerLogo(ruta: string | null): Promise<Buffer | undefined> {
-    if (!ruta) return undefined;
-    try {
-      const buffer = await this.storage.leer(ruta);
-      const tipo = detectarTipoDocumento(buffer);
-      return tipo === 'png' || tipo === 'jpg' ? buffer : undefined;
-    } catch {
-      return undefined;
-    }
   }
 }

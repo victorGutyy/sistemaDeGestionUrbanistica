@@ -2,10 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 
+export interface AdjuntoCorreo {
+  nombre: string;
+  contenido: Buffer;
+}
+
 export interface EnviarCorreoParams {
   to: string;
   subject: string;
   html: string;
+  adjuntos?: AdjuntoCorreo[];
 }
 
 // Envoltorio delgado sobre nodemailer/SMTP. Si algún día cambian de
@@ -35,6 +41,11 @@ export class EmailService {
     return /<([^>]+)>/.exec(remitente)?.[1] ?? remitente;
   }
 
+  // Sin servidor SMTP (desarrollo, demostración) no se intenta enviar: el aviso se registra como omitido.
+  estaConfigurado(): boolean {
+    return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  }
+
   async enviar(params: EnviarCorreoParams): Promise<void> {
     const empresa = await this.configuracion.obtenerEmpresa();
     await this.transportador.sendMail({
@@ -42,6 +53,7 @@ export class EmailService {
       to: params.to,
       subject: params.subject,
       html: params.html,
+      attachments: params.adjuntos?.map((adjunto) => ({ filename: adjunto.nombre, content: adjunto.contenido })),
     });
     this.logger.log(`Correo enviado a ${params.to}: "${params.subject}"`);
   }

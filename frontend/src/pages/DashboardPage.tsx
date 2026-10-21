@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
-import { ejecutarRecordatorios, exportarDashboard, listarProyectos, obtenerDashboard, type Proyecto, type ResumenDashboard } from '../lib/api'
+import { ejecutarRecordatorios, exportarDashboard, listarProyectos, obtenerDashboard, type ConteoAvisos, type Proyecto, type ResumenDashboard } from '../lib/api'
 import { ETIQUETA_ESTADO_LOTE } from '../lib/estadoLote'
 import { formatearCOP } from '../lib/formato'
 
@@ -36,12 +36,11 @@ export function DashboardPage() {
     setError(null)
     try {
       const resultado = await ejecutarRecordatorios()
-      setResultadoRecordatorios(
-        `${resultado.enviados} recordatorio(s) enviado(s)` +
-          (resultado.omitidosSinCorreo > 0
-            ? `, ${resultado.omitidosSinCorreo} omitido(s) por no tener correo registrado`
-            : ''),
-      )
+      const resumir = (nombre: string, conteo: ConteoAvisos) =>
+        `${nombre}: ${conteo.enviados} enviado(s)` +
+        (conteo.fallidos > 0 ? `, ${conteo.fallidos} fallido(s)` : '') +
+        (conteo.omitidos > 0 ? `, ${conteo.omitidos} omitido(s) (sin correo del cliente o correo de la empresa sin configurar)` : '')
+      setResultadoRecordatorios(`${resumir('Recordatorios de cuota', resultado.recordatorios)}. ${resumir('Avisos de mora', resultado.mora)}.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron enviar los recordatorios')
     } finally {

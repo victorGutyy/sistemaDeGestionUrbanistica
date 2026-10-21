@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { MedioPago } from '../generated/prisma/enums.js';
+import type { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
 import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
@@ -87,6 +88,10 @@ const VENTA_ACTIVA = { id: 'venta-1', clienteId: 'cliente-1', estado: 'ACTIVA' }
 const USUARIO = usuarioDePrueba();
 const DTO_BASE = { ventaId: 'venta-1', fecha: '2026-02-01', valor: '100', medioPago: MedioPago.EFECTIVO };
 
+// El recibo por correo no se prueba aquí (vive en el servicio de notificaciones); basta con que el aviso no estorbe.
+const enviarReciboFalso = vi.fn().mockResolvedValue(undefined);
+const notificacionesFalsas = { enviarReciboAlRegistrar: enviarReciboFalso } as unknown as NotificacionesService;
+
 describe('AbonosService.crear', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>['prisma'];
   let tx: ReturnType<typeof crearPrismaFalso>['tx'];
@@ -115,6 +120,7 @@ describe('AbonosService.crear', () => {
       prisma as unknown as PrismaService,
       storage as unknown as StorageService,
       configuracion as unknown as ConfiguracionService,
+      notificacionesFalsas,
     );
   });
 
@@ -220,6 +226,20 @@ describe('AbonosService.crear', () => {
     expect(contenido.valorEnLetras).toBe('DIEZ MILLONES DE PESOS M/CTE');
   });
 
+  it('al guardar el abono dispara el recibo por correo (RF-NOT-01) y un abono rechazado no lo dispara', async () => {
+    const enviar = enviarReciboFalso;
+    enviar.mockClear();
+
+    prisma.venta.findFirst.mockResolvedValue(null);
+    await expect(service.crear({ ...DTO_BASE, ventaId: 'venta-x' }, USUARIO)).rejects.toBeInstanceOf(NotFoundException);
+    expect(enviar).not.toHaveBeenCalled();
+
+    prisma.venta.findFirst.mockResolvedValue(VENTA_ACTIVA);
+    prepararAbonoExitoso();
+    await service.crear({ ...DTO_BASE, valor: '10000000' }, USUARIO);
+    expect(enviar).toHaveBeenCalledWith('abono-1', USUARIO.id);
+  });
+
   it('un abono grande se reparte entre varias cuotas por orden de vencimiento (RF-REC-03)', async () => {
     prisma.venta.findFirst.mockResolvedValue(VENTA_ACTIVA);
     prepararAbonoExitoso(ventaConCuotas({ 0: '30000000' }));
@@ -302,7 +322,7 @@ describe('AbonosService.anular', () => {
   it('rechaza anular un abono fuera del alcance del usuario', async () => {
     const { prisma } = crearPrismaFalso();
     prisma.abono.findFirst.mockResolvedValue(null);
-    const service = new AbonosService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
+    const service = new AbonosService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService, notificacionesFalsas);
 
     await expect(service.anular('abono-x', { motivo: 'Error de digitación' }, USUARIO)).rejects.toBeInstanceOf(NotFoundException);
   });
@@ -314,7 +334,7 @@ describe('AbonosService.anular', () => {
     tx.abono.findUniqueOrThrow.mockResolvedValue({ id: 'abono-1', estado: 'ACTIVO', valor: D('100000'), fecha: new Date(2026, 9, 1), aplicaciones: [{ cuotaId: 'cuota-0' }] });
     tx.abono.update.mockResolvedValue({ id: 'abono-1', estado: 'ANULADO', recibo: { id: 'recibo-1', numeroTexto: 'RC-000001' } });
     tx.cuota.findUniqueOrThrow.mockResolvedValue({ id: 'cuota-0', valor: D('30000000'), estado: 'PARCIAL' });
-    const service = new AbonosService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
+    const service = new AbonosService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService, notificacionesFalsas);
 
     await service.anular('abono-1', { motivo: '  Consignación devuelta por el banco ' }, USUARIO);
 
@@ -346,7 +366,7 @@ describe('AbonosService.obtenerComprobante', () => {
     const { prisma } = crearPrismaFalso();
     prisma.abono.findFirst.mockResolvedValue({ id: 'abono-1', comprobanteUrl: 'a/b/soporte.pdf' });
     const storage = { leer: vi.fn().mockResolvedValue(PDF) };
-    const service = new AbonosService(prisma as unknown as PrismaService, storage as unknown as StorageService, {} as ConfiguracionService);
+    const service = new AbonosService(prisma as unknown as PrismaService, storage as unknown as StorageService, {} as ConfiguracionService, notificacionesFalsas);
 
     const { contentType } = await service.obtenerComprobante('abono-1', USUARIO);
     expect(contentType).toBe('application/pdf');
@@ -355,7 +375,7 @@ describe('AbonosService.obtenerComprobante', () => {
   it('responde 404 si el abono no tiene soporte', async () => {
     const { prisma } = crearPrismaFalso();
     prisma.abono.findFirst.mockResolvedValue({ id: 'abono-1', comprobanteUrl: null });
-    const service = new AbonosService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
+    const service = new AbonosService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService, notificacionesFalsas);
 
     await expect(service.obtenerComprobante('abono-1', USUARIO)).rejects.toBeInstanceOf(NotFoundException);
   });

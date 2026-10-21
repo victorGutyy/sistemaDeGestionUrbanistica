@@ -32,7 +32,7 @@ export function escaparHtml(texto: string): string {
 // La fecha se guarda como un instante UTC, pero solo interesa el día
 // calendario en Colombia — de ahí el timeZone explícito en vez de
 // confiar en la hora local del proceso que corre este código.
-function formatearFecha(fecha: Date): string {
+export function formatearFecha(fecha: Date): string {
   return fecha.toLocaleDateString('es-CO', {
     day: 'numeric',
     month: 'long',
@@ -41,13 +41,13 @@ function formatearFecha(fecha: Date): string {
   });
 }
 
-function formatearValor(valor: Prisma.Decimal): string {
+export function formatearValor(valor: Prisma.Decimal): string {
   return `$${valor.toNumber().toLocaleString('es-CO')}`;
 }
 
 // El color viene validado como #rrggbb al guardarlo, pero se vuelve a
 // comprobar aquí porque entra directo a un atributo style.
-function colorSeguro(color: string): string {
+export function colorSeguro(color: string): string {
   return /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#2563eb';
 }
 

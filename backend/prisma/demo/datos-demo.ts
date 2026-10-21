@@ -44,6 +44,10 @@ export async function cargarDemo(ctx: Contexto, { gerente, admin, emailSocio, pa
       diasGraciaMora: 0,
       diasSemaforoAmarillo: empresa.diasSemaforoAmarillo,
       diasAntesRecordatorio: empresa.diasAntesRecordatorio,
+      diasEntreAvisosMora: empresa.diasEntreAvisosMora,
+      // Apagado en la demo: al cargar los datos se registran decenas de abonos y cada uno dispararía un aviso (omitido,
+      // porque la demo no tiene correo). Se enciende desde Configuración al demostrar el envío del recibo.
+      enviarReciboPorCorreo: false,
       intentosMaximosLogin: empresa.intentosMaximosLogin,
       minutosBloqueoLogin: empresa.minutosBloqueoLogin,
       minutosInactividad: empresa.minutosInactividad,
