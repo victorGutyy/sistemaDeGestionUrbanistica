@@ -1521,6 +1521,27 @@ export function ejecutarRecordatorios() {
   return solicitar<ResultadoRecordatorios>('/recordatorios/ejecutar', { method: 'POST' })
 }
 
+// ---------- Correo de la empresa ----------
+
+export interface EstadoCorreo {
+  configurado: boolean
+  // Desde qué dirección salen los avisos (null si el servidor no tiene correo configurado).
+  remitente: string | null
+  // A dónde llegan las respuestas de los clientes (null si no hay un correo de contacto distinto del remitente).
+  respondeA: string | null
+}
+
+export function obtenerEstadoCorreo() {
+  return solicitar<EstadoCorreo>('/correo/estado')
+}
+
+export function enviarCorreoDePrueba(destino: string) {
+  return solicitar<{ enviado: true; remitente: string; destino: string; respondeA: string | null }>('/correo/prueba', {
+    method: 'POST',
+    body: JSON.stringify({ destino }),
+  })
+}
+
 // ---------- Notificaciones (RF-NOT-01 a 06) ----------
 
 export type TipoNotificacion = 'RECIBO' | 'RECORDATORIO' | 'MORA'

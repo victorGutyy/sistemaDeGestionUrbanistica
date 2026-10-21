@@ -10,23 +10,23 @@ Una etapa se acepta cuando están todos sus **Debe**. Los "Debería" y "Podría"
 
 | | Total | ✅ | 🟡 | ❌ | ⏸ |
 |---|---|---|---|---|---|
-| Debe | 19 | 18 | 1 | 0 | 0 |
+| Debe | 19 | 19 | 0 | 0 | 0 |
 | Debería | 7 | 7 | 0 | 0 | 0 |
 | Podría | 0 | 0 | 0 | 0 | 0 |
 
 Total: 26 requerimientos funcionales de la Etapa 2 (los 24 del reparto original más RF-REP-11 y RF-MAQ-05, que aportaron CC-01 y CC-02).
 
-**La Etapa 2 está a un hallazgo de poder aceptarse:** hay un "Debe" parcial (RF-NOT-01, abajo). Todo lo demás está construido, con pruebas y verificado en vivo.
+**La Etapa 2 está completa en código:** los 19 "Debe" y los 7 "Debería" están construidos, con pruebas y verificados en vivo. La auditoría encontró un "Debe" parcial (RF-NOT-01) que se cerró el mismo día (ver abajo). Lo que queda no es código: la cuenta de correo del cliente y la medición de rendimiento de lo nuevo.
 
-## Lo que falta de la Etapa 2
+## Lo que se encontró y se cerró
 
-| ID | Qué falta | Tamaño |
+| ID | Hallazgo | Estado |
 |---|---|---|
-| RF-NOT-01 (Debe) | El recibo se envía por correo cuando el abono se registra desde la pantalla de abonos, pero **no cuando la cuota inicial se recibe al registrar la venta**: esa venta crea su abono con `crearAbonoEnTx` directamente (`ventas/ventas.service.ts`) y no pasa por el aviso. Basta con avisar a `NotificacionesService.enviarReciboAlRegistrar` después de confirmar la venta (y que `VentasModule` importe `NotificacionesModule`), con su prueba. | pequeño |
+| RF-NOT-01 (Debe) | El recibo se enviaba por correo al registrar un abono desde la pantalla de abonos, pero **no** cuando la cuota inicial se recibía al registrar la venta (esa venta crea su abono con `crearAbonoEnTx` directamente). | ✅ Cerrado el 21/10/2026: `VentasService.crear` pide el envío del recibo del abono inicial después de confirmar la venta (`VentasModule` importa `NotificacionesModule`), sin hacer esperar a quien registra y sin romper la venta si el correo falla. Probado en `ventas.service.spec.ts` y en vivo con un servidor de correo de prueba (recibo con su PDF adjunto). |
 
 ## Observaciones que no impiden aceptar la etapa
 
-1. **Todo lo que envía correo depende de la cuenta SMTP de Balder** (RF-NOT-01, 02, 03 y RF-USR-06). El código está y está probado con un servidor de correo falso; sin la cuenta real los avisos quedan registrados como "omitidos: correo de la empresa no configurado". Está en los pendientes con el cliente.
+1. **Todo lo que envía correo depende de la cuenta SMTP de Balder** (RF-NOT-01, 02, 03 y RF-USR-06). El código está y está probado de punta a punta contra un servidor SMTP de prueba local (`npm run correo:sumidero`); sin la cuenta real los avisos quedan registrados como "omitidos: correo de la empresa no configurado". Está en los pendientes con el cliente.
 2. **Rendimiento (RNF-REN) sin repetir para lo nuevo.** La última medición de `docs/rendimiento.md` cubre los reportes de recaudo, cartera por edades, egresos, inventario y flujo de caja. Todavía no se midieron el informe del proyecto, maquinaria por equipo, el reporte de comisiones, el panel con sus consultas nuevas, `Por verificar` ni el historial de notificaciones. Se repite con `npm run demo:medir` sobre la base de volumen.
 3. **RF-REP-11 (flujo de caja) usa definiciones provisionales** de semana (lunes a domingo) y quincena (1 al 15 y 16 al fin de mes), pendientes de confirmar con el cliente (`backend/src/cierres-caja/periodo.ts`). Es una pregunta abierta, no una falta.
 4. **RF-REP-01:** el rango de fechas filtra lo que se mueve en el tiempo (recaudado, egresos y utilidad). La cartera y los lotes por estado son la foto de hoy, como corresponde.
@@ -57,7 +57,7 @@ Total: 26 requerimientos funcionales de la Etapa 2 (los 24 del reparto original 
 
 | ID | Prioridad | Estado | Evidencia |
 |---|---|---|---|
-| RF-NOT-01 | Debe | 🟡 ⏳ | Recibo en PDF por correo al registrar un abono (`NotificacionesService.enviarReciboAlRegistrar`, apagable en Configuración, reenvío manual). **Falta cuando la cuota inicial se recibe al vender** (ver "Lo que falta"). El correo real depende de la cuenta SMTP. |
+| RF-NOT-01 | Debe | ✅ ⏳ | Recibo en PDF por correo al registrar un abono desde la pantalla de abonos **y** al recibir la cuota inicial al registrar la venta (`NotificacionesService.enviarReciboAlRegistrar`, apagable en Configuración, reenvío manual); verificado de punta a punta contra un servidor SMTP de prueba (correo con su PDF adjunto y las respuestas dirigidas al correo de contacto de la empresa). El correo real depende de la cuenta SMTP de Balder. |
 | RF-NOT-02 | Debe | ✅ ⏳ | `RecordatoriosService.enviarRecordatoriosPendientes`, cron diario 8:00 hora de Bogotá, con los días de aviso configurables (`diasAntesRecordatorio`) y botón manual en el panel; cobra solo el saldo de la cuota (descuenta abonos parciales); `recordatorios.service.spec.ts` y e2e. |
 | RF-NOT-03 | Debe | ✅ ⏳ | `enviarAvisosMora`, cron a las 8:05, un correo por venta con sus cuotas vencidas y el total, cada `diasEntreAvisosMora` días (configurable), respetando los días de gracia; `aviso-mora.ts` y pruebas. No incluye el interés de mora hasta definir RF-CAR-06. |
 | RF-NOT-04 | Debe | ✅ | `POST /notificaciones/whatsapp` arma el mensaje y el enlace `wa.me` (celular colombiano normalizado) para recibo, recordatorio o mora; botones en el abono recién registrado, la venta, Cartera y la ficha del cliente; `telefono.ts`, `mensajes.ts` y sus pruebas. El sistema no envía nada (alcance acordado). |
@@ -103,6 +103,6 @@ Total: 26 requerimientos funcionales de la Etapa 2 (los 24 del reparto original 
 
 ## Siguiente paso sugerido
 
-1. Cerrar RF-NOT-01 (recibo de la cuota inicial al vender): es el único "Debe" parcial.
+1. Configurar la cuenta de correo del cliente (se recomienda una cuenta exclusiva para el sistema, a nombre de la empresa) y comprobarla con **Configuración → Correo de avisos → Enviar correo de prueba**.
 2. Repetir la medición de rendimiento con los reportes y pantallas nuevos.
-3. Con eso la Etapa 2 se puede aceptar, a falta de la cuenta de correo del cliente.
+3. Con eso la Etapa 2 se puede aceptar.

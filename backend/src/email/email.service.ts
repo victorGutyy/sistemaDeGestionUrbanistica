@@ -14,6 +14,14 @@ export interface EnviarCorreoParams {
   adjuntos?: AdjuntoCorreo[];
 }
 
+// A dónde llegan las respuestas de los clientes: al correo de contacto de la empresa (Configuración), siempre que sea
+// distinto de la cuenta desde la que se envía. Si no hay uno distinto, las respuestas llegan al propio remitente.
+export function direccionDeRespuesta(correoEmpresa: string | null | undefined, remitente: string): string | undefined {
+  const correo = correoEmpresa?.trim();
+  if (!correo || correo.toLowerCase() === remitente.trim().toLowerCase()) return undefined;
+  return correo;
+}
+
 // Envoltorio delgado sobre nodemailer/SMTP. Si algún día cambian de
 // proveedor (a un servicio transaccional tipo Resend/SendGrid), este es
 // el único archivo que hay que tocar.
@@ -46,10 +54,17 @@ export class EmailService {
     return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
   }
 
+  // La dirección desde la que salen los avisos (vacía si el servidor no tiene correo configurado).
+  remitente(): string {
+    return this.direccionRemitente();
+  }
+
   async enviar(params: EnviarCorreoParams): Promise<void> {
     const empresa = await this.configuracion.obtenerEmpresa();
     await this.transportador.sendMail({
       from: { name: empresa.nombreComercial, address: this.direccionRemitente() },
+      // Lo que el cliente conteste llega al correo de contacto de la empresa, no a la cuenta de los avisos.
+      replyTo: direccionDeRespuesta(empresa.correo, this.direccionRemitente()),
       to: params.to,
       subject: params.subject,
       html: params.html,

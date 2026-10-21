@@ -15,8 +15,10 @@ import {
   crearCategoriaIngreso,
   crearCuenta,
   crearTipoEquipo,
+  enviarCorreoDePrueba,
   exportarTodosLosDatos,
   obtenerConfiguracion,
+  obtenerEstadoCorreo,
   quitarLogo,
   subirLogo,
   type CategoriaGasto,
@@ -24,6 +26,7 @@ import {
   type ConfiguracionCompleta,
   type CuentaBancaria,
   type EmpresaConfig,
+  type EstadoCorreo,
   type MedioPagoConfig,
   type TipoCuenta,
   type TipoEquipo,
@@ -405,6 +408,76 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
         </div>
         <button type="submit" disabled={enviando} className={CLASE_BOTON}>
           {enviando ? 'Guardando...' : 'Guardar parámetros'}
+        </button>
+      </form>
+    </Seccion>
+  )
+}
+
+// ---------- Correo de avisos ----------
+
+// Comprueba que los avisos a los clientes van a salir: muestra desde qué cuenta se envían y a dónde llegan las
+// respuestas, y manda un mensaje de prueba a la dirección que se indique.
+function SeccionCorreo({ correoContacto }: { correoContacto: string | null }) {
+  const { usuario } = useAuth()
+  const [estado, setEstado] = useState<EstadoCorreo | null>(null)
+  const [destino, setDestino] = useState(usuario?.email ?? '')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [ok, setOk] = useState<string | null>(null)
+
+  // Se vuelve a leer al cambiar el correo de contacto, porque de él depende a dónde llegan las respuestas.
+  useEffect(() => {
+    obtenerEstadoCorreo()
+      .then(setEstado)
+      .catch((err: Error) => setError(err.message))
+  }, [correoContacto])
+
+  async function handleEnviar(event: FormEvent) {
+    event.preventDefault()
+    setError(null)
+    setOk(null)
+    setEnviando(true)
+    try {
+      const resultado = await enviarCorreoDePrueba(destino.trim())
+      setOk(`Correo enviado a ${resultado.destino}. Revisa la bandeja de entrada y también la carpeta de correo no deseado.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo enviar el correo de prueba')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <Seccion titulo="Correo de avisos" descripcion="El correo desde el que el sistema envía los recibos, recordatorios, avisos de mora y enlaces de recuperación de contraseña. Se configura en el servidor; aquí se comprueba que funciona.">
+      {estado && !estado.configurado && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          El servidor todavía no tiene un correo configurado. Mientras tanto, los avisos a los clientes quedan registrados como “omitidos” y no sale ningún correo.
+        </div>
+      )}
+      {estado?.configurado && (
+        <div className="space-y-2 text-sm">
+          <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-green-800">
+            Correo configurado. Los avisos salen desde <strong className="break-all">{estado.remitente}</strong>.
+          </div>
+          {estado.respondeA ? (
+            <p className="text-slate-600">
+              Las respuestas de los clientes llegan a <strong className="break-all">{estado.respondeA}</strong> (el correo de contacto de la empresa).
+            </p>
+          ) : (
+            <p className="text-amber-800">
+              Las respuestas de los clientes llegan a la misma cuenta desde la que se envía (<span className="break-all">{estado.remitente}</span>). Si quieres que lleguen a la bandeja principal de la empresa, escribe ese correo como “Correo de contacto” en Datos de la empresa.
+            </p>
+          )}
+        </div>
+      )}
+      <Aviso error={error} ok={ok} />
+      <form onSubmit={(evento) => void handleEnviar(evento)} className="mt-3 space-y-3">
+        <Campo id="destinoPrueba" etiqueta="Enviar el correo de prueba a" ayuda="Escribe una dirección a la que tengas acceso para ver si llega.">
+          <input id="destinoPrueba" type="email" required maxLength={254} value={destino} onChange={(e) => setDestino(e.target.value)} className={CLASE_INPUT} />
+        </Campo>
+        <button type="submit" disabled={enviando || !estado?.configurado} className={CLASE_BOTON}>
+          {enviando ? 'Enviando...' : 'Enviar correo de prueba'}
         </button>
       </form>
     </Seccion>
@@ -868,6 +941,7 @@ export function ConfiguracionPage() {
 
       <SeccionEmpresa empresa={config.empresa} onGuardada={(empresa) => setConfig({ ...config, empresa })} />
       <SeccionParametros empresa={config.empresa} onGuardada={(empresa) => setConfig({ ...config, empresa })} />
+      <SeccionCorreo correoContacto={config.empresa.correo} />
       <SeccionCuentas cuentas={config.cuentas} onCambio={(cuentas) => setConfig({ ...config, cuentas })} />
       <SeccionMediosPago medios={config.mediosPago} onCambio={(mediosPago) => setConfig({ ...config, mediosPago })} />
       <SeccionCategorias

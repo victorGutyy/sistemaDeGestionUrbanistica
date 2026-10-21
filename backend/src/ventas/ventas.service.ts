@@ -19,6 +19,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoComision, EstadoLote, EstadoVenta, FormaPago, OrigenMovimiento, TipoMovimiento } from '../generated/prisma/enums.js';
 import { aplicarAccionLote } from '../lotes/aplicar-accion.js';
 import { puedeAplicar } from '../lotes/estado-lote.js';
+import { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import { convertirSeparacionEnTx } from '../lotes/separacion.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -47,6 +48,7 @@ export class VentasService {
     private readonly prisma: PrismaService,
     private readonly configuracion: ConfiguracionService,
     private readonly storage: StorageService,
+    private readonly notificaciones: NotificacionesService,
   ) {}
 
   // Lo que necesita la pantalla de venta nueva: los valores por defecto del negocio y si quien
@@ -138,7 +140,10 @@ export class VentasService {
         ? parametros.tasaFinanciacionMensual
         : null;
 
-    return this.prisma.$transaction(async (tx) => {
+    // El abono de la cuota inicial recibida al vender (si lo hay): su recibo también sale por correo (RF-NOT-01).
+    let abonoInicialId: string | undefined;
+
+    const ventaCreada = await this.prisma.$transaction(async (tx) => {
       const lote = await tx.lote.findUnique({ where: { id: dto.loteId } });
       if (!lote) {
         throw new NotFoundException(`No existe el lote ${dto.loteId}`);
@@ -221,7 +226,7 @@ export class VentasService {
         await generarComisionEnTx(tx, { id: venta.id, vendedorId: venta.vendedorId, numeroLote: lote.numero }, usuario);
 
         if (dto.cuotaInicialRecibida && cuotaInicialId && contextoRecibo) {
-          await crearAbonoEnTx(
+          const { abono } = await crearAbonoEnTx(
             tx,
             {
               ventaId: venta.id,
@@ -235,6 +240,7 @@ export class VentasService {
             },
             contextoRecibo,
           );
+          abonoInicialId = abono.id;
         }
       }
 
@@ -255,6 +261,12 @@ export class VentasService {
         include: { cuotas: { orderBy: { numero: 'asc' } }, cliente: true, lote: true, vendedor: true },
       });
     });
+
+    // Sin hacer esperar a quien registra la venta; si falla, la venta ya quedó guardada y la falla queda en el historial.
+    if (abonoInicialId) {
+      void this.notificaciones.enviarReciboAlRegistrar(abonoInicialId, usuario.id);
+    }
+    return ventaCreada;
   }
 
   // El gerente aprueba una excepción: la venta pasa a ACTIVA, se genera su plan de cuotas y el lote queda vendido.

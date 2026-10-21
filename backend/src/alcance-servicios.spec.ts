@@ -24,6 +24,7 @@ const ALCANCE_VENTA = { lote: { proyectoId: { in: ['p-floresta'] } } };
 
 // Parámetros de venta que lee VentasService de la configuración.
 const STORAGE_FALSO = { guardar: vi.fn(), leer: vi.fn() } as unknown as StorageService;
+const NOTIFICACIONES_FALSAS = { enviarReciboAlRegistrar: vi.fn() } as unknown as NotificacionesService;
 const CONFIGURACION_VENTAS = {
   obtenerEmpresa: vi.fn().mockResolvedValue({ porcentajeCuotaInicial: '30', plazoMaximoMeses: 12, tasaFinanciacionMensual: '0' }),
   exigirMedioPagoActivo: vi.fn(),
@@ -122,7 +123,7 @@ describe('alcance por proyecto en los servicios', () => {
 
   describe('ventas', () => {
     it('lista y detalle limitados al alcance; una venta ajena responde 404', async () => {
-      const servicio = new VentasService(p(), CONFIGURACION_VENTAS, STORAGE_FALSO);
+      const servicio = new VentasService(p(), CONFIGURACION_VENTAS, STORAGE_FALSO, NOTIFICACIONES_FALSAS);
       await servicio.listar(SOCIO);
       expect(prisma.venta.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: ALCANCE_VENTA }));
       await expect(servicio.buscarPorId('venta-x', SOCIO)).rejects.toBeInstanceOf(NotFoundException);
@@ -135,7 +136,7 @@ describe('alcance por proyecto en los servicios', () => {
       prisma.lote.findUnique.mockResolvedValue({ id: 'lote-1', proyectoId: 'p-arboleda', estado: 'DISPONIBLE', numero: '1' });
 
       await expect(
-        new VentasService(p(), CONFIGURACION_VENTAS, STORAGE_FALSO).crear(
+        new VentasService(p(), CONFIGURACION_VENTAS, STORAGE_FALSO, NOTIFICACIONES_FALSAS).crear(
           { loteId: 'lote-1', clienteId: 'c-1', formaPago: 'CONTADO', valorTotal: '100', cuotaInicial: '100' } as never,
           SOCIO,
         ),

@@ -4,6 +4,7 @@ import type { ConfiguracionService } from '../configuracion/configuracion.servic
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoLote, EstadoVenta, FormaPago, MedioPago, TipoVendedor } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { NotificacionesService } from '../notificaciones/notificaciones.service.js';
 import type { StorageService } from '../storage/storage.service.js';
 import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 import { usuarioDePrueba } from '../test-utils/usuario-prueba.js';
@@ -59,6 +60,9 @@ function crearPrismaFalso() {
 
 const D = (valor: string) => new Prisma.Decimal(valor);
 const STORAGE_FALSO = () => ({ guardar: vi.fn(), leer: vi.fn() }) as unknown as StorageService;
+// El recibo por correo vive en el servicio de notificaciones (probado aparte); aquí solo se mira que la venta lo pida.
+const enviarReciboFalso = vi.fn().mockResolvedValue(undefined);
+const NOTIFICACIONES_FALSAS = () => ({ enviarReciboAlRegistrar: enviarReciboFalso }) as unknown as NotificacionesService;
 const LOTE = { id: 'lote-1', proyectoId: 'p-1', numero: 'L-1', estado: EstadoLote.DISPONIBLE };
 const USUARIO = usuarioDePrueba();
 const GERENTE = { ...usuarioDePrueba(), id: 'gerente-1', permisos: ['ventas.autorizar'] };
@@ -93,7 +97,9 @@ describe('VentasService.crear', () => {
       contextoRecibo: vi.fn().mockResolvedValue({ prefijoRecibo: 'RC-', recibidoPor: 'Usuario Prueba', empresa: {} }),
     };
     vi.mocked(crearAbonoEnTx).mockReset();
-    service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO());
+    vi.mocked(crearAbonoEnTx).mockResolvedValue({ abono: { id: 'abono-1' } } as never);
+    enviarReciboFalso.mockClear();
+    service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO(), NOTIFICACIONES_FALSAS());
 
     tx.lote.findUnique.mockResolvedValue(LOTE);
     tx.cliente.findFirst.mockResolvedValue({ id: 'cliente-1' });
@@ -271,6 +277,35 @@ describe('VentasService.crear', () => {
       await service.crear(BASE_CONTADO, USUARIO);
       expect(crearAbonoEnTx).not.toHaveBeenCalled();
     });
+
+    describe('recibo por correo de la cuota inicial (RF-NOT-01)', () => {
+      it('al guardar la venta pide enviar el recibo del abono de la cuota inicial, con quién la registró', async () => {
+        await service.crear({ ...BASE_CONTADO, cuotaInicialRecibida: true, medioPago: MedioPago.EFECTIVO }, USUARIO);
+
+        expect(enviarReciboFalso).toHaveBeenCalledTimes(1);
+        expect(enviarReciboFalso).toHaveBeenCalledWith('abono-1', USUARIO.id);
+      });
+
+      it('si la cuota inicial no se recibió no hay recibo que enviar', async () => {
+        await service.crear(BASE_CONTADO, USUARIO);
+
+        expect(enviarReciboFalso).not.toHaveBeenCalled();
+      });
+
+      it('si la venta se rechaza (la transacción falla) no se envía nada', async () => {
+        vi.mocked(crearAbonoEnTx).mockRejectedValue(new Error('base caída'));
+
+        await expect(service.crear({ ...BASE_CONTADO, cuotaInicialRecibida: true, medioPago: MedioPago.EFECTIVO }, USUARIO)).rejects.toThrow('base caída');
+
+        expect(enviarReciboFalso).not.toHaveBeenCalled();
+      });
+
+      it('el envío no hace esperar la respuesta de la venta ni la rompe si falla', async () => {
+        enviarReciboFalso.mockRejectedValueOnce(new Error('SMTP caído'));
+
+        await expect(service.crear({ ...BASE_CONTADO, cuotaInicialRecibida: true, medioPago: MedioPago.EFECTIVO }, USUARIO)).resolves.toBeDefined();
+      });
+    });
   });
 
   describe('venta financiada', () => {
@@ -444,7 +479,7 @@ describe('VentasService: aprobar y rechazar excepciones', () => {
 
   beforeEach(() => {
     ({ prisma, tx } = crearPrismaFalso());
-    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService, STORAGE_FALSO());
+    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService, STORAGE_FALSO(), NOTIFICACIONES_FALSAS());
     tx.venta.findFirst.mockResolvedValue(PENDIENTE);
     tx.cuota.create.mockResolvedValue({ id: 'cuota-0' });
     tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
@@ -521,7 +556,7 @@ describe('VentasService.parametros', () => {
   it('entrega los valores por defecto del negocio y si quien consulta puede autorizar excepciones', async () => {
     const { prisma } = crearPrismaFalso();
     const configuracion = { obtenerEmpresa: vi.fn().mockResolvedValue({ ...CONFIG, tasaFinanciacionMensual: D('0') }) };
-    const service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO());
+    const service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO(), NOTIFICACIONES_FALSAS());
 
     expect(await service.parametros(USUARIO)).toEqual({
       porcentajeCuotaInicial: '30',
@@ -554,6 +589,7 @@ describe('VentasService.desistir (RF-VEN-08)', () => {
       prisma as unknown as PrismaService,
       { exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined) } as unknown as ConfiguracionService,
       STORAGE_FALSO(),
+      NOTIFICACIONES_FALSAS(),
     );
     tx.venta.findFirst.mockResolvedValue(VENTA);
     tx.venta.findUniqueOrThrow.mockResolvedValue({ id: 'venta-1' });
@@ -686,7 +722,7 @@ describe('VentasService: documentos firmados (RF-VEN-06)', () => {
   beforeEach(() => {
     ({ prisma, tx } = crearPrismaFalso());
     storage = { guardar: vi.fn().mockResolvedValue({ rutaRelativa: 'ventas/venta-1/abc.pdf' }), leer: vi.fn() };
-    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService, storage as unknown as StorageService);
+    service = new VentasService(prisma as unknown as PrismaService, {} as ConfiguracionService, storage as unknown as StorageService, NOTIFICACIONES_FALSAS());
     tx.venta.findFirst.mockResolvedValue({ id: 'venta-1' });
     tx.documentoVenta.create.mockImplementation(({ data }: { data: object }) => Promise.resolve({ id: 'doc-1', ...data }));
   });
@@ -763,7 +799,7 @@ describe('VentasService: comisiones de la venta (RF-COM-01 y RF-COM-04)', () => 
       exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined),
       contextoRecibo: vi.fn(),
     };
-    service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO());
+    service = new VentasService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, STORAGE_FALSO(), NOTIFICACIONES_FALSAS());
 
     tx.lote.findUnique.mockResolvedValue(LOTE);
     tx.cliente.findFirst.mockResolvedValue({ id: 'cliente-1' });

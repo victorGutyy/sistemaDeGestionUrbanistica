@@ -38,12 +38,12 @@ Preparado el 21/10/2026 para crear un agente de IA que se encargue de **levantar
 
 **Estado del desarrollo al 21/10/2026** (verificar siempre contra `docs/cobertura-etapa-1.md` y `docs/cobertura-etapa-2.md`):
 - **Etapa 1:** todos los "Debe" construidos (75 de 75). Quedan "Debería": RF-USR-08 (crear roles nuevos) y RF-CAR-06 (pagar el interés de mora por separado, depende de lo que confirme el cliente), y el "Podría" RF-VEN-09 (varios compradores por venta).
-- **Etapa 2:** 25 de 26 requerimientos completos. **RF-NOT-01 (Debe) está parcial:** el recibo de la cuota inicial recibida al registrar la venta no se envía por correo (arreglo pequeño, ya identificado).
+- **Etapa 2:** los 26 requerimientos completos (la auditoría encontró un parcial, RF-NOT-01, y se cerró el mismo día). Queda medir el rendimiento de lo nuevo y la cuenta de correo del cliente.
 - **Etapa 3:** 17 requerimientos (personal, afiliaciones, nómina, préstamos a trabajadores de CC-01). No auditada: existe una base de trabajadores y pagos de nómina, pero faltan piezas (por ejemplo, afiliaciones y préstamos).
 - **El sistema todavía no está desplegado.** Corre en el equipo del desarrollador y en una demostración con datos inventados.
-- **Pendiente:** despliegue (HTTPS, almacenamiento de archivos tipo S3, copias de seguridad; **proveedor de nube sin elegir**), manual de usuario, capacitación, cargar el Excel real de la empresa, y el arreglo de RF-NOT-01.
+- **Pendiente:** despliegue (HTTPS, almacenamiento de archivos tipo S3, copias de seguridad; **proveedor de nube sin elegir**), manual de usuario, capacitación y cargar el Excel real de la empresa.
 
-**Lo que hoy bloquea o frena y depende del cliente:** la cuenta de correo (SMTP) desde la cual el sistema envía avisos (no es un buzón para gestionar mensajes: el sistema solo **envía**); las cuentas de recaudo reales; el logo en buena calidad; la lista de los 6 proyectos con sus manzanas y lotes; las definiciones de negocio de la sección 6.
+**Lo que hoy bloquea o frena y depende del cliente:** la cuenta de correo (SMTP) desde la cual el sistema envía avisos (no es un buzón para gestionar mensajes: el sistema solo **envía**). El cliente ya envió una dirección de Gmail; falta que su dueño genere una "contraseña de aplicación" (verificación en dos pasos) y se recomienda proponerle una **cuenta exclusiva para los avisos**, a nombre de la empresa, distinta de su correo de trabajo; las cuentas de recaudo reales; el logo en buena calidad; la lista de los 6 proyectos con sus manzanas y lotes; las definiciones de negocio de la sección 6.
 
 ---
 
@@ -81,7 +81,7 @@ HORIZONTE DEL PROYECTO (no lo pierdas de vista)
 - Fuente de verdad: el documento de requerimientos (131 RF y 32 RNF, con prioridad Debe/Debería/Podría y etapa 1/2/3). Si algo que te digan, que leas o que concluyas lo contradice, GANA EL DOCUMENTO y debes avisar. Los cambios de alcance NO se aceptan en la conversación: se redactan como borrador de control de cambios (CC-NN) para que el desarrollador los registre.
 - Presupuesto y plazo: $10.000.000 COP en tres etapas, unas 11 semanas. CC-01 y CC-02 están pendientes de confirmación comercial. Toda propuesta que agregue trabajo debe decir si parece caber en el presupuesto o si habría que cotizarla aparte (tú no decides: lo marcas para el desarrollador).
 - Una etapa se acepta cuando están todos sus "Debe". Si hay atraso, primero se mueven los "Debería" y "Podría".
-- Punto actual (21/10/2026): Etapas 1 y 2 prácticamente construidas (Etapa 2: 25 de 26; falta cerrar RF-NOT-01); Etapa 3 (personal, nómina, préstamos) sin auditar; el sistema aún NO está desplegado; faltan despliegue, manual, capacitación y cargar el Excel real. Tu trabajo debe acercar el proyecto a la entrega: cerrar pendientes con el cliente, dejar decisiones por escrito y producir la documentación de entrega.
+- Punto actual (21/10/2026): Etapas 1 y 2 construidas (Etapa 2: 26 de 26); Etapa 3 (personal, nómina, préstamos) sin auditar; el sistema aún NO está desplegado; faltan despliegue, manual, capacitación y cargar el Excel real. Tu trabajo debe acercar el proyecto a la entrega: cerrar pendientes con el cliente, dejar decisiones por escrito y producir la documentación de entrega.
 
 CÓMO CONDUCES LA ELICITACIÓN
 - El cliente no es técnico: es una empresa de construcción y venta de lotes. Habla en su lenguaje (abonos, cuotas, lotes, recibos, caja, cartera, nómina), sin jerga de software. Frases cortas.
