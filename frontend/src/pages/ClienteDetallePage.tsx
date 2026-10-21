@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { BotonWhatsApp } from '../components/BotonesAviso'
+import { HistorialAvisos } from '../components/HistorialAvisos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   abrirEstadoCuentaCliente,
@@ -82,6 +84,13 @@ function TarjetaVenta({ venta, puedeAbonar }: { venta: VentaFicha; puedeAbonar: 
         <Link to={`/ventas/${venta.id}`} className={`${BOTON_SECUNDARIO} text-center`}>
           Ver venta
         </Link>
+        {venta.vigente && cartera && (cartera.cuotasVencidas > 0 || cartera.proximaCuota) && (
+          <BotonWhatsApp
+            tipo={cartera.cuotasVencidas > 0 ? 'MORA' : 'RECORDATORIO'}
+            ventaId={venta.id}
+            etiqueta={cartera.cuotasVencidas > 0 ? 'Avisar mora por WhatsApp' : 'Recordar cuota por WhatsApp'}
+          />
+        )}
       </div>
     </li>
   )
@@ -307,7 +316,10 @@ export function ClienteDetallePage() {
             {cliente.autorizacionRegistradaPor ? ` (registrada por ${cliente.autorizacionRegistradaPor.nombre})` : ''}.
           </p>
         ) : (
-          <p className="mt-1 text-sm text-amber-700">Todavía no hay una autorización registrada (Ley 1581 de 2012).</p>
+          <>
+            <p className="mt-1 text-sm text-amber-700">Todavía no hay una autorización registrada (Ley 1581 de 2012).</p>
+            <p className="mt-1 text-xs text-slate-500">Mientras tanto, los recibos y avisos de cobro le siguen saliendo; conviene registrar la autorización.</p>
+          </>
         )}
         {puedeEditar && (
           <div className="mt-3">
@@ -345,6 +357,8 @@ export function ClienteDetallePage() {
           {ficha.ventas.length === 0 && <li className="px-4 py-8 text-center text-sm text-slate-400">Este cliente todavía no tiene ventas.</li>}
         </ul>
       </section>
+
+      <HistorialAvisos filtro={{ clienteId: cliente.id }} verTodo={`/notificaciones?clienteId=${cliente.id}`} />
     </div>
   )
 }

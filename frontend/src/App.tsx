@@ -36,6 +36,7 @@ import { RegistrarProyectoPage } from './pages/RegistrarProyectoPage'
 import { RegistrarTrabajadorPage } from './pages/RegistrarTrabajadorPage'
 import { RegistrarUsuarioPage } from './pages/RegistrarUsuarioPage'
 import { RegistrarVentaPage } from './pages/RegistrarVentaPage'
+import { NotificacionesPage } from './pages/NotificacionesPage'
 import { ReportesPage } from './pages/ReportesPage'
 import { TrabajadorDetallePage } from './pages/TrabajadorDetallePage'
 import { UsuariosPage } from './pages/UsuariosPage'
@@ -87,6 +88,9 @@ function App() {
               <Route path="/proyectos/:id/finanzas" element={<ProyectoFinanzasPage />} />
               <Route element={<ProtectedRoute permiso={PERMISOS.REPORTES_VER} />}>
                 <Route path="/reportes" element={<ReportesPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permiso={PERMISOS.NOTIFICACIONES_VER} />}>
+                <Route path="/notificaciones" element={<NotificacionesPage />} />
               </Route>
               <Route element={<ProtectedRoute permiso={PERMISOS.COMISIONES_VER} />}>
                 <Route path="/comisiones" element={<ComisionesPage />} />

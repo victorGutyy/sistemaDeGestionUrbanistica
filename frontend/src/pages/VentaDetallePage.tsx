@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { BotonCorreoRecibo, BotonWhatsApp } from '../components/BotonesAviso'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
+import { HistorialAvisos } from '../components/HistorialAvisos'
 import { TarjetaComision } from '../components/TarjetaComision'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
@@ -585,6 +587,8 @@ Motivo (queda registrado):`,
                     Ver soporte
                   </button>
                 )}
+                {!anulado && abono.recibo && <BotonWhatsApp tipo="RECIBO" ventaId={venta.id} abonoId={abono.id} estilo="enlace" etiqueta="Avisar por WhatsApp" />}
+                {!anulado && abono.recibo && <BotonCorreoRecibo abonoId={abono.id} estilo="enlace" etiqueta="Enviar por correo" />}
                 {!anulado && tiene(PERMISOS.ABONOS_ANULAR) && (
                   <button
                     type="button"
@@ -600,6 +604,8 @@ Motivo (queda registrado):`,
           )
         })}
       </ul>
+
+      <HistorialAvisos filtro={{ ventaId: venta.id }} verTodo={`/notificaciones?ventaId=${venta.id}`} titulo="Avisos al cliente de esta venta" />
     </div>
   )
 }

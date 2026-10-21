@@ -749,6 +749,8 @@ export interface VentaDeCartera {
   id: string
   numeroLote: string
   nombreProyecto: string
+  // La venta tiene cuotas vencidas: el aviso por WhatsApp es de mora; si no, es un recordatorio.
+  enMora: boolean
 }
 
 export interface FilaCartera {
@@ -1462,6 +1464,81 @@ export interface ResultadoRecordatorios {
 
 export function ejecutarRecordatorios() {
   return solicitar<ResultadoRecordatorios>('/recordatorios/ejecutar', { method: 'POST' })
+}
+
+// ---------- Notificaciones (RF-NOT-01 a 06) ----------
+
+export type TipoNotificacion = 'RECIBO' | 'RECORDATORIO' | 'MORA'
+export type CanalNotificacion = 'CORREO' | 'WHATSAPP'
+export type EstadoNotificacion = 'ENVIADA' | 'FALLIDA' | 'OMITIDA' | 'ENLACE_ABIERTO'
+
+export interface FiltroNotificaciones {
+  clienteId?: string
+  ventaId?: string
+  tipo?: TipoNotificacion
+  canal?: CanalNotificacion
+  estado?: EstadoNotificacion
+  desde?: string
+  hasta?: string
+  pagina?: number
+  limite?: number
+}
+
+export interface Notificacion {
+  id: string
+  fecha: string
+  tipo: TipoNotificacion
+  canal: CanalNotificacion
+  estado: EstadoNotificacion
+  destinatario: string | null
+  asunto: string | null
+  detalle: string | null
+  cliente: { id: string; nombre: string }
+  ventaId: string
+  lote: string
+  proyecto: string
+  cuota: number | null
+  recibo: string | null
+  // Quién lo disparó; null cuando lo hizo el sistema (proceso automático).
+  usuario: string | null
+}
+
+export interface ListaNotificaciones {
+  total: number
+  pagina: number
+  limite: number
+  // Cuántas hay en cada estado con los demás filtros (sin contar el de estado).
+  porEstado: Partial<Record<EstadoNotificacion, number>>
+  notificaciones: Notificacion[]
+}
+
+export function listarNotificaciones(filtro: FiltroNotificaciones = {}) {
+  const params = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(filtro)) {
+    if (valor !== undefined && valor !== '') params.set(clave, String(valor))
+  }
+  const texto = params.toString()
+  return solicitar<ListaNotificaciones>(`/notificaciones${texto ? `?${texto}` : ''}`)
+}
+
+export interface MensajeWhatsApp {
+  url: string
+  mensaje: string
+  telefono: string
+  cliente: string
+}
+
+export function prepararWhatsApp(datos: { tipo: TipoNotificacion; ventaId: string; abonoId?: string; cuotaId?: string }) {
+  return solicitar<MensajeWhatsApp>('/notificaciones/whatsapp', { method: 'POST', body: JSON.stringify(datos) })
+}
+
+export interface ResultadoCorreo {
+  estado: EstadoNotificacion
+  detalle: string | null
+}
+
+export function reenviarReciboPorCorreo(abonoId: string) {
+  return solicitar<ResultadoCorreo>(`/notificaciones/recibos/${abonoId}/correo`, { method: 'POST' })
 }
 
 export type EstadoUsuario = 'ACTIVO' | 'INACTIVO'

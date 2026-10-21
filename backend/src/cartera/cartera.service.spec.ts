@@ -40,3 +40,25 @@ describe('CarteraService.reportePorProyecto', () => {
     expect(reporte.consolidado.saldoProximoAVencer.toString()).toBe('0');
   });
 });
+
+describe('CarteraService.listarPorCliente', () => {
+  it('marca por venta si está en mora, para elegir entre aviso de mora y recordatorio', async () => {
+    const venta = (id: string, cuotas: object[]) => ({ id, cuotas, lote: { numero: `L-${id}`, proyecto: { nombre: 'Proyecto Uno' } } });
+    const prisma = {
+      cliente: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'c1', nombre: 'Ana', documento: '1', ventas: [venta('v-mora', [cuota(-10, 1_000_000), cuota(20, 1_000_000)]), venta('v-dia', [cuota(20, 1_000_000)])] },
+        ]),
+      },
+    };
+    const configuracion = { obtenerEmpresa: vi.fn().mockResolvedValue({ tasaMoraMensual: null, diasGraciaMora: 0, diasSemaforoAmarillo: 5 }) };
+    const servicioClientes = new CarteraService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService);
+
+    const filas = await servicioClientes.listarPorCliente(usuarioDePrueba());
+
+    expect(filas[0].ventas.map((v) => [v.id, v.enMora])).toEqual([
+      ['v-mora', true],
+      ['v-dia', false],
+    ]);
+  });
+});

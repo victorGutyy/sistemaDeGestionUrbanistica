@@ -38,6 +38,8 @@ export const PERMISOS = {
   COMISIONES_PAGAR: 'comisiones.pagar',
   COMISIONES_ANULAR: 'comisiones.anular',
   REPORTES_VER: 'reportes.ver',
+  NOTIFICACIONES_VER: 'notificaciones.ver',
+  NOTIFICACIONES_ENVIAR: 'notificaciones.enviar',
 } as const
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS]

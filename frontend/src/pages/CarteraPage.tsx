@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { BotonWhatsApp } from '../components/BotonesAviso'
 import {
   listarCartera,
   obtenerReporteCartera,
@@ -104,15 +105,19 @@ export function CarteraPage() {
                     : '—'}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1">
                     {fila.ventas.map((venta) => (
-                      <Link
-                        key={venta.id}
-                        to={`/ventas/${venta.id}`}
-                        className="text-sm font-medium text-blue-600 hover:underline"
-                      >
-                        Lote {venta.numeroLote} ({venta.nombreProyecto})
-                      </Link>
+                      <div key={venta.id} className="flex flex-wrap items-start gap-x-3 gap-y-0.5">
+                        <Link to={`/ventas/${venta.id}`} className="text-sm font-medium text-blue-600 hover:underline">
+                          Lote {venta.numeroLote} ({venta.nombreProyecto})
+                        </Link>
+                        <BotonWhatsApp
+                          tipo={venta.enMora ? 'MORA' : 'RECORDATORIO'}
+                          ventaId={venta.id}
+                          estilo="enlace"
+                          etiqueta={venta.enMora ? 'WhatsApp: mora' : 'WhatsApp: recordar'}
+                        />
+                      </div>
                     ))}
                   </div>
                 </td>

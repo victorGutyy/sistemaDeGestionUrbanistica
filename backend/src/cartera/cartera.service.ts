@@ -63,10 +63,12 @@ export class CarteraService {
           proximaCuota: resumen.proximaCuota,
           // Para poder ir directo al seguimiento de cuotas/abonos de cada
           // venta (VentaDetallePage), sin tener que buscarla aparte.
+          // enMora: la venta tiene cuotas vencidas (decide si el aviso por WhatsApp es de mora o un recordatorio).
           ventas: cliente.ventas.map((venta) => ({
             id: venta.id,
             numeroLote: venta.lote.numero,
             nombreProyecto: venta.lote.proyecto.nombre,
+            enMora: resumirCartera(venta.cuotas, hoy, mora, diasAlertaAmarilla).cuotasVencidas > 0,
           })),
         };
       });

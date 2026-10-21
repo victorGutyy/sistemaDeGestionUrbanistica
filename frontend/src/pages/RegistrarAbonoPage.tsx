@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { BotonCorreoRecibo, BotonWhatsApp } from '../components/BotonesAviso'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
 import {
   abrirRecibo,
@@ -183,6 +184,15 @@ export function RegistrarAbonoPage() {
           >
             Ver la venta
           </button>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+          <p className="text-sm font-medium text-slate-900">Avisar al cliente</p>
+          <p className="text-xs text-slate-500">El recibo en PDF sale solo al correo del cliente si la empresa lo tiene activado. Por WhatsApp se abre el mensaje listo; el PDF lo adjuntas tú.</p>
+          <div className="mt-2 flex flex-wrap items-start gap-2">
+            <BotonWhatsApp tipo="RECIBO" ventaId={venta.id} abonoId={registrado.id} etiqueta="Avisar por WhatsApp" />
+            <BotonCorreoRecibo abonoId={registrado.id} etiqueta="Enviar recibo por correo" />
+          </div>
         </div>
       </div>
     )
