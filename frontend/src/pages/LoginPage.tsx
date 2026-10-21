@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { LogoEmpresa } from '../components/LogoEmpresa'
 import { useAuth } from '../contexts/AuthContext'
 import { useEmpresa } from '../contexts/EmpresaContext'
@@ -14,6 +14,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+
+  // Mensaje que deja otra pantalla al volver aquí (por ejemplo, "Contraseña cambiada").
+  const aviso = (location.state as { aviso?: string } | null)?.aviso
 
   if (usuario) {
     const destino = (location.state as { from?: string } | null)?.from ?? '/'
@@ -43,7 +46,11 @@ export function LoginPage() {
         {marca.nombreComercial && <p className="text-center text-xs text-slate-400">{marca.nombreProducto}</p>}
         <p className="mt-1 text-center text-sm text-slate-500">Ingresa con tu cuenta para continuar.</p>
 
-        {avisoSesion && !error && (
+        {aviso && !error && (
+          <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{aviso}</div>
+        )}
+
+        {avisoSesion && !error && !aviso && (
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {avisoSesion}
           </div>
@@ -93,6 +100,9 @@ export function LoginPage() {
           >
             {enviando ? 'Ingresando...' : 'Ingresar'}
           </button>
+          <Link to="/recuperar" className="block text-center text-sm font-medium text-blue-600 hover:underline">
+            ¿Olvidaste tu contraseña?
+          </Link>
         </form>
       </div>
     </div>

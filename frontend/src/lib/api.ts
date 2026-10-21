@@ -1696,6 +1696,15 @@ export function actualizarUsuario(id: string, payload: ActualizarUsuarioPayload)
   return solicitar<Usuario>(`/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
+// Recuperación de contraseña por correo (RF-USR-06). Las dos rutas son públicas (no llevan sesión).
+export function solicitarRecuperacion(email: string) {
+  return solicitar<{ mensaje: string }>('/auth/recuperar', { method: 'POST', body: JSON.stringify({ email }) })
+}
+
+export function restablecerConEnlace(token: string, password: string) {
+  return solicitar<{ mensaje: string }>('/auth/restablecer', { method: 'POST', body: JSON.stringify({ token, password }) })
+}
+
 export function restablecerPasswordUsuario(id: string, password: string) {
   return solicitar<Usuario>(`/usuarios/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) })
 }

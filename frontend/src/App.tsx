@@ -19,6 +19,8 @@ import { ContabilidadPage } from './pages/ContabilidadPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { EditarUsuarioPage } from './pages/EditarUsuarioPage'
 import { LoginPage } from './pages/LoginPage'
+import { RecuperarPasswordPage } from './pages/RecuperarPasswordPage'
+import { RestablecerPasswordPage } from './pages/RestablecerPasswordPage'
 import { LoteDetallePage } from './pages/LoteDetallePage'
 import { MovimientoDetallePage } from './pages/MovimientoDetallePage'
 import { NominaPage } from './pages/NominaPage'
@@ -52,6 +54,8 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/recuperar" element={<RecuperarPasswordPage />} />
+          <Route path="/restablecer" element={<RestablecerPasswordPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
