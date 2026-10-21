@@ -24,6 +24,7 @@ import { NominaModule } from './nomina/nomina.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProyectosModule } from './proyectos/proyectos.module.js';
 import { RecordatoriosModule } from './recordatorios/recordatorios.module.js';
+import { ReportesModule } from './reportes/reportes.module.js';
 import { RolesModule } from './roles/roles.module.js';
 import { TrabajadoresModule } from './trabajadores/trabajadores.module.js';
 import { UsuariosModule } from './usuarios/usuarios.module.js';
@@ -53,6 +54,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     ExportacionModule,
     EquiposModule,
     ComisionesModule,
+    ReportesModule,
     TrabajadoresModule,
     NominaModule,
     DashboardModule,

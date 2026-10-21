@@ -203,7 +203,7 @@ Ningún "Debe". Solo quedan dos "Debería" y el "Podría":
 | RNF-USA-04 y 05 | ⏳ | Capacitación y manual de usuario con capturas. |
 | RNF-COM-01 | ⏳ | Prueba en Chrome, Edge y Firefox. |
 | RNF-COM-02 | 🟡 | Verificado a 375 px en el navegador; falta una prueba en un Android real. |
-| RNF-COM-03 | 🟡 | Los PDF (recibo y cierre) se verificaron por contenido, no renderizados. |
+| RNF-COM-03 | ✅ | Los PDF (recibo, cierre, estado de cuenta y reportes) se vieron renderizados en el visor del navegador el 21/10/2026; salió un defecto de texto largo en las tablas y se corrigió. |
 | RNF-MAN-01 | ✅ | Empresa y reglas con números configurables. |
 | RNF-MAN-02 | 🟡 | README explica cómo levantar; falta documentación de despliegue. |
 | RNF-MAN-03 | 🟡 | Almacenamiento abstraído (`StorageService`) con implementación local; falta la de S3. |

@@ -52,6 +52,11 @@ Buscar un cliente por su nombre, abrir su ficha y descargar el estado de cuenta 
 | Tablero en PDF | 386 ms | 404 ms | 2 KB |
 | Tablero en Excel | 364 ms | 368 ms | 7 KB |
 | Exportación completa a Excel (gerente) | 2.985 ms | 3.222 ms | 4,9 MB |
+| Reporte de recaudo en PDF (5.000 filas de detalle) | 1.608 ms | 1.737 ms | 615 KB |
+| Reporte de recaudo en Excel | 712 ms | 748 ms | 260 KB |
+| Cartera por edades en PDF | 342 ms | 372 ms | 58 KB |
+| Cartera por edades en Excel | 280 ms | 310 ms | 33 KB |
+| Egresos por categoría, inventario de lotes y flujo de caja (PDF o Excel) | de 51 a 81 ms | menos de 115 ms | menos de 25 KB |
 
 El PDF del estado de cuenta de un cliente (RNF-REN-02) tardó 46 ms. La exportación completa es la más pesada porque saca todas las tablas; con 5.000 abonos tarda 3 s.
 

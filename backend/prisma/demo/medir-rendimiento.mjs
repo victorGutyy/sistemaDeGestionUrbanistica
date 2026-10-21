@@ -70,6 +70,8 @@ const consultas = [
   ['Nómina: pagos', '/nomina/pagos'],
   ['Recibos (búsqueda)', '/recibos'],
   ['Cierres de caja', '/cierres-caja'],
+  ['Reporte de cartera por edades (pantalla)', '/reportes/cartera-edades'],
+  ['Reporte de recaudo (pantalla)', '/reportes/recaudo'],
 ];
 resultados.consulta = [];
 for (const [nombre, ruta] of consultas) {
@@ -98,6 +100,15 @@ const reportes = [
   ['Tablero en PDF', '/dashboard/exportar?formato=pdf'],
   ['Tablero en Excel', '/dashboard/exportar?formato=excel'],
   ['Exportación completa a Excel (gerente)', '/exportacion/completa', true],
+  // Reportes de la Etapa 2 (RF-REP-10): todo el historial, que es el caso más pesado.
+  ['Reporte de recaudo en PDF', '/reportes/recaudo/exportar?formato=pdf'],
+  ['Reporte de recaudo en Excel', '/reportes/recaudo/exportar?formato=excel'],
+  ['Cartera por edades en PDF', '/reportes/cartera-edades/exportar?formato=pdf'],
+  ['Cartera por edades en Excel', '/reportes/cartera-edades/exportar?formato=excel'],
+  ['Egresos por categoría en PDF', '/reportes/egresos/exportar?formato=pdf'],
+  ['Inventario de lotes en PDF', '/reportes/inventario-lotes/exportar?formato=pdf'],
+  ['Flujo de caja mensual en PDF', `/reportes/flujo-caja/exportar?formato=pdf&desde=2025-01-01&hasta=${new Date().toISOString().slice(0, 10)}&granularidad=MES`],
+  ['Flujo de caja diario en Excel', `/reportes/flujo-caja/exportar?formato=excel&desde=${new Date(Date.now() - 300 * 86400000).toISOString().slice(0, 10)}&hasta=${new Date().toISOString().slice(0, 10)}&granularidad=DIA`],
 ];
 resultados.reportes = [];
 for (const [nombre, ruta, soloGerente] of reportes) {

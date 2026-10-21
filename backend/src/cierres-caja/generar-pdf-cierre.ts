@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { ETIQUETA_MEDIO_PAGO } from '../common/medio-pago.js';
+import { ajustarAlAncho } from '../common/pdf-texto.js';
 import { formatearCOP } from '../common/formato.util.js';
 import type { MedioPago } from '../generated/prisma/enums.js';
 import type { ResultadoCierre } from './calcular-cierre.js';
@@ -88,11 +89,8 @@ export function generarPdfCierre(datos: DatosPdfCierre, opciones: OpcionesPdfCie
       const y = documento.y;
       let x = 40;
       for (const columna of columnas) {
-        documento
-          .font(columna.negrita ? 'Helvetica-Bold' : 'Helvetica')
-          .fontSize(8.5)
-          .fillColor(columna.color ?? '#0f172a')
-          .text(columna.texto, x, y, { width: columna.ancho - 6, align: columna.derecha ? 'right' : 'left', lineBreak: false, ellipsis: true });
+        documento.font(columna.negrita ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5).fillColor(columna.color ?? '#0f172a');
+        documento.text(ajustarAlAncho(documento, columna.texto, columna.ancho - 6), x, y, { width: columna.ancho - 6, align: columna.derecha ? 'right' : 'left', lineBreak: false });
         x += columna.ancho;
       }
       documento.y = y + alto;

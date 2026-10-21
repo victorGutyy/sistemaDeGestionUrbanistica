@@ -40,6 +40,7 @@ export const PERMISOS = {
   COMISIONES_VER: 'comisiones.ver', // ver las comisiones de venta y su reporte
   COMISIONES_PAGAR: 'comisiones.pagar', // pagar una comisión (crea su egreso)
   COMISIONES_ANULAR: 'comisiones.anular', // anular una comisión, pendiente o pagada (solo gerente)
+  REPORTES_VER: 'reportes.ver', // consultar y exportar los reportes (cada uno respeta el alcance por proyecto)
 } as const;
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -106,6 +107,7 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
       PERMISOS.CARTERA_VER,
       PERMISOS.FINANZAS_VER,
       PERMISOS.DASHBOARD_VER,
+      PERMISOS.REPORTES_VER,
     ],
     limitablePorProyecto: true,
   },
