@@ -55,6 +55,17 @@ export class ActualizarParametrosDto {
   @Max(90)
   diasAlertaVerificacion!: number;
 
+  // Recuperación de contraseña por correo (RF-USR-06): vigencia del enlace y solicitudes por hora y cuenta.
+  @IsInt()
+  @Min(1)
+  @Max(1440)
+  minutosVigenciaRecuperacion!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  recuperacionesPorHora!: number;
+
   @IsInt()
   @Min(1)
   @Max(20)

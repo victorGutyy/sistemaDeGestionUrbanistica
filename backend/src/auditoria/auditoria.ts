@@ -69,6 +69,7 @@ export const ACCIONES_AUDITORIA = {
   USUARIO_EDITAR: 'Editó un usuario',
   USUARIO_CAMBIAR_ESTADO: 'Activó o desactivó un usuario',
   USUARIO_RESTABLECER_PASSWORD: 'Restableció la contraseña de un usuario',
+  USUARIO_RECUPERAR_PASSWORD: 'Recuperó su contraseña con el enlace del correo',
   USUARIO_DESBLOQUEAR: 'Desbloqueó un usuario',
   IMPORTACION_EJECUTAR: 'Importó datos desde Excel',
   EXPORTACION_COMPLETA: 'Exportó todos los datos a Excel',

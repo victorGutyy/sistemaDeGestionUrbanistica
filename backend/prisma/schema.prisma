@@ -224,6 +224,7 @@ model Usuario {
   comisionesAnuladas        Comision[]             @relation("ComisionesAnuladas")
   notificaciones            Notificacion[]
   abonosVerificados         Abono[]                @relation("AbonosVerificados")
+  recuperacionesPassword    RecuperacionPassword[]
   separacionesRegistradas   Separacion[]
   documentosSubidos         DocumentoVenta[]
   desistimientosRegistrados Desistimiento[]
@@ -833,6 +834,9 @@ model ConfiguracionEmpresa {
   enviarReciboPorCorreo   Boolean  @default(true)
   // Desde cuántos días de antigüedad un abono por verificar se resalta en rojo en el panel (RF-NOT-07).
   diasAlertaVerificacion  Int      @default(3)
+  // Recuperación de contraseña por correo (RF-USR-06): cuánto vale el enlace y cuántos se pueden pedir por hora y cuenta.
+  minutosVigenciaRecuperacion Int  @default(60)
+  recuperacionesPorHora       Int  @default(3)
   // Seguridad de sesión: bloqueo tras intentos fallidos y cierre por inactividad.
   intentosMaximosLogin    Int      @default(5)
   minutosBloqueoLogin     Int      @default(15)
@@ -1039,4 +1043,19 @@ model Notificacion {
   @@index([createdAt])
   @@index([clienteId, createdAt])
   @@index([ventaId, tipo, canal, estado, createdAt])
+}
+
+// Enlace de un solo uso para recuperar la contraseña por correo (RF-USR-06). Del token que viaja por correo solo se
+// guarda su huella SHA-256: quien viera la base de datos no podría usar los enlaces. Solo se inserta; lo único que
+// cambia es marcarlo como usado, una vez (un trigger, escrito a mano en la migración, lo garantiza).
+model RecuperacionPassword {
+  id        String    @id @default(uuid())
+  usuarioId String
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  venceEn   DateTime
+  usadoEn   DateTime?
+
+  @@index([usuarioId, createdAt])
 }

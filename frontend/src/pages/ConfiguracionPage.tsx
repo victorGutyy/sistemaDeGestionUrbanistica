@@ -286,6 +286,8 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
   const [diasEntreAvisosMora, setDiasEntreAvisosMora] = useState(String(empresa.diasEntreAvisosMora))
   const [enviarRecibo, setEnviarRecibo] = useState(empresa.enviarReciboPorCorreo)
   const [diasAlertaVerificacion, setDiasAlertaVerificacion] = useState(String(empresa.diasAlertaVerificacion))
+  const [minutosVigenciaRecuperacion, setMinutosVigenciaRecuperacion] = useState(String(empresa.minutosVigenciaRecuperacion))
+  const [recuperacionesPorHora, setRecuperacionesPorHora] = useState(String(empresa.recuperacionesPorHora))
   const [intentosLogin, setIntentosLogin] = useState(String(empresa.intentosMaximosLogin))
   const [minutosBloqueo, setMinutosBloqueo] = useState(String(empresa.minutosBloqueoLogin))
   const [minutosInactividad, setMinutosInactividad] = useState(String(empresa.minutosInactividad))
@@ -310,6 +312,8 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
         diasEntreAvisosMora: aNumero(diasEntreAvisosMora),
         enviarReciboPorCorreo: enviarRecibo,
         diasAlertaVerificacion: aNumero(diasAlertaVerificacion),
+        minutosVigenciaRecuperacion: aNumero(minutosVigenciaRecuperacion),
+        recuperacionesPorHora: aNumero(recuperacionesPorHora),
         intentosMaximosLogin: aNumero(intentosLogin),
         minutosBloqueoLogin: aNumero(minutosBloqueo),
         minutosInactividad: aNumero(minutosInactividad),
@@ -383,6 +387,12 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
           <p className="text-xs text-slate-500">Protegen las cuentas frente a claves adivinadas y equipos desatendidos.</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo id="minutosVigenciaRecuperacion" etiqueta="Minutos que vale el enlace de recuperación de contraseña" ayuda="El enlace llega al correo de la persona y sirve una sola vez.">
+            <input id="minutosVigenciaRecuperacion" required inputMode="numeric" value={minutosVigenciaRecuperacion} onChange={(e) => setMinutosVigenciaRecuperacion(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+          <Campo id="recuperacionesPorHora" etiqueta="Enlaces de recuperación que se pueden pedir por hora y cuenta" ayuda="Evita que alguien le llene el correo a otra persona.">
+            <input id="recuperacionesPorHora" required inputMode="numeric" value={recuperacionesPorHora} onChange={(e) => setRecuperacionesPorHora(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
           <Campo id="intentosLogin" etiqueta="Intentos fallidos antes de bloquear la cuenta">
             <input id="intentosLogin" required inputMode="numeric" value={intentosLogin} onChange={(e) => setIntentosLogin(e.target.value)} className={CLASE_INPUT} />
           </Campo>

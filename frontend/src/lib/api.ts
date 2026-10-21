@@ -1751,6 +1751,9 @@ export interface EmpresaConfig {
   enviarReciboPorCorreo: boolean
   // Desde cuántos días de espera un abono por verificar se resalta en rojo.
   diasAlertaVerificacion: number
+  // Recuperación de contraseña por correo: vigencia del enlace y solicitudes por hora y cuenta.
+  minutosVigenciaRecuperacion: number
+  recuperacionesPorHora: number
   intentosMaximosLogin: number
   minutosBloqueoLogin: number
   minutosInactividad: number
@@ -1844,6 +1847,8 @@ export interface ActualizarParametrosPayload {
   diasEntreAvisosMora: number
   enviarReciboPorCorreo: boolean
   diasAlertaVerificacion: number
+  minutosVigenciaRecuperacion: number
+  recuperacionesPorHora: number
   intentosMaximosLogin: number
   minutosBloqueoLogin: number
   minutosInactividad: number

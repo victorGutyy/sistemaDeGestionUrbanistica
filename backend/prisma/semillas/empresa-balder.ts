@@ -27,6 +27,8 @@ export const PARAMETROS = {
   diasEntreAvisosMora: 7,
   enviarReciboPorCorreo: true,
   diasAlertaVerificacion: 3,
+  minutosVigenciaRecuperacion: 60,
+  recuperacionesPorHora: 3,
 };
 
 // Inactivas hasta que el gerente escriba los números reales.

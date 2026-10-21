@@ -49,6 +49,8 @@ export async function cargarDemo(ctx: Contexto, { gerente, admin, emailSocio, pa
       // porque la demo no tiene correo). Se enciende desde Configuración al demostrar el envío del recibo.
       enviarReciboPorCorreo: false,
       diasAlertaVerificacion: empresa.diasAlertaVerificacion,
+      minutosVigenciaRecuperacion: empresa.minutosVigenciaRecuperacion,
+      recuperacionesPorHora: empresa.recuperacionesPorHora,
       intentosMaximosLogin: empresa.intentosMaximosLogin,
       minutosBloqueoLogin: empresa.minutosBloqueoLogin,
       minutosInactividad: empresa.minutosInactividad,
