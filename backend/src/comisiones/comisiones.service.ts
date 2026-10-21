@@ -161,9 +161,9 @@ export class ComisionesService {
   }
 
   // Comisiones por pagar, para el tablero (RF-REP-02).
-  async pendientes(usuario: UsuarioAutenticado) {
+  async pendientes(usuario: UsuarioAutenticado, proyectoId?: string) {
     const resultado = await this.prisma.comision.aggregate({
-      where: { estado: EstadoComision.PENDIENTE, venta: filtroVenta(usuario) },
+      where: { estado: EstadoComision.PENDIENTE, venta: { AND: [filtroVenta(usuario), ...(proyectoId ? [{ lote: { proyectoId } }] : [])] } },
       _count: true,
       _sum: { valor: true },
     });

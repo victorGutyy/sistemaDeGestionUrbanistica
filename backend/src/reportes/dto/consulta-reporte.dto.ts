@@ -1,5 +1,5 @@
 import { IsEnum, IsIn, IsOptional, IsUUID, Matches } from 'class-validator';
-import { EstadoLote, MedioPago } from '../../generated/prisma/enums.js';
+import { EstadoComision, EstadoLote, MedioPago } from '../../generated/prisma/enums.js';
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -40,6 +40,19 @@ export class ConsultaReporteDto {
   @IsOptional()
   @IsIn(['DIA', 'SEMANA', 'QUINCENA', 'MES'])
   granularidad?: 'DIA' | 'SEMANA' | 'QUINCENA' | 'MES';
+
+  @IsOptional()
+  @IsUUID()
+  vendedorId?: string;
+
+  @IsOptional()
+  @IsEnum(EstadoComision)
+  estadoComision?: EstadoComision;
+
+  // A qué fecha se refiere el rango de las comisiones: la de la venta o la del pago.
+  @IsOptional()
+  @IsIn(['venta', 'pago'])
+  fechaPor?: 'venta' | 'pago';
 }
 
 export class ExportarReporteDto extends ConsultaReporteDto {

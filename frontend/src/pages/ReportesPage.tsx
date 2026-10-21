@@ -27,6 +27,7 @@ function filtrosIniciales(reporte: DefinicionReporte): FiltrosReporte {
   if (reporte.filtros.some((f) => f.clave === 'desde' && f.obligatorio)) filtros.desde = `${hoy.slice(0, 8)}01`
   if (reporte.filtros.some((f) => f.clave === 'hasta' && f.obligatorio)) filtros.hasta = hoy
   if (reporte.filtros.some((f) => f.clave === 'granularidad')) filtros.granularidad = 'MES'
+  if (reporte.filtros.some((f) => f.clave === 'fechaPor')) filtros.fechaPor = 'venta'
   return filtros
 }
 
@@ -135,7 +136,8 @@ export function ReportesPage() {
         control = <input id={id} type="date" value={valor} onChange={(e) => cambiar(filtro.clave, e.target.value)} className={CLASE_INPUT} />
         break
       case 'proyecto':
-        control = selector((opciones?.proyectos ?? []).map((p) => ({ valor: p.id, etiqueta: p.nombre })))
+        // En el informe del socio el proyecto es obligatorio: no hay opción "Todos".
+        control = selector((opciones?.proyectos ?? []).map((p) => ({ valor: p.id, etiqueta: p.nombre })), !filtro.obligatorio)
         break
       case 'cuenta':
         control = selector((opciones?.cuentas ?? []).map((c) => ({ valor: c.id, etiqueta: `${c.alias} — ${c.banco}` })))
@@ -154,6 +156,15 @@ export function ReportesPage() {
         break
       case 'granularidad':
         control = selector(opciones?.granularidades ?? [], false)
+        break
+      case 'vendedor':
+        control = selector((opciones?.vendedores ?? []).map((v) => ({ valor: v.id, etiqueta: v.nombre })))
+        break
+      case 'estadoComision':
+        control = selector(opciones?.estadosComision ?? [])
+        break
+      case 'fechaPor':
+        control = selector(opciones?.fechasPor ?? [], false)
         break
     }
     return (

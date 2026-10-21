@@ -6,7 +6,7 @@ import { EstadoAbono, EstadoVenta } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { resumirCartera } from './cartera-venta.js';
-import { evaluarCuotaPendiente, type ParametrosMora } from './mora.js';
+import { calcularDiasHastaVencer, evaluarCuotaPendiente, type ParametrosMora } from './mora.js';
 
 // Solo cuenta lo aplicado por abonos ACTIVOS: un abono anulado ya no reduce lo que se debe.
 const APLICACIONES_ACTIVAS = { where: { abono: { estado: EstadoAbono.ACTIVO } }, select: { valor: true } } as const;
@@ -73,7 +73,7 @@ export class CarteraService {
   }
 
   async reportePorProyecto(usuario: UsuarioAutenticado) {
-    const { mora } = await this.leerParametros();
+    const { mora, diasAlertaAmarilla } = await this.leerParametros();
     const proyectos = await this.prisma.proyecto.findMany({
       where: filtroProyecto(usuario),
       include: {
@@ -93,11 +93,14 @@ export class CarteraService {
     let saldoVencidoConsolidado = new Prisma.Decimal(0);
     let interesMoraConsolidado = new Prisma.Decimal(0);
     let saldoPorVencerConsolidado = new Prisma.Decimal(0);
+    let saldoProximoConsolidado = new Prisma.Decimal(0);
 
     const porProyecto = proyectos.map((proyecto) => {
       let saldoVencido = new Prisma.Decimal(0);
       let interesMora = new Prisma.Decimal(0);
       let saldoPorVencer = new Prisma.Decimal(0);
+      // Lo que vence dentro de la ventana del semáforo amarillo (es una parte de lo "por vencer").
+      let saldoProximoAVencer = new Prisma.Decimal(0);
 
       for (const lote of proyecto.lotes) {
         for (const venta of lote.ventas) {
@@ -110,6 +113,9 @@ export class CarteraService {
               interesMora = interesMora.plus(evaluacion.interesMora);
             } else {
               saldoPorVencer = saldoPorVencer.plus(evaluacion.saldo);
+              if (calcularDiasHastaVencer(cuota.fechaVencimiento, hoy) <= diasAlertaAmarilla) {
+                saldoProximoAVencer = saldoProximoAVencer.plus(evaluacion.saldo);
+              }
             }
           }
         }
@@ -118,19 +124,22 @@ export class CarteraService {
       saldoVencidoConsolidado = saldoVencidoConsolidado.plus(saldoVencido);
       interesMoraConsolidado = interesMoraConsolidado.plus(interesMora);
       saldoPorVencerConsolidado = saldoPorVencerConsolidado.plus(saldoPorVencer);
+      saldoProximoConsolidado = saldoProximoConsolidado.plus(saldoProximoAVencer);
 
-      return { proyectoId: proyecto.id, nombre: proyecto.nombre, saldoVencido, interesMora, saldoPorVencer };
+      return { proyectoId: proyecto.id, nombre: proyecto.nombre, saldoVencido, interesMora, saldoPorVencer, saldoProximoAVencer };
     });
 
     return {
       // false = el gerente todavía no define la tasa de mora: el interés
       // mostrado es $0 por falta de dato, no porque nadie deba nada.
       moraConfigurada: mora.tasaMoraMensual !== null,
+      diasAlerta: diasAlertaAmarilla,
       porProyecto,
       consolidado: {
         saldoVencido: saldoVencidoConsolidado,
         interesMora: interesMoraConsolidado,
         saldoPorVencer: saldoPorVencerConsolidado,
+        saldoProximoAVencer: saldoProximoConsolidado,
       },
     };
   }

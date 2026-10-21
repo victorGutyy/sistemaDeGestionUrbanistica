@@ -5,9 +5,9 @@ import { PERMISOS } from '../auth/permisos.js';
 import { Permiso } from '../auth/roles.decorator.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
-import { FiltroPeriodoDto } from '../finanzas/dto/filtro-periodo.dto.js';
 import { DashboardService } from './dashboard.service.js';
 import { ExportarDashboardDto } from './dto/exportar-dashboard.dto.js';
+import { FiltroPanelDto } from './dto/filtro-panel.dto.js';
 import { generarExcelResumen } from './generar-excel.js';
 import { generarPdfResumen } from './generar-pdf.js';
 
@@ -20,7 +20,7 @@ export class DashboardController {
 
   @Permiso(PERMISOS.DASHBOARD_VER)
   @Get()
-  resumen(@Query() filtro: FiltroPeriodoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+  resumen(@Query() filtro: FiltroPanelDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
     return this.dashboardService.resumen(filtro, usuario);
   }
 

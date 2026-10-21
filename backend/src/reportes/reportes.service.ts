@@ -7,14 +7,19 @@ import { ETIQUETA_MEDIO_PAGO } from '../common/medio-pago.js';
 import { detectarTipoDocumento } from '../common/tipo-archivo.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoAbono, EstadoMovimiento, EstadoVenta, TipoMovimiento } from '../generated/prisma/enums.js';
+import { EstadoAbono, EstadoMovimiento, EstadoVenta, TipoMovimiento, TipoProyecto } from '../generated/prisma/enums.js';
+import { ComisionesService } from '../comisiones/comisiones.service.js';
+import { ETIQUETA_ESTADO_COMISION } from '../comisiones/reglas-comision.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CATALOGO_REPORTES, definicionDe, type DefinicionReporte } from './catalogo.js';
 import { construirCarteraPorEdades } from './constructores/cartera-edades.js';
+import { construirComisiones } from './constructores/comisiones.js';
 import { construirEgresos, type EgresoParaReporte } from './constructores/egresos.js';
 import { construirFlujoDeCaja, ETIQUETA_GRANULARIDAD, type Granularidad, type PartidaDeCaja } from './constructores/flujo-caja.js';
+import { construirInformeProyecto } from './constructores/informe-proyecto.js';
 import { construirInventario, ETIQUETA_ESTADO_LOTE } from './constructores/inventario.js';
+import { construirMaquinariaPorEquipo } from './constructores/maquinaria.js';
 import { construirRecaudo } from './constructores/recaudo.js';
 import type { ConsultaReporteDto, ExportarReporteDto } from './dto/consulta-reporte.dto.js';
 import { generarExcelReporte, nombreDeArchivo } from './generar-excel.js';
@@ -34,6 +39,7 @@ export class ReportesService {
     private readonly prisma: PrismaService,
     private readonly configuracion: ConfiguracionService,
     private readonly storage: StorageService,
+    private readonly comisiones: ComisionesService,
   ) {}
 
   // Reportes que este usuario puede pedir: los de su permiso y alcance.
@@ -44,12 +50,15 @@ export class ReportesService {
   // El catálogo con lo que el formulario de filtros necesita para ofrecer opciones (todo dentro del alcance del usuario).
   async catalogo(usuario: UsuarioAutenticado) {
     const total = tieneAlcanceTotal(usuario);
-    const [proyectos, cuentas, usuarios, categoriasGasto] = await Promise.all([
+    const verComisiones = usuario.permisos.includes('comisiones.ver');
+    const [proyectos, cuentas, usuarios, categoriasGasto, vendedores] = await Promise.all([
       this.prisma.proyecto.findMany({ where: filtroProyecto(usuario), select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }),
       // Las cuentas, los usuarios y las categorías son de toda la empresa: no se ofrecen a quien está limitado a proyectos.
       total ? this.prisma.cuentaBancaria.findMany({ select: { id: true, alias: true, banco: true }, orderBy: { alias: 'asc' } }) : Promise.resolve([]),
       total ? this.prisma.usuario.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }) : Promise.resolve([]),
       total ? this.prisma.categoriaGasto.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }) : Promise.resolve([]),
+      // Los vendedores solo los ve quien puede consultar comisiones.
+      verComisiones ? this.prisma.vendedor.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } }) : Promise.resolve([]),
     ]);
     return {
       reportes: CATALOGO_REPORTES.filter((definicion) => this.puedeUsar(definicion, usuario)),
@@ -58,6 +67,12 @@ export class ReportesService {
         cuentas,
         usuarios,
         categoriasGasto,
+        vendedores,
+        estadosComision: Object.entries(ETIQUETA_ESTADO_COMISION).map(([valor, etiqueta]) => ({ valor, etiqueta: etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1) })),
+        fechasPor: [
+          { valor: 'venta', etiqueta: 'La venta' },
+          { valor: 'pago', etiqueta: 'El pago de la comisión' },
+        ],
         mediosPago: Object.entries(ETIQUETA_MEDIO_PAGO).map(([valor, etiqueta]) => ({ valor, etiqueta })),
         estadosLote: Object.entries(ETIQUETA_ESTADO_LOTE).map(([valor, etiqueta]) => ({ valor, etiqueta })),
         granularidades: Object.entries(ETIQUETA_GRANULARIDAD).map(([valor, etiqueta]) => ({ valor, etiqueta })),
@@ -78,6 +93,10 @@ export class ReportesService {
     }
     if (filtros.desde && filtros.hasta && filtros.desde > filtros.hasta) {
       throw new BadRequestException('La fecha inicial no puede ser posterior a la final');
+    }
+
+    if (definicion.filtros.some((filtro) => filtro.clave === 'proyectoId' && filtro.obligatorio) && !filtros.proyectoId) {
+      throw new BadRequestException('Elige el proyecto del informe');
     }
 
     const secciones = await this.construir(definicion.clave, filtros, usuario);
@@ -134,6 +153,12 @@ export class ReportesService {
         return this.inventario(filtros, usuario);
       case 'flujo-caja':
         return this.flujoDeCaja(filtros, usuario);
+      case 'comisiones':
+        return this.comisionesReporte(filtros, usuario);
+      case 'informe-proyecto':
+        return this.informeProyecto(filtros, usuario);
+      case 'maquinaria-equipos':
+        return this.maquinaria(filtros, usuario);
     }
   }
 
@@ -261,6 +286,98 @@ export class ReportesService {
     return construirFlujoDeCaja(partidas, { desde: filtros.desde, hasta: filtros.hasta, granularidad: (filtros.granularidad ?? 'MES') as Granularidad });
   }
 
+  private async comisionesReporte(filtros: Filtros, usuario: UsuarioAutenticado): Promise<SeccionReporte[]> {
+    const { comisiones } = await this.comisiones.listar(
+      { vendedorId: filtros.vendedorId, estado: filtros.estadoComision, proyectoId: filtros.proyectoId, desde: filtros.desde, hasta: filtros.hasta, fechaPor: filtros.fechaPor },
+      usuario,
+    );
+    return construirComisiones(
+      comisiones.map((comision) => ({
+        fechaVenta: diaLocal(comision.venta.fechaVenta),
+        proyecto: comision.venta.lote.proyecto.nombre,
+        lote: comision.venta.lote.manzana ? `${comision.venta.lote.manzana.nombre}-${comision.venta.lote.numero}` : comision.venta.lote.numero,
+        cliente: comision.venta.cliente.nombre,
+        vendedor: comision.vendedor.nombre,
+        tipoVendedor: comision.tipoVendedor,
+        valor: comision.valor,
+        estado: comision.estado,
+        fechaPago: comision.movimiento ? diaLocal(comision.movimiento.fecha) : null,
+        medioPago: comision.movimiento?.medioPago ?? null,
+        motivoAnulacion: comision.motivoAnulacion,
+      })),
+    );
+  }
+
+  // Informe de un proyecto para el socio (RF-REP-09). Ventas, cartera e inventario son "a hoy"; ingresos y egresos, del período.
+  private async informeProyecto(filtros: Filtros, usuario: UsuarioAutenticado): Promise<SeccionReporte[]> {
+    const proyectoId = filtros.proyectoId!;
+    const rango = this.rango(filtros);
+    const [empresa, lotes, ventas, abonosDelPeriodo, movimientos] = await Promise.all([
+      this.configuracion.obtenerEmpresa(),
+      this.prisma.lote.findMany({
+        where: { proyectoId },
+        select: { numero: true, area: true, valorVenta: true, estado: true, manzana: { select: { nombre: true } }, proyecto: { select: { nombre: true } } },
+      }),
+      this.prisma.venta.findMany({
+        where: { estado: EstadoVenta.ACTIVA, AND: [filtroVenta(usuario), { lote: { proyectoId } }] },
+        include: {
+          cliente: { select: { nombre: true } },
+          lote: { select: { numero: true, manzana: { select: { nombre: true } }, proyecto: { select: { nombre: true } } } },
+          abonos: { where: { estado: EstadoAbono.ACTIVO }, select: { valor: true } },
+          cuotas: { include: { aplicaciones: { where: { abono: { estado: EstadoAbono.ACTIVO } }, select: { valor: true } } } },
+        },
+      }),
+      this.prisma.abono.findMany({ where: { estado: EstadoAbono.ACTIVO, fecha: rango, venta: { lote: { proyectoId } } }, select: { valor: true } }),
+      this.prisma.movimientoFinanciero.findMany({
+        where: { estado: EstadoMovimiento.ACTIVO, proyectoId, fecha: rango, AND: [filtroMovimiento(usuario)] },
+        select: { tipo: true, valor: true, categoriaGasto: { select: { nombre: true } }, proyecto: { select: { nombre: true } } },
+      }),
+    ]);
+    const suma = (valores: { valor: Prisma.Decimal }[]) => valores.reduce((total, v) => total.plus(v.valor), new Prisma.Decimal(0));
+    return construirInformeProyecto({
+      lotes: lotes.map((lote) => ({ proyecto: lote.proyecto.nombre, manzana: lote.manzana?.nombre ?? null, numero: lote.numero, area: lote.area, valorVenta: lote.valorVenta, estado: lote.estado })),
+      ventas: ventas.map((venta) => ({ valorTotal: venta.valorTotal, pagado: suma(venta.abonos) })),
+      ingresosPorVentas: suma(abonosDelPeriodo),
+      otrosIngresos: suma(movimientos.filter((m) => m.tipo === TipoMovimiento.INGRESO)),
+      egresos: movimientos
+        .filter((m) => m.tipo === TipoMovimiento.GASTO)
+        .map((m) => ({ categoria: m.categoriaGasto?.nombre ?? 'Sin categoría', proyecto: m.proyecto?.nombre ?? null, valor: m.valor })),
+      ventasParaEdades: ventas.map((venta) => ({
+        cliente: venta.cliente.nombre,
+        proyecto: venta.lote.proyecto.nombre,
+        lote: venta.lote.manzana ? `${venta.lote.manzana.nombre}-${venta.lote.numero}` : venta.lote.numero,
+        cuotas: venta.cuotas.map((cuota) => ({ estado: cuota.estado, fechaVencimiento: cuota.fechaVencimiento, valor: cuota.valor, abonado: cuota.aplicaciones })),
+      })),
+      hoy: new Date(),
+      mora: { tasaMoraMensual: empresa.tasaMoraMensual, diasGracia: empresa.diasGraciaMora },
+    });
+  }
+
+  // Utilidad por equipo en un rango de fechas (RF-MAQ-05).
+  private async maquinaria(filtros: Filtros, usuario: UsuarioAutenticado): Promise<SeccionReporte[]> {
+    const [equipos, movimientos] = await Promise.all([
+      this.prisma.equipo.findMany({
+        where: { proyectoId: filtros.proyectoId, proyecto: { tipo: TipoProyecto.MAQUINARIA, AND: [filtroProyecto(usuario)] } },
+        select: { id: true, nombre: true, placaSerie: true, estado: true, bajaEn: true, tipoEquipo: { select: { nombre: true } }, proyecto: { select: { nombre: true } } },
+      }),
+      this.prisma.movimientoFinanciero.findMany({
+        where: {
+          estado: EstadoMovimiento.ACTIVO,
+          fecha: this.rango(filtros),
+          proyectoId: filtros.proyectoId,
+          proyecto: { tipo: TipoProyecto.MAQUINARIA },
+          OR: [{ equipoId: { not: null } }, { flota: true }],
+          AND: [filtroMovimiento(usuario)],
+        },
+        select: { equipoId: true, tipo: true, valor: true, proyecto: { select: { nombre: true } } },
+      }),
+    ]);
+    return construirMaquinariaPorEquipo(
+      equipos.map((equipo) => ({ id: equipo.id, proyecto: equipo.proyecto.nombre, nombre: equipo.nombre, placaSerie: equipo.placaSerie, tipo: equipo.tipoEquipo.nombre, estado: equipo.estado, baja: equipo.bajaEn !== null })),
+      movimientos.map((movimiento) => ({ equipoId: movimiento.equipoId, proyecto: movimiento.proyecto?.nombre ?? '—', tipo: movimiento.tipo, valor: movimiento.valor })),
+    );
+  }
+
   // Los filtros en palabras, para que el papel diga de qué es.
   private async describirFiltros(definicion: DefinicionReporte, filtros: Filtros): Promise<{ etiqueta: string; valor: string }[]> {
     const lista: { etiqueta: string; valor: string }[] = [];
@@ -287,6 +404,12 @@ export class ReportesService {
       lista.push({ etiqueta: 'Categoría', valor: categoria?.nombre ?? '—' });
     }
     if (usa('estadoLote') && filtros.estadoLote) lista.push({ etiqueta: 'Estado del lote', valor: ETIQUETA_ESTADO_LOTE[filtros.estadoLote] });
+    if (usa('vendedorId') && filtros.vendedorId) {
+      const vendedor = await this.prisma.vendedor.findUnique({ where: { id: filtros.vendedorId }, select: { nombre: true } });
+      lista.push({ etiqueta: 'Vendedor', valor: vendedor?.nombre ?? '—' });
+    }
+    if (usa('estadoComision') && filtros.estadoComision) lista.push({ etiqueta: 'Estado', valor: ETIQUETA_ESTADO_COMISION[filtros.estadoComision] });
+    if (usa('fechaPor') && (filtros.desde || filtros.hasta)) lista.push({ etiqueta: 'Las fechas son de', valor: filtros.fechaPor === 'pago' ? 'el pago de la comisión' : 'la venta' });
     if (usa('granularidad')) lista.push({ etiqueta: 'Agrupado por', valor: ETIQUETA_GRANULARIDAD[(filtros.granularidad ?? 'MES') as Granularidad] });
     if (definicion.clave === 'cartera-edades') lista.push({ etiqueta: 'Al día', valor: formatearDiaDDMMAAAA(hoyISO()) });
     return lista;

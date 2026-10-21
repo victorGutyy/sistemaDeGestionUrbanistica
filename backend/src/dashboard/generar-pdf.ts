@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { formatearCOP, formatearFechaISO } from '../common/formato.util.js';
+import { ETIQUETA_ESTADO_LOTE } from '../reportes/constructores/inventario.js';
 import type { ResumenDashboard } from './resumen-dashboard.js';
 
 export interface EmpresaParaReporte {
@@ -25,6 +26,7 @@ export function generarPdfResumen(resumen: ResumenDashboard, empresa: EmpresaPar
 
     documento.fontSize(18).text('Reporte general', { align: 'center' });
     documento.moveDown(0.5);
+    if (resumen.proyecto) documento.fontSize(11).text(`Proyecto: ${resumen.proyecto.nombre}`, { align: 'center' });
     documento
       .fontSize(10)
       .text(
@@ -47,8 +49,16 @@ export function generarPdfResumen(resumen: ResumenDashboard, empresa: EmpresaPar
     documento
       .fontSize(10)
       .text(`Cartera vencida: ${formatearCOP(resumen.cartera.saldoVencido)}`)
-      .text(`Cartera por vencer: ${formatearCOP(resumen.cartera.saldoPorVencer)}`)
+      .text(`Cartera al día (más de ${resumen.cartera.diasAlerta} días para vencer): ${formatearCOP(resumen.cartera.saldoPorVencer.minus(resumen.cartera.saldoProximoAVencer))}`)
+      .text(`Cartera por vencer (próximos ${resumen.cartera.diasAlerta} días): ${formatearCOP(resumen.cartera.saldoProximoAVencer)}`)
       .text(`Interés de mora: ${formatearCOP(resumen.cartera.interesMora)}`);
+    documento.moveDown();
+
+    documento.fontSize(14).text('Lotes por estado');
+    documento.fontSize(10);
+    for (const [estado, cantidad] of Object.entries(resumen.lotesPorEstado)) documento.text(`${ETIQUETA_ESTADO_LOTE[estado as keyof typeof ETIQUETA_ESTADO_LOTE]}: ${cantidad}`);
+    if (resumen.comisionesPendientes) documento.text(`Comisiones por pagar: ${resumen.comisionesPendientes.cantidad} (${formatearCOP(resumen.comisionesPendientes.valor)})`);
+    if (resumen.cierresPorAprobar !== undefined) documento.text(`Cierres de caja por aprobar: ${resumen.cierresPorAprobar}`);
     documento.moveDown();
 
     documento.fontSize(14).text('Por proyecto');

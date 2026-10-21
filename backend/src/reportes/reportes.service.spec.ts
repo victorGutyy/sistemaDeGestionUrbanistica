@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ComisionesService } from '../comisiones/comisiones.service.js';
 import type { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -25,25 +26,29 @@ function crearPrismaFalso() {
     movimientoFinanciero: { findMany: vi.fn().mockResolvedValue([]) },
     pagoNomina: { findMany: vi.fn().mockResolvedValue([]) },
     lote: { findMany: vi.fn().mockResolvedValue([]) },
+    vendedor: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue({ nombre: 'Luis Gómez' }) },
+    equipo: { findMany: vi.fn().mockResolvedValue([]) },
   };
 }
 
 describe('ReportesService', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>;
   let service: ReportesService;
+  let comisiones: { listar: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     prisma = crearPrismaFalso();
     const configuracion = { obtenerEmpresa: vi.fn().mockResolvedValue(EMPRESA) };
     const storage = { leer: vi.fn() };
-    service = new ReportesService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, storage as unknown as StorageService);
+    comisiones = { listar: vi.fn().mockResolvedValue({ comisiones: [], totales: {} }) };
+    service = new ReportesService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService, storage as unknown as StorageService, comisiones as unknown as ComisionesService);
   });
 
   describe('catalogo', () => {
     it('ofrece los reportes con las opciones de los filtros a quien tiene alcance total', async () => {
       prisma.cuentaBancaria.findMany.mockResolvedValue([{ id: 'c1', alias: 'Bancolombia ahorros', banco: 'Bancolombia' }]);
       const catalogo = await service.catalogo(GERENTE);
-      expect(catalogo.reportes.map((r) => r.clave)).toEqual(['recaudo', 'cartera-edades', 'egresos', 'inventario-lotes', 'flujo-caja']);
+      expect(catalogo.reportes.map((r) => r.clave)).toEqual(['recaudo', 'cartera-edades', 'egresos', 'inventario-lotes', 'flujo-caja', 'comisiones', 'informe-proyecto', 'maquinaria-equipos']);
       expect(catalogo.opciones.cuentas).toHaveLength(1);
       expect(catalogo.opciones.mediosPago.map((m) => m.valor)).toContain('TRANSFERENCIA');
     });
@@ -54,6 +59,16 @@ describe('ReportesService', () => {
       expect(catalogo.opciones.usuarios).toEqual([]);
       expect(prisma.cuentaBancaria.findMany).not.toHaveBeenCalled();
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: [UUID_PROYECTO] } } }));
+    });
+
+    it('las comisiones y sus vendedores solo se ofrecen a quien puede ver comisiones', async () => {
+      prisma.vendedor.findMany.mockResolvedValue([{ id: 'v1', nombre: 'Luis Gómez' }]);
+      const sinComisiones = await service.catalogo(SOCIO);
+      expect(sinComisiones.reportes.map((r) => r.clave)).not.toContain('comisiones');
+      expect(sinComisiones.opciones.vendedores).toEqual([]);
+      const conComisiones = await service.catalogo(GERENTE);
+      expect(conComisiones.reportes.map((r) => r.clave)).toContain('comisiones');
+      expect(conComisiones.opciones.vendedores).toHaveLength(1);
     });
 
     it('el flujo de caja exige además el permiso de finanzas', async () => {
@@ -125,6 +140,43 @@ describe('ReportesService', () => {
 
       expect(JSON.stringify(prisma.abono.findMany.mock.calls[0][0].where.fecha)).not.toContain('gte');
       expect(reporte.secciones[0].filas).toEqual([{ periodo: '01/10/2026 – 31/10/2026', ventas: '0', otros: '0', egresos: '1000000', neto: '-1000000', saldo: '9000000' }]);
+    });
+
+    it('el informe del proyecto exige elegir el proyecto y respeta el alcance', async () => {
+      await expect(service.generar('informe-proyecto', {}, GERENTE)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.generar('informe-proyecto', { proyectoId: '22222222-2222-4222-8222-222222222222' }, SOCIO)).rejects.toBeInstanceOf(NotFoundException);
+
+      const informe = await service.generar('informe-proyecto', { proyectoId: UUID_PROYECTO, desde: '2026-10-01', hasta: '2026-10-31' }, SOCIO);
+      expect(informe.secciones.map((s) => s.titulo)).toContain('Ingresos, egresos y utilidad del período');
+      expect(informe.filtros).toContainEqual({ etiqueta: 'Proyecto', valor: 'Proyecto Uno' });
+      expect(JSON.stringify(prisma.venta.findMany.mock.calls[0][0].where)).toContain('"proyectoId":{"in":');
+    });
+
+    it('maquinaria por equipo mira solo proyectos de maquinaria y los equipos o la flota', async () => {
+      await service.generar('maquinaria-equipos', { desde: '2026-10-01', hasta: '2026-10-31' }, GERENTE);
+      expect(JSON.stringify(prisma.movimientoFinanciero.findMany.mock.calls[0][0].where)).toContain('"tipo":"MAQUINARIA"');
+      expect(JSON.stringify(prisma.movimientoFinanciero.findMany.mock.calls[0][0].where)).toContain('"flota":true');
+    });
+
+    it('el reporte de comisiones se apoya en el listado de comisiones, con sus filtros', async () => {
+      comisiones.listar.mockResolvedValue({
+        totales: {},
+        comisiones: [
+          {
+            tipoVendedor: 'ASESOR_INMOBILIARIO',
+            valor: D(1_000_000),
+            estado: 'PAGADA',
+            motivoAnulacion: null,
+            vendedor: { nombre: 'Luis Gómez' },
+            venta: { fechaVenta: new Date(2026, 9, 5), cliente: { nombre: 'Cliente' }, lote: { numero: '3', manzana: { nombre: 'A' }, proyecto: { nombre: 'Proyecto Uno' } } },
+            movimiento: { fecha: new Date(2026, 9, 10), medioPago: 'EFECTIVO' },
+          },
+        ],
+      });
+      const reporte = await service.generar('comisiones', { estadoComision: 'PAGADA', fechaPor: 'pago', desde: '2026-10-01', hasta: '2026-10-31' }, GERENTE);
+      expect(comisiones.listar).toHaveBeenCalledWith(expect.objectContaining({ estado: 'PAGADA', fechaPor: 'pago', desde: '2026-10-01' }), GERENTE);
+      expect(reporte.secciones.find((s) => s.titulo === 'Detalle de comisiones')?.filas[0]).toMatchObject({ lote: 'A-3', estado: 'pagada', fechaPago: '2026-10-10' });
+      expect(reporte.filtros).toContainEqual({ etiqueta: 'Estado', valor: 'pagada' });
     });
 
     it('el inventario cuenta todos los lotes del alcance y el detalle sigue el estado pedido', async () => {

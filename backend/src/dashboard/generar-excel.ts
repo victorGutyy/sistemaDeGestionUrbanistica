@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { formatearFechaISO } from '../common/formato.util.js';
 import type { EmpresaParaReporte } from './generar-pdf.js';
+import { ETIQUETA_ESTADO_LOTE } from '../reportes/constructores/inventario.js';
 import type { ResumenDashboard } from './resumen-dashboard.js';
 
 export async function generarExcelResumen(resumen: ResumenDashboard, empresa: EmpresaParaReporte): Promise<Buffer> {
@@ -11,6 +12,7 @@ export async function generarExcelResumen(resumen: ResumenDashboard, empresa: Em
   hoja.addRow([`${empresa.razonSocial} · NIT ${empresa.nit}`]);
   hoja.addRow([]);
   hoja.addRow(['Reporte general']).font = { bold: true };
+  if (resumen.proyecto) hoja.addRow([`Proyecto: ${resumen.proyecto.nombre}`]);
   hoja.addRow([
     `Período: ${resumen.periodo.desde ? formatearFechaISO(resumen.periodo.desde) : 'inicio'} a ${resumen.periodo.hasta ? formatearFechaISO(resumen.periodo.hasta) : 'hoy'}`,
   ]);
@@ -26,8 +28,15 @@ export async function generarExcelResumen(resumen: ResumenDashboard, empresa: Em
 
   hoja.addRow(['Cartera']).font = { bold: true };
   hoja.addRow(['Cartera vencida', resumen.cartera.saldoVencido.toString()]);
-  hoja.addRow(['Cartera por vencer', resumen.cartera.saldoPorVencer.toString()]);
+  hoja.addRow([`Cartera al día (más de ${resumen.cartera.diasAlerta} días para vencer)`, resumen.cartera.saldoPorVencer.minus(resumen.cartera.saldoProximoAVencer).toString()]);
+  hoja.addRow([`Cartera por vencer (próximos ${resumen.cartera.diasAlerta} días)`, resumen.cartera.saldoProximoAVencer.toString()]);
   hoja.addRow(['Interés de mora', resumen.cartera.interesMora.toString()]);
+  hoja.addRow([]);
+
+  hoja.addRow(['Lotes por estado']).font = { bold: true };
+  for (const [estado, cantidad] of Object.entries(resumen.lotesPorEstado)) hoja.addRow([ETIQUETA_ESTADO_LOTE[estado as keyof typeof ETIQUETA_ESTADO_LOTE], cantidad]);
+  if (resumen.comisionesPendientes) hoja.addRow(['Comisiones por pagar', `${resumen.comisionesPendientes.cantidad} (${resumen.comisionesPendientes.valor.toString()})`]);
+  if (resumen.cierresPorAprobar !== undefined) hoja.addRow(['Cierres de caja por aprobar', resumen.cierresPorAprobar]);
   hoja.addRow([]);
 
   const encabezado = hoja.addRow([

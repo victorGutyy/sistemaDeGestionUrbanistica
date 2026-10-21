@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
+import { ComisionesModule } from '../comisiones/comisiones.module.js';
 import { ConfiguracionModule } from '../configuracion/configuracion.module.js';
 import { StorageModule } from '../storage/storage.module.js';
 import { ReportesController } from './reportes.controller.js';
 import { ReportesService } from './reportes.service.js';
 
 @Module({
-  imports: [StorageModule, ConfiguracionModule],
+  imports: [StorageModule, ConfiguracionModule, ComisionesModule],
   controllers: [ReportesController],
   providers: [ReportesService],
   exports: [ReportesService],

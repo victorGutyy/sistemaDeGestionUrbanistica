@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { UsuarioAutenticado } from '../src/auth/usuario-autenticado.js';
 import { CarteraService } from '../src/cartera/cartera.service.js';
 import { hoyISO } from '../src/cierres-caja/periodo.js';
+import { ComisionesService } from '../src/comisiones/comisiones.service.js';
 import { ConfiguracionService } from '../src/configuracion/configuracion.service.js';
 import { FinanzasService } from '../src/finanzas/finanzas.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -19,7 +20,7 @@ describe('Reportes contra Postgres real (RF-REP-04 a 07 y 11)', () => {
   const configuracion = new ConfiguracionService(prisma, storage);
   const finanzas = new FinanzasService(prisma, storage, configuracion);
   const cartera = new CarteraService(prisma, configuracion);
-  const reportes = new ReportesService(prisma, configuracion, storage);
+  const reportes = new ReportesService(prisma, configuracion, storage, new ComisionesService(prisma, storage, configuracion));
   let gerente: UsuarioAutenticado;
 
   beforeAll(async () => {
@@ -75,6 +76,42 @@ describe('Reportes contra Postgres real (RF-REP-04 a 07 y 11)', () => {
   it('el inventario cuenta todos los lotes de la base', async () => {
     const reporte = await reportes.generar('inventario-lotes', {}, gerente);
     expect(total(reporte.secciones, 'Lotes por proyecto y estado', 'total')).toBe(await prisma.lote.count());
+  });
+
+  it('el reporte de comisiones suma lo mismo que la tabla de comisiones', async () => {
+    const reporte = await reportes.generar('comisiones', {}, gerente);
+    const suma = await prisma.comision.aggregate({ _sum: { valor: true }, _count: true });
+    expect(total(reporte.secciones, 'Por estado', 'valor')).toBe(Math.round(Number((suma._sum.valor ?? 0).toString())));
+    expect(total(reporte.secciones, 'Por estado', 'cantidad')).toBe(suma._count);
+    expect(total(reporte.secciones, 'Por vendedor', 'cantidad')).toBe(suma._count);
+  });
+
+  it('el informe de un proyecto coincide con las finanzas de ese proyecto', async () => {
+    const proyecto = await prisma.proyecto.findFirst({ where: { lotes: { some: {} } }, orderBy: { createdAt: 'asc' } });
+    if (!proyecto) return;
+    const finanzasProyecto = await finanzas.finanzasDeProyecto(proyecto.id, {}, gerente);
+    const informe = await reportes.generar('informe-proyecto', { proyectoId: proyecto.id }, gerente);
+    const resultado = informe.secciones.find((s) => s.titulo === 'Ingresos, egresos y utilidad del período')!;
+    const redondo = (valor: { toString(): string }) => Math.round(Number(valor.toString()));
+    expect(resultado.filas.map((fila) => Number(fila.valor))).toEqual([
+      redondo(finanzasProyecto.resumen.ingresosPorVentas),
+      redondo(finanzasProyecto.resumen.otrosIngresos),
+      redondo(finanzasProyecto.resumen.totalIngresos),
+      redondo(finanzasProyecto.resumen.egresos),
+    ]);
+    expect(Number(resultado.totales?.valor)).toBe(redondo(finanzasProyecto.resumen.utilidad));
+    // Los lotes del informe son todos los lotes del proyecto.
+    expect(total(informe.secciones, 'Lotes por estado', 'total')).toBe(await prisma.lote.count({ where: { proyectoId: proyecto.id } }));
+  });
+
+  it('la utilidad por equipo suma lo que mueven los equipos y la flota de los proyectos de maquinaria', async () => {
+    const reporte = await reportes.generar('maquinaria-equipos', {}, gerente);
+    const donde = { estado: 'ACTIVO' as const, proyecto: { tipo: 'MAQUINARIA' as const }, OR: [{ equipoId: { not: null } }, { flota: true }] };
+    const ingresos = await prisma.movimientoFinanciero.aggregate({ where: { ...donde, tipo: 'INGRESO' }, _sum: { valor: true } });
+    const egresos = await prisma.movimientoFinanciero.aggregate({ where: { ...donde, tipo: 'GASTO' }, _sum: { valor: true } });
+    // Un equipo dado de baja sin movimientos no aparece, pero sus movimientos (si los hay) sí cuentan.
+    expect(total(reporte.secciones, 'Utilidad por equipo', 'ingresos')).toBe(Math.round(Number((ingresos._sum.valor ?? 0).toString())));
+    expect(total(reporte.secciones, 'Utilidad por equipo', 'egresos')).toBe(Math.round(Number((egresos._sum.valor ?? 0).toString())));
   });
 
   it('un reporte exportado a PDF y a Excel sale con el contenido de la base', async () => {

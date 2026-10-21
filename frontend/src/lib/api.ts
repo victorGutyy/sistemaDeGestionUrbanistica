@@ -1405,26 +1405,43 @@ export interface ResumenDashboard {
   cartera: {
     saldoVencido: string
     interesMora: string
+    // Todo lo que aún no vence (al día y próximo a vencer).
     saldoPorVencer: string
+    // La parte de lo anterior que vence en los próximos `diasAlerta` días.
+    saldoProximoAVencer: string
+    diasAlerta: number
   }
   porProyecto: ResumenFilaProyecto[]
   // Comisiones por pagar; solo viene para quien puede ver comisiones.
   comisionesPendientes?: { cantidad: number; valor: string }
+  // El proyecto al que se limitó el panel (null = todos).
+  proyecto: { id: string; nombre: string } | null
+  // Cuántos lotes hay en cada estado.
+  lotesPorEstado: Record<EstadoLote, number>
+  // Cierres de caja cerrados que esperan la aprobación del gerente; solo para quien ve la caja.
+  cierresPorAprobar?: number
 }
 
-function construirQueryPeriodo(filtro?: { desde?: string; hasta?: string }) {
+export interface FiltroPanel {
+  desde?: string
+  hasta?: string
+  proyectoId?: string
+}
+
+function construirQueryPeriodo(filtro?: FiltroPanel) {
   const params = new URLSearchParams()
   if (filtro?.desde) params.set('desde', filtro.desde)
   if (filtro?.hasta) params.set('hasta', filtro.hasta)
+  if (filtro?.proyectoId) params.set('proyectoId', filtro.proyectoId)
   return params
 }
 
-export function obtenerDashboard(filtro?: { desde?: string; hasta?: string }) {
+export function obtenerDashboard(filtro?: FiltroPanel) {
   const query = construirQueryPeriodo(filtro).toString()
   return solicitar<ResumenDashboard>(`/dashboard${query ? `?${query}` : ''}`)
 }
 
-export function exportarDashboard(formato: 'pdf' | 'excel', filtro?: { desde?: string; hasta?: string }) {
+export function exportarDashboard(formato: 'pdf' | 'excel', filtro?: FiltroPanel) {
   const params = construirQueryPeriodo(filtro)
   params.set('formato', formato)
   const extension = formato === 'pdf' ? 'pdf' : 'xlsx'
@@ -1869,8 +1886,8 @@ export interface ReporteGenerado {
   secciones: SeccionReporte[]
 }
 
-export type TipoFiltroReporte = 'fecha' | 'proyecto' | 'medioPago' | 'cuenta' | 'usuario' | 'categoriaGasto' | 'estadoLote' | 'granularidad'
-export type ClaveFiltroReporte = 'desde' | 'hasta' | 'proyectoId' | 'medioPago' | 'cuentaId' | 'usuarioId' | 'categoriaId' | 'estadoLote' | 'granularidad'
+export type TipoFiltroReporte = 'fecha' | 'proyecto' | 'medioPago' | 'cuenta' | 'usuario' | 'categoriaGasto' | 'estadoLote' | 'granularidad' | 'vendedor' | 'estadoComision' | 'fechaPor'
+export type ClaveFiltroReporte = 'desde' | 'hasta' | 'proyectoId' | 'medioPago' | 'cuentaId' | 'usuarioId' | 'categoriaId' | 'estadoLote' | 'granularidad' | 'vendedorId' | 'estadoComision' | 'fechaPor'
 
 export interface FiltroDefinido {
   clave: ClaveFiltroReporte
@@ -1898,6 +1915,9 @@ export interface CatalogoReportes {
     cuentas: { id: string; alias: string; banco: string }[]
     usuarios: { id: string; nombre: string }[]
     categoriasGasto: { id: string; nombre: string }[]
+    vendedores: { id: string; nombre: string }[]
+    estadosComision: OpcionReporte[]
+    fechasPor: OpcionReporte[]
     mediosPago: OpcionReporte[]
     estadosLote: OpcionReporte[]
     granularidades: OpcionReporte[]

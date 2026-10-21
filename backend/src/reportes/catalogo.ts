@@ -4,11 +4,11 @@ import type { ClaveReporte } from './modelo.js';
 // Catálogo de reportes: qué reportes hay y qué filtros acepta cada uno. La pantalla arma el formulario de filtros desde
 // aquí, así que un reporte nuevo no necesita una pantalla nueva.
 
-export type TipoFiltro = 'fecha' | 'proyecto' | 'medioPago' | 'cuenta' | 'usuario' | 'categoriaGasto' | 'estadoLote' | 'granularidad';
+export type TipoFiltro = 'fecha' | 'proyecto' | 'medioPago' | 'cuenta' | 'usuario' | 'categoriaGasto' | 'estadoLote' | 'granularidad' | 'vendedor' | 'estadoComision' | 'fechaPor';
 
 export interface FiltroDefinido {
   // Nombre del parámetro en la petición.
-  clave: 'desde' | 'hasta' | 'proyectoId' | 'medioPago' | 'cuentaId' | 'usuarioId' | 'categoriaId' | 'estadoLote' | 'granularidad';
+  clave: 'desde' | 'hasta' | 'proyectoId' | 'medioPago' | 'cuentaId' | 'usuarioId' | 'categoriaId' | 'estadoLote' | 'granularidad' | 'vendedorId' | 'estadoComision' | 'fechaPor';
   etiqueta: string;
   tipo: TipoFiltro;
   obligatorio?: boolean;
@@ -79,6 +79,37 @@ export const CATALOGO_REPORTES: DefinicionReporte[] = [
       PROYECTO,
       { clave: 'granularidad', etiqueta: 'Agrupar por', tipo: 'granularidad', obligatorio: true },
     ],
+    permisosExtra: [PERMISOS.FINANZAS_VER],
+    soloAlcanceTotal: false,
+  },
+  {
+    clave: 'comisiones',
+    titulo: 'Comisiones',
+    descripcion: 'Las comisiones de venta por estado, por vendedor y una por una, con su fecha y medio de pago.',
+    filtros: [
+      DESDE,
+      HASTA,
+      { clave: 'fechaPor', etiqueta: 'Las fechas son de…', tipo: 'fechaPor' },
+      PROYECTO,
+      { clave: 'vendedorId', etiqueta: 'Vendedor', tipo: 'vendedor' },
+      { clave: 'estadoComision', etiqueta: 'Estado', tipo: 'estadoComision' },
+    ],
+    permisosExtra: [PERMISOS.COMISIONES_VER],
+    soloAlcanceTotal: false,
+  },
+  {
+    clave: 'informe-proyecto',
+    titulo: 'Informe del proyecto (para el socio)',
+    descripcion: 'Ventas y cobros, ingresos, egresos y utilidad del período, egresos por categoría, cartera e inventario de lotes de un solo proyecto.',
+    filtros: [DESDE, HASTA, { ...PROYECTO, obligatorio: true }],
+    permisosExtra: [PERMISOS.FINANZAS_VER],
+    soloAlcanceTotal: false,
+  },
+  {
+    clave: 'maquinaria-equipos',
+    titulo: 'Maquinaria: utilidad por equipo',
+    descripcion: 'Ingresos, egresos y utilidad de cada equipo en el período, comparados en un solo listado, con los gastos generales de la flota.',
+    filtros: [DESDE, HASTA, PROYECTO],
     permisosExtra: [PERMISOS.FINANZAS_VER],
     soloAlcanceTotal: false,
   },

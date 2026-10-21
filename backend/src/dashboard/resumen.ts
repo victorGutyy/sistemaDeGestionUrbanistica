@@ -15,6 +15,8 @@ export interface FilaCarteraPorProyecto {
   saldoVencido: Prisma.Decimal;
   interesMora: Prisma.Decimal;
   saldoPorVencer: Prisma.Decimal;
+  // Parte de lo por vencer que vence en los próximos días del semáforo amarillo.
+  saldoProximoAVencer?: Prisma.Decimal;
 }
 
 export interface FilaResumenProyecto {
@@ -27,6 +29,7 @@ export interface FilaResumenProyecto {
   saldoVencido: Prisma.Decimal;
   interesMora: Prisma.Decimal;
   saldoPorVencer: Prisma.Decimal;
+  saldoProximoAVencer: Prisma.Decimal;
 }
 
 const CERO = new Prisma.Decimal(0);
@@ -54,6 +57,7 @@ export function combinarPorProyecto(
         saldoVencido: CERO,
         interesMora: CERO,
         saldoPorVencer: CERO,
+        saldoProximoAVencer: CERO,
       };
       filas.set(proyectoId, fila);
     }
@@ -73,6 +77,7 @@ export function combinarPorProyecto(
     fila.saldoVencido = cartera.saldoVencido;
     fila.interesMora = cartera.interesMora;
     fila.saldoPorVencer = cartera.saldoPorVencer;
+    fila.saldoProximoAVencer = cartera.saldoProximoAVencer ?? CERO;
   }
 
   return Array.from(filas.values());

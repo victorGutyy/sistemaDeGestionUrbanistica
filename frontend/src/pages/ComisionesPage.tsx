@@ -4,6 +4,7 @@ import { TarjetaComision } from '../components/TarjetaComision'
 import { useAuth } from '../contexts/AuthContext'
 import {
   exportarComisiones,
+  exportarReporte,
   listarComisiones,
   listarProyectos,
   listarVendedores,
@@ -34,7 +35,7 @@ export function ComisionesPage() {
   })
   const [lista, setLista] = useState<ListaComisiones | null>(null)
   const [cargando, setCargando] = useState(true)
-  const [exportando, setExportando] = useState(false)
+  const [exportando, setExportando] = useState<'excel' | 'pdf' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const consultar = useCallback(async (filtroActual: FiltroComisiones) => {
@@ -71,15 +72,24 @@ export function ComisionesPage() {
     void consultar(filtro)
   }
 
-  async function handleExportar() {
-    setExportando(true)
+  async function handleExportar(formato: 'excel' | 'pdf') {
+    setExportando(formato)
     setError(null)
     try {
-      await exportarComisiones(filtro)
+      if (formato === 'excel') {
+        await exportarComisiones(filtro)
+      } else {
+        // El PDF sale del motor de reportes (con los mismos filtros que el listado).
+        await exportarReporte(
+          'comisiones',
+          { vendedorId: filtro.vendedorId, estadoComision: filtro.estado, proyectoId: filtro.proyectoId, desde: filtro.desde, hasta: filtro.hasta, fechaPor: filtro.fechaPor },
+          'pdf',
+        )
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo exportar el reporte')
     } finally {
-      setExportando(false)
+      setExportando(null)
     }
   }
 
@@ -92,14 +102,24 @@ export function ComisionesPage() {
             Cada venta con vendedor genera su comisión (valor fijo por tipo de vendedor). Al pagarla se crea el egreso en Finanzas.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void handleExportar()}
-          disabled={exportando}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-        >
-          {exportando ? 'Generando...' : 'Exportar a Excel'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void handleExportar('pdf')}
+            disabled={exportando !== null}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {exportando === 'pdf' ? 'Generando...' : 'Exportar a PDF'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleExportar('excel')}
+            disabled={exportando !== null}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {exportando === 'excel' ? 'Generando...' : 'Exportar a Excel'}
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-white p-3">

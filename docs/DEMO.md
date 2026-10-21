@@ -87,7 +87,7 @@ Valores de ejemplo que **no son del cliente**: la tasa de mora (2 %), las dos cu
 2. **Administrador**: registrar un abono (desde un celular, a 375 px) → recibo en PDF → verlo en el cierre de caja.
 3. **Ventas**: excepción pendiente (D3) → el gerente la autoriza.
 4. **Comisiones**: lista con totales, pagar una pendiente (crea el egreso) y anularla como gerente; el administrador no ve el botón Anular.
-5. **Reportes**: elegir *Cartera por edades de mora*, verlo en pantalla y bajarlo en PDF; luego *Flujo de caja* agrupado por mes y *Recaudo* filtrado por medio de pago.
+5. **Reportes**: elegir *Cartera por edades de mora*, verlo en pantalla y bajarlo en PDF; luego *Flujo de caja* agrupado por mes y *Recaudo* filtrado por medio de pago. Para el socio: *Informe del proyecto* de La Floresta (PDF); y *Maquinaria: utilidad por equipo* para mostrar qué equipo deja más. En el **Panel general** elegir el proyecto La Floresta y mostrar cartera por vencer, lotes por estado y cierres por aprobar.
 6. **Finanzas**: egresos de La Floresta, finanzas de la remodelación y utilidad por equipo de la maquinaria.
 7. **Socio (Consulta)**: entra y solo ve La Floresta; no puede crear ni anular nada.
 8. **Auditoría** (gerente): el abono anulado, con quién y por qué.

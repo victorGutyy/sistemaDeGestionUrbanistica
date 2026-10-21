@@ -28,7 +28,7 @@ export interface SeccionReporte {
   filasTotales?: number;
 }
 
-export type ClaveReporte = 'recaudo' | 'cartera-edades' | 'egresos' | 'inventario-lotes' | 'flujo-caja';
+export type ClaveReporte = 'recaudo' | 'cartera-edades' | 'egresos' | 'inventario-lotes' | 'flujo-caja' | 'comisiones' | 'informe-proyecto' | 'maquinaria-equipos';
 
 export interface ReporteGenerado {
   clave: ClaveReporte;
