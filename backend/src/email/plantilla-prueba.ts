@@ -21,7 +21,7 @@ export function generarHtmlPrueba(d: DatosCorreoPrueba): string {
       <h2 style="color: ${colorSeguro(d.empresa.colorPrimario)}; margin-top: 0;">Correo de prueba</h2>
       <p>Este mensaje lo envió el sistema para comprobar que el correo de la empresa funciona. Si lo estás leyendo, <strong>los avisos a los clientes van a llegar</strong>.</p>
       <p style="font-size: 14px; margin: 16px 0;">
-        Enviado por ${escaparHtml(d.enviadoPor)} el ${fecha} a las ${hora}.<br>
+        Enviado por ${escaparHtml(d.enviadoPor)} el ${fecha} a las ${hora}<br>
         Remitente: ${escaparHtml(d.remitente)}<br>
         ${d.respondeA ? `Si respondes, tu respuesta llega a: ${escaparHtml(d.respondeA)}` : 'Las respuestas llegan a la misma dirección del remitente.'}
       </p>
