@@ -6,18 +6,19 @@ import { CONTENT_TYPE_DOCUMENTO, detectarTipoDocumento } from '../common/tipo-ar
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 
-// Los tres registros que pueden llevar adjuntos (RF-SST-21).
-export type TipoDuenoSst = 'entregaEpp' | 'actividadPlan' | 'capacitacion';
+// Los cuatro registros que pueden llevar adjuntos (RF-SST-21).
+export type TipoDuenoSst = 'entregaEpp' | 'actividadPlan' | 'capacitacion' | 'ausentismo';
 
 export interface DuenoSst {
   tipo: TipoDuenoSst;
   id: string;
 }
 
-const CONFIGURACION: Record<TipoDuenoSst, { columna: 'entregaEppId' | 'actividadPlanId' | 'capacitacionId'; entidad: EntidadAuditoria; etiqueta: string }> = {
+const CONFIGURACION: Record<TipoDuenoSst, { columna: 'entregaEppId' | 'actividadPlanId' | 'capacitacionId' | 'ausentismoId'; entidad: EntidadAuditoria; etiqueta: string }> = {
   entregaEpp: { columna: 'entregaEppId', entidad: 'ENTREGA_EPP', etiqueta: 'el acta de entrega de EPP' },
   actividadPlan: { columna: 'actividadPlanId', entidad: 'ACTIVIDAD_SST', etiqueta: 'la evidencia de una actividad del plan' },
   capacitacion: { columna: 'capacitacionId', entidad: 'CAPACITACION', etiqueta: 'el soporte de una capacitación' },
+  ausentismo: { columna: 'ausentismoId', entidad: 'AUSENTISMO', etiqueta: 'el certificado de un ausentismo' },
 };
 
 const TAMANO_MAXIMO = 10 * 1024 * 1024;
@@ -96,12 +97,18 @@ export class DocumentosSstService {
     return { buffer, contentType: documento.tipoMime, nombre: documento.nombreOriginal };
   }
 
-  // El registro debe existir; si se va a adjuntar algo, una entrega anulada ya no admite documentos nuevos.
+  // El registro debe existir; si se va a adjuntar algo, una entrega o un ausentismo anulado ya no admite documentos nuevos.
   private async exigirDueno(dueno: DuenoSst, paraEscribir = false) {
     if (dueno.tipo === 'entregaEpp') {
       const entrega = await this.prisma.entregaEpp.findUnique({ where: { id: dueno.id }, select: { id: true, anulada: true } });
       if (!entrega) throw new NotFoundException(`No existe la entrega ${dueno.id}`);
       if (paraEscribir && entrega.anulada) throw new BadRequestException('La entrega está anulada: ya no admite documentos nuevos');
+      return;
+    }
+    if (dueno.tipo === 'ausentismo') {
+      const ausentismo = await this.prisma.ausentismo.findUnique({ where: { id: dueno.id }, select: { id: true, anulada: true } });
+      if (!ausentismo) throw new NotFoundException(`No existe el ausentismo ${dueno.id}`);
+      if (paraEscribir && ausentismo.anulada) throw new BadRequestException('El ausentismo está anulado: ya no admite documentos nuevos');
       return;
     }
     const existe =

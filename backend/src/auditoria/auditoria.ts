@@ -33,6 +33,7 @@ export const ENTIDADES_AUDITORIA = {
   CAPACITACION: 'Capacitación SST',
   TIPO_AUSENTISMO: 'Tipo de ausentismo',
   DIAGNOSTICO_CIE10: 'Diagnóstico CIE-10 (catálogo)',
+  AUSENTISMO: 'Ausentismo (incapacidad o licencia)',
 } as const;
 
 export type EntidadAuditoria = keyof typeof ENTIDADES_AUDITORIA;
@@ -121,6 +122,11 @@ export const ACCIONES_AUDITORIA = {
   TIPO_AUSENTISMO_EDITAR: 'Cambió un tipo de ausentismo',
   DIAGNOSTICO_CIE10_CREAR: 'Agregó un diagnóstico CIE-10 al catálogo',
   DIAGNOSTICO_CIE10_EDITAR: 'Cambió un diagnóstico CIE-10 del catálogo',
+  AUSENTISMO_REGISTRAR: 'Registró un ausentismo',
+  AUSENTISMO_EDITAR: 'Editó un ausentismo',
+  AUSENTISMO_ANULAR: 'Anuló un ausentismo',
+  AUSENTISMO_CORREGIR: 'Corrigió la liquidación de un ausentismo',
+  AUSENTISMO_DIAGNOSTICO_CONSULTAR: 'Consultó un dato de salud de un ausentismo (diagnóstico o certificado)',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;
