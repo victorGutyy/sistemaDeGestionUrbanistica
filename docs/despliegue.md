@@ -519,6 +519,32 @@ Así se enteran si el sitio cae, si el certificado falla, si se cae la base de d
 
 El código vive en Git; las imágenes se reconstruyen con `desplegar.sh`; los certificados HTTPS los vuelve a pedir Caddy solo.
 
+## Límite de intentos por dirección IP
+
+El sistema ya bloquea una **cuenta** tras varios intentos fallidos de clave. Eso no ve a quien prueba claves contra **muchas cuentas distintas** desde una misma conexión, ni a quien llena de correos de recuperación a otras personas. Por eso las tres rutas **públicas** (las que no piden sesión) tienen además un límite por dirección IP. Las demás rutas del sistema exigen sesión y no lo llevan.
+
+| Ruta | Límite por defecto (por IP) |
+|---|---|
+| Iniciar sesión | 10 peticiones por minuto |
+| Pedir el enlace de recuperación | 5 por hora |
+| Usar el enlace para elegir contraseña nueva | 10 por hora |
+
+Cuando alguien se pasa, la API responde `429` con el mensaje "Demasiados intentos desde esta conexión. Espera unos minutos y vuelve a intentarlo." (se muestra tal cual en la pantalla de ingreso) y la cabecera `Retry-After` con los segundos que debe esperar.
+
+- **Una oficina comparte una sola IP:** 10 inicios de sesión por minuto dejan trabajar con holgura a todo el personal y frenan a un programa que prueba claves.
+- **La IP que se cuenta es la real**, la que Caddy pasa en `X-Forwarded-For` (la API tiene `trust proxy` en 1). Caddy descarta lo que el cliente intente poner en esa cabecera.
+- **El contador está en memoria:** se reinicia al reiniciar la API y funciona porque hay una sola instancia.
+- **Se ajusta sin tocar código**, con las variables `LIMITE_LOGIN_PETICIONES` y `LIMITE_LOGIN_SEGUNDOS` (y las equivalentes `LIMITE_RECUPERAR_*` y `LIMITE_RESTABLECER_*`) en `/opt/balder/.env`. Después: `docker compose --env-file /opt/balder/.env up -d api`. Un valor vacío o inválido se ignora y rige el de reserva.
+- El código está en `backend/src/auth/limite-por-ip.ts`, con pruebas en `limite-por-ip.spec.ts`.
+
+**Cómo comprobarlo en producción** (desde PowerShell en tu computador; usa `curl.exe` y no `curl`, que en Windows es otro comando). Con 12 intentos seguidos de iniciar sesión con datos falsos, los primeros 10 responden `400` o `401` y los siguientes `429`:
+
+```bash
+1..12 | ForEach-Object { curl.exe -s -o NUL -w "%{http_code} " -X POST https://sistema.balderingenieria.com/api/auth/login -H "content-type: application/json" -d '{"email":"prueba@ejemplo.test","password":"Incorrecta-123"}' }
+```
+
+Después de la prueba, tu conexión queda limitada durante un minuto; espera y vuelve a ingresar con normalidad.
+
 ## Fase 5. Primer arranque con datos reales (por escribir)
 
-**Primer arranque con datos reales:** cargar los datos con el importador, probar el correo y repetir la medición de rendimiento en este servidor (RNF-REN-01 a 04). Pendientes de endurecimiento: límite de peticiones por IP en el inicio de sesión (requiere agregar `@nestjs/throttler`) y una política de seguridad de contenido (CSP) probada con las descargas de PDF.
+**Primer arranque con datos reales:** cargar los datos con el importador, probar el correo y repetir la medición de rendimiento en este servidor (RNF-REN-01 a 04). Pendiente de endurecimiento: una política de seguridad de contenido (CSP) probada con las descargas de PDF. El límite de peticiones por IP en el inicio de sesión y la recuperación de contraseña ya está hecho (ver abajo).

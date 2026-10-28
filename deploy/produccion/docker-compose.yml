@@ -63,6 +63,13 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # Límite de peticiones por IP en iniciar sesión y recuperar contraseña (opcionales; si van vacíos rigen los valores de reserva).
+      LIMITE_LOGIN_PETICIONES: ${LIMITE_LOGIN_PETICIONES:-}
+      LIMITE_LOGIN_SEGUNDOS: ${LIMITE_LOGIN_SEGUNDOS:-}
+      LIMITE_RECUPERAR_PETICIONES: ${LIMITE_RECUPERAR_PETICIONES:-}
+      LIMITE_RECUPERAR_SEGUNDOS: ${LIMITE_RECUPERAR_SEGUNDOS:-}
+      LIMITE_RESTABLECER_PETICIONES: ${LIMITE_RESTABLECER_PETICIONES:-}
+      LIMITE_RESTABLECER_SEGUNDOS: ${LIMITE_RESTABLECER_SEGUNDOS:-}
     volumes:
       - uploads:/app/uploads   # comprobantes y documentos firmados que suben los usuarios
 
