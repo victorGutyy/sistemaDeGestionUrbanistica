@@ -27,6 +27,10 @@ export const ENTIDADES_AUDITORIA = {
   PARAMETRO_LEGAL: 'Parámetros legales del año',
   ENTIDAD_SS: 'Entidad de seguridad social',
   CLASE_RIESGO_ARL: 'Clase de riesgo de la ARL',
+  ELEMENTO_EPP: 'Elemento de protección personal',
+  ENTREGA_EPP: 'Entrega de EPP',
+  ACTIVIDAD_SST: 'Actividad del plan de trabajo SST',
+  CAPACITACION: 'Capacitación SST',
 } as const;
 
 export type EntidadAuditoria = keyof typeof ENTIDADES_AUDITORIA;
@@ -97,6 +101,12 @@ export const ACCIONES_AUDITORIA = {
   ENTIDAD_SS_CREAR: 'Creó una entidad de seguridad social',
   ENTIDAD_SS_EDITAR: 'Cambió una entidad de seguridad social',
   CLASE_RIESGO_ARL_EDITAR: 'Cambió una clase de riesgo de la ARL',
+  ELEMENTO_EPP_CREAR: 'Creó un elemento de protección personal',
+  ELEMENTO_EPP_EDITAR: 'Cambió un elemento de protección personal',
+  ENTREGA_EPP_REGISTRAR: 'Registró una entrega de EPP',
+  ENTREGA_EPP_ANULAR: 'Anuló una entrega de EPP',
+  ENTREGA_EPP_FIRMA: 'Marcó que el trabajador firmó el recibido de un EPP',
+  SST_DOCUMENTO_SUBIR: 'Adjuntó un documento a un registro SST',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;

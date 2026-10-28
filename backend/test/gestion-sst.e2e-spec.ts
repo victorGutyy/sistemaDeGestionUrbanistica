@@ -4,7 +4,11 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ConfiguracionService } from '../src/configuracion/configuracion.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { DocumentosSstService } from '../src/sst/documentos-sst.service.js';
+import { EppService } from '../src/sst/epp.service.js';
+import type { StorageService } from '../src/storage/storage.service.js';
 
 const REVERTIR = new Error('revertir');
 
@@ -207,6 +211,84 @@ describe('Gestión SST contra Postgres real: reglas de la base (RF-SST-12 a 21)'
       await rechaza(tx, () => tx.documentoSst.create({ data: { ...base, entregaEppId: entrega.id, actividadPlanId: actividad.id } }), /un_solo_dueno/);
       await rechaza(tx, () => tx.documentoSst.create({ data: { ...base, entregaEppId: entrega.id, tamano: 0 } }), /tamano_valido/);
       await rechaza(tx, () => tx.$executeRaw`DELETE FROM "DocumentoSst" WHERE "id" = ${documento.id}`, /no se borran/);
+    });
+  });
+
+  it('recorrido completo con los servicios reales: catálogo, entrega, firma, reposición por estado, anulación y acta adjunta', async () => {
+    await enTransaccionRevertida(async (tx) => {
+      const proxy = new Proxy(tx, { get: (objetivo, clave) => (clave === '$transaction' ? (accion: (t: Tx) => unknown) => accion(objetivo) : Reflect.get(objetivo, clave)) }) as unknown as PrismaService;
+      const archivos = new Map<string, Buffer>();
+      const almacenamiento = {
+        guardar: (carpeta: string, nombre: string, buffer: Buffer) => {
+          const rutaRelativa = `${carpeta}/${nombre}`;
+          archivos.set(rutaRelativa, buffer);
+          return Promise.resolve({ rutaRelativa });
+        },
+        leer: (ruta: string) => Promise.resolve(archivos.get(ruta) ?? Buffer.alloc(0)),
+      } as unknown as StorageService;
+      const configuracion = new ConfiguracionService(proxy, almacenamiento);
+      const epp = new EppService(proxy, configuracion);
+      const documentos = new DocumentosSstService(proxy, almacenamiento);
+      const fila = await prisma.usuario.findFirstOrThrow({ include: { rol: true } });
+      const usuario = { id: fila.id, email: fila.email, nombre: fila.nombre, rol: { id: fila.rol.id, clave: fila.rol.clave, nombre: fila.rol.nombre }, permisos: fila.rol.permisos, proyectoIds: null };
+
+      const sufijo = randomUUID().slice(0, 8);
+      const trabajador = await tx.trabajador.create({ data: { nombre: 'Persona Inventada', documento: `E2E-${sufijo}`, cargo: 'Oficial', salarioBase: 1_500_000, fechaIngreso: dia(1, 1) } });
+      const casco = await epp.crearElemento({ nombre: `Casco E2E ${sufijo}`, vidaUtilDias: 30 }, usuario);
+      const guantes = await epp.crearElemento({ nombre: `Guantes E2E ${sufijo}`, vidaUtilDias: 365 }, usuario);
+
+      // Hoy es el 10 de junio. El casco se entregó el 1 de mayo (vida útil de 30 días): su reposición era el 31 de mayo.
+      const hoy = new Date(2026, 5, 10);
+      const entregaCasco = await epp.registrarEntrega({ trabajadorId: trabajador.id, elementoId: casco.id, fecha: '2026-05-01', cantidad: 1, motivo: 'DOTACION_INICIAL', tallaReferencia: 'M' }, usuario, hoy);
+      await epp.registrarEntrega({ trabajadorId: trabajador.id, elementoId: guantes.id, fecha: '2026-06-01', cantidad: 2, motivo: 'DOTACION_INICIAL' }, usuario, hoy);
+      expect(entregaCasco.vidaUtilDias).toBe(30);
+      expect(entregaCasco.proximaReposicion).toEqual(dia(5, 31));
+
+      const propias = async () => (await epp.reposiciones({ estado: 'TODOS', trabajadorId: trabajador.id }, hoy)).reposiciones;
+      expect((await propias()).map((r) => [r.elemento.nombre.split(' E2E')[0], r.estado])).toEqual([
+        ['Casco', 'VENCIDO'],
+        ['Guantes', 'VIGENTE'],
+      ]);
+
+      // Cambiar la vida útil del catálogo no mueve las entregas que ya se hicieron.
+      await epp.actualizarElemento(casco.id, { vidaUtilDias: 90 }, usuario);
+      expect((await tx.entregaEpp.findUniqueOrThrow({ where: { id: entregaCasco.id } })).proximaReposicion).toEqual(dia(5, 31));
+
+      // Marcar la firma, y adjuntar el acta (solo PDF de verdad).
+      await epp.marcarFirma(entregaCasco.id, usuario);
+      const pdf = Buffer.from('%PDF-1.4\nacta inventada');
+      const adjunto = await documentos.subir({ tipo: 'entregaEpp', id: entregaCasco.id }, { buffer: pdf, originalname: 'acta.pdf' } as Express.Multer.File, 'Acta firmada', usuario);
+      expect((await documentos.leer({ tipo: 'entregaEpp', id: entregaCasco.id }, adjunto.id)).buffer.equals(pdf)).toBe(true);
+      await expect(documentos.leer({ tipo: 'entregaEpp', id: randomUUID() }, adjunto.id)).rejects.toThrow(/No existe el documento/);
+
+      // Una reposición reinicia el reloj: ya no hay casco vencido.
+      await epp.registrarEntrega({ trabajadorId: trabajador.id, elementoId: casco.id, fecha: '2026-06-05', cantidad: 1, motivo: 'REPOSICION_VIDA_UTIL' }, usuario, hoy);
+      expect((await propias()).find((r) => r.elemento.nombre.startsWith('Casco'))?.estado).toBe('VIGENTE');
+
+      // Anular la reposición devuelve la alerta del casco vencido; la anulada ya no admite adjuntos ni cambios.
+      const reposicion = (await epp.listarEntregas({ trabajadorId: trabajador.id, elementoId: casco.id })).find((e) => e.motivo === 'REPOSICION_VIDA_UTIL');
+      await epp.anularEntrega(reposicion!.id, { motivo: 'Se registró por error' }, usuario);
+      expect((await propias()).find((r) => r.elemento.nombre.startsWith('Casco'))?.estado).toBe('VENCIDO');
+      await expect(documentos.subir({ tipo: 'entregaEpp', id: reposicion!.id }, { buffer: pdf, originalname: 'acta.pdf' } as Express.Multer.File, undefined, usuario)).rejects.toThrow(/anulada/);
+
+      // Un trabajador retirado deja de aparecer en las reposiciones y no recibe entregas nuevas.
+      await tx.trabajador.update({ where: { id: trabajador.id }, data: { estado: 'INACTIVO', fechaRetiro: dia(6, 1), motivoRetiro: 'Terminó la obra' } });
+      expect(await propias()).toEqual([]);
+      await expect(epp.registrarEntrega({ trabajadorId: trabajador.id, elementoId: guantes.id, fecha: '2026-06-09', cantidad: 1, motivo: 'PERDIDA' }, usuario, hoy)).rejects.toThrow(/retirado/);
+
+      // Todo quedó en la auditoría, en orden.
+      const acciones = (await tx.registroAuditoria.findMany({ where: { OR: [{ entidad: 'ENTREGA_EPP' }, { entidad: 'ELEMENTO_EPP' }], createdAt: { gte: new Date(Date.now() - 60_000) } }, orderBy: { createdAt: 'asc' } })).map((r) => r.accion);
+      expect(acciones).toEqual([
+        'ELEMENTO_EPP_CREAR',
+        'ELEMENTO_EPP_CREAR',
+        'ENTREGA_EPP_REGISTRAR',
+        'ENTREGA_EPP_REGISTRAR',
+        'ELEMENTO_EPP_EDITAR',
+        'ENTREGA_EPP_FIRMA',
+        'SST_DOCUMENTO_SUBIR',
+        'ENTREGA_EPP_REGISTRAR',
+        'ENTREGA_EPP_ANULAR',
+      ]);
     });
   });
 

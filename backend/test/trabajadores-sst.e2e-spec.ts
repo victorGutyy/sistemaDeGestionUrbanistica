@@ -145,6 +145,54 @@ describe('Trabajadores y SST por rol, con los guardas reales (e2e)', () => {
     });
   });
 
+  // Solo lecturas y escrituras que el servidor rechaza: una entrega aceptada no se podría borrar de la base.
+  describe('elementos de protección personal por rol', () => {
+    const LECTURAS = ['/sst/epp/elementos', '/sst/epp/reposiciones', '/sst/epp/entregas'];
+
+    it('el contratista SST y el administrador consultan el catálogo, las reposiciones y las entregas', async () => {
+      for (const rol of ['CONTRATISTA', 'ADMINISTRADOR', 'GERENTE']) {
+        for (const ruta of LECTURAS) {
+          await como(rol).get(ruta).expect(200);
+        }
+      }
+    });
+
+    it('el catálogo y las reposiciones traen la estructura esperada', async () => {
+      const elementos = (await como('CONTRATISTA').get('/sst/epp/elementos').expect(200)).body as { nombre: string; vidaUtilDias: number }[];
+      expect(elementos.length).toBeGreaterThanOrEqual(18);
+      expect(elementos[0]).toHaveProperty('vidaUtilDias');
+      const reposiciones = (await como('CONTRATISTA').get('/sst/epp/reposiciones').expect(200)).body;
+      expect(reposiciones).toMatchObject({ diasAlerta: 15, resumen: { vencidos: expect.any(Number), porReponer: expect.any(Number), vigentes: expect.any(Number) } });
+    });
+
+    it('consulta, con o sin límite de proyecto, no ve ni escribe nada de EPP', async () => {
+      for (const rol of ['CONSULTA', 'CONSULTA_LIMITADA']) {
+        for (const ruta of LECTURAS) {
+          await como(rol).get(ruta).expect(403);
+        }
+        await como(rol).post('/sst/epp/entregas').send({}).expect(403);
+        await como(rol).post('/sst/epp/elementos').send({ nombre: 'No debería crearse', vidaUtilDias: 30 }).expect(403);
+      }
+    });
+
+    it('los datos de entrada inválidos se rechazan con 400 antes de llegar a la base', async () => {
+      await como('CONTRATISTA').post('/sst/epp/entregas').send({}).expect(400);
+      await como('CONTRATISTA').post('/sst/epp/entregas').send({ trabajadorId: 'no-es-uuid', elementoId: ID_AJENO, fecha: '2026-01-01', cantidad: 1, motivo: 'DOTACION_INICIAL' }).expect(400);
+      await como('CONTRATISTA').post('/sst/epp/entregas').send({ trabajadorId: ID_AJENO, elementoId: ID_AJENO, fecha: '2026-01-01', cantidad: 0, motivo: 'DOTACION_INICIAL' }).expect(400);
+      await como('CONTRATISTA').post('/sst/epp/entregas').send({ trabajadorId: ID_AJENO, elementoId: ID_AJENO, fecha: '2026-01-01', cantidad: 1, motivo: 'INVENTADO' }).expect(400);
+      await como('CONTRATISTA').post('/sst/epp/elementos').send({ nombre: 'Casco', vidaUtilDias: 0 }).expect(400);
+      await como('CONTRATISTA').get('/sst/epp/reposiciones?estado=INVENTADO').expect(400);
+      await como('CONTRATISTA').get('/sst/epp/entregas/no-es-uuid').expect(400);
+    });
+
+    it('un trabajador, un elemento o una entrega que no existen responden 404 y no se escribe nada', async () => {
+      await como('CONTRATISTA').post('/sst/epp/entregas').send({ trabajadorId: ID_AJENO, elementoId: ID_AJENO, fecha: '2026-01-01', cantidad: 1, motivo: 'DOTACION_INICIAL' }).expect(404);
+      await como('CONTRATISTA').get(`/sst/epp/entregas/${ID_AJENO}`).expect(404);
+      await como('CONTRATISTA').post(`/sst/epp/entregas/${ID_AJENO}/anular`).send({ motivo: 'Prueba de permisos' }).expect(404);
+      await como('CONTRATISTA').get(`/sst/epp/entregas/${ID_AJENO}/documentos`).expect(404);
+    });
+  });
+
   describe('validación de los datos de entrada', () => {
     it('un identificador que no es UUID se rechaza con 400 antes de llegar a la base', async () => {
       await como('GERENTE').get('/trabajadores/no-es-un-uuid').expect(400);
