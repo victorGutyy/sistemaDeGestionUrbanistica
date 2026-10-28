@@ -51,7 +51,7 @@ modo_probar() {
   fallo() {
     registrar "ERROR: la PRUEBA DE RESTAURACIÓN falló (línea $1)."
     compose exec -T db psql -U "${PGUSER}" -d postgres -c "DROP DATABASE IF EXISTS restauracion_prueba" > /dev/null 2>&1 || true
-    avisar "${URL_AVISO_FALLO}"
+    avisar "${URL_PRUEBA_FALLO}" "La prueba de restauración falló en $(hostname) (línea $1). Revisar: journalctl -u balder-prueba-restauracion -n 50"
     exit 1
   }
   trap 'fallo $LINENO' ERR
@@ -88,7 +88,7 @@ modo_probar() {
   # Se borra el archivo descargado (contiene datos de clientes) en cuanto termina la prueba.
   rm -f "${temporal}/${ultimo}"
   registrar "PRUEBA OK: la copia ${ultimo} se descifró y se restauró completa (${migraciones} migraciones). La base temporal ya se borró."
-  avisar "${URL_AVISO_OK}"
+  avisar "${URL_PRUEBA_OK}" "Prueba OK: ${ultimo} restaurada completa (${migraciones} migraciones)"
 }
 
 modo_real() {

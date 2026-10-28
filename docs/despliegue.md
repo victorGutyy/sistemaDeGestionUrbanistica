@@ -12,7 +12,7 @@ Cómo se publica el Sistema de gestión de urbanismo en un servidor propio (VPS 
 | 1 | Proteger el servidor | **Hecho y comprobado** (27/10/2026): `deploy` entra con llave; `root` y la contraseña quedaron cerrados |
 | 2 | Docker y prueba de HTTPS | **Hecho y comprobado** (27/10/2026): Docker instalado; certificado de Let's Encrypt obtenido y página de prueba con candado |
 | 3 | Empaquetar y arrancar el sistema | **Hecho y en producción** (27/10/2026): `https://sistema.balderingenieria.com` responde, el gerente ingresa y la base está vacía |
-| 4 | Copias de seguridad diarias y prueba de restauración | **Escrita y probada en local; falta configurarla en el servidor** (cuenta de Backblaze B2, ver 4.1) |
+| 4 | Copias de seguridad diarias y prueba de restauración | **Hecho y comprobado** (27/10/2026): bucket privado de Backblaze B2 con Object Lock y regla de ciclo de vida, primera copia cifrada subida y `restaurar.sh probar` con `PRUEBA OK` |
 | 5 | Primer arranque: gerente, correo, datos y medición de rendimiento | Por escribir |
 
 ## Lo que ya existe (fase 0)
@@ -449,9 +449,61 @@ bash /opt/balder/fuente/deploy/produccion/respaldos/restaurar.sh listar
 
 Muestra las copias que hay en la nube (tamaño y nombre). El informe `03-verificar-servidor.sh` también muestra la hora de la próxima copia, el resultado de la última y el de la última prueba.
 
-### 4.6 Avisos (recomendado)
+### 4.6 Avisos de fallo
 
-Si una copia falla una noche y nadie lo ve, se descubre cuando ya hace falta. Para recibir un aviso, crea un chequeo gratuito en [healthchecks.io](https://healthchecks.io) (o un servicio equivalente), pon sus dos direcciones (la de "OK" y la de "fallo") en `/opt/balder/copias.env`, y configúralo para que avise por correo si no llega el "OK" a tiempo. El guion llama a una u otra al terminar. Sin avisos, alguien debe mirar `03-verificar-servidor.sh` cada semana.
+Una copia que falla en silencio se descubre el día que hace falta. Hay dos vigilancias distintas, las dos con servicios gratuitos:
+
+| Qué vigila | Servicio | Cómo avisa |
+|---|---|---|
+| Que la copia diaria y la prueba mensual **terminen bien** | healthchecks.io | Si el guion avisa "fallé", o si **no llega** el aviso de "terminé" a tiempo (por ejemplo, el servidor apagado), manda un correo |
+| Que el sistema **esté en línea** desde afuera | UptimeRobot (u otro equivalente) | Consulta `/api/salud` cada pocos minutos y manda un correo si no responde |
+
+#### A. healthchecks.io (copias)
+
+Los guiones ya saben avisar: al terminar llaman a una dirección si salió bien (`URL_AVISO_OK`) y a otra si falló (`URL_AVISO_FALLO`), y envían el mensaje de lo ocurrido. La prueba mensual usa otro par distinto (`URL_PRUEBA_OK` y `URL_PRUEBA_FALLO`), para no confundirlas. Si no se configuran, no pasa nada: solo dejan de avisar.
+
+1. Crea una cuenta en healthchecks.io con el correo del proyecto, activa la verificación en dos pasos y guarda los códigos en el gestor.
+2. Crea el **chequeo 1**, "Balder - copia diaria": programación `0 2 * * *` (cron), zona horaria **America/Bogota**, tiempo de gracia **2 horas**. Copia su **Ping URL** (termina en un código largo).
+3. Crea el **chequeo 2**, "Balder - prueba mensual de restauración": programación `30 3 1 * *`, zona **America/Bogota**, gracia **1 día**. Copia su Ping URL.
+4. En **Integrations**, deja el correo y agrega a quien deba enterarse (el responsable técnico y alguien de Balder).
+5. En el servidor, edita `/opt/balder/copias.env` (las direcciones son semisecretas: no van a ningún chat):
+
+```bash
+nano /opt/balder/copias.env
+```
+
+   Completa las cuatro líneas, agregando `/fail` al final de las de fallo:
+
+```
+URL_AVISO_OK="https://hc-ping.com/CODIGO-DEL-CHEQUEO-1"
+URL_AVISO_FALLO="https://hc-ping.com/CODIGO-DEL-CHEQUEO-1/fail"
+URL_PRUEBA_OK="https://hc-ping.com/CODIGO-DEL-CHEQUEO-2"
+URL_PRUEBA_FALLO="https://hc-ping.com/CODIGO-DEL-CHEQUEO-2/fail"
+```
+
+6. **Prueba que avisa de que salió bien:**
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/respaldos/respaldar.sh
+```
+
+   El chequeo 1 debe pasar a verde ("up") en healthchecks.io.
+
+7. **Prueba que avisa de un fallo.** Este comando fuerza un destino inexistente, así que falla a los pocos segundos **antes de subir nada**:
+
+```bash
+REMOTO=noexiste bash /opt/balder/fuente/deploy/produccion/respaldos/respaldar.sh
+```
+
+   El chequeo 1 debe pasar a rojo y llegar un correo con el mensaje del fallo. Después, vuelve a correr el comando del punto 6 para dejarlo en verde.
+
+#### B. Vigilancia desde afuera (UptimeRobot)
+
+1. Crea una cuenta con el correo del proyecto y activa la verificación en dos pasos.
+2. Crea un monitor de tipo **Keyword**: dirección `https://sistema.balderingenieria.com/api/salud`, palabra clave `"estado":"ok"`, que avise si **no** existe, revisando cada 5 minutos.
+3. Contacto de alerta: el correo del responsable técnico (y el de alguien de Balder).
+
+Así se enteran si el sitio cae, si el certificado falla, si se cae la base de datos (la ruta responde 503) o si el servidor deja de contestar.
 
 ### Si el servidor se pierde (recuperación total)
 

@@ -110,10 +110,14 @@ echo "   OK: se subió cifrado y se descifró bien."
 echo "== 5/6 Instalando los temporizadores (copia diaria y prueba mensual)"
 if [ ! -f "${BASE}/copias.env" ]; then
   cat > "${BASE}/copias.env" << 'EOF'
-# Avisos opcionales (por ejemplo de healthchecks.io): se llama a la dirección cuando una copia sale bien o falla.
+# Avisos opcionales (por ejemplo de healthchecks.io): se llama a la dirección cuando algo sale bien o falla.
 # Déjalos vacíos si no los usas. Estas direcciones son semisecretas: no las compartas.
+# Copia diaria:
 URL_AVISO_OK=""
 URL_AVISO_FALLO=""
+# Prueba mensual de restauración (otro chequeo distinto):
+URL_PRUEBA_OK=""
+URL_PRUEBA_FALLO=""
 EOF
   chmod 600 "${BASE}/copias.env"
 fi

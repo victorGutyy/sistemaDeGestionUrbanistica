@@ -21,19 +21,25 @@ compose() {
   docker compose --env-file "${BASE}/.env" -f "${CARPETA}/docker-compose.yml" "$@"
 }
 
-# Avisos opcionales (por ejemplo healthchecks.io): URL_AVISO_OK y URL_AVISO_FALLO en /opt/balder/copias.env.
+# Avisos opcionales (por ejemplo healthchecks.io), en /opt/balder/copias.env:
+#   URL_AVISO_OK / URL_AVISO_FALLO      la copia diaria
+#   URL_PRUEBA_OK / URL_PRUEBA_FALLO    la prueba mensual de restauración (otro chequeo, para no confundirlas)
 cargar_avisos() {
   URL_AVISO_OK=""
   URL_AVISO_FALLO=""
+  URL_PRUEBA_OK=""
+  URL_PRUEBA_FALLO=""
   if [ -f "${BASE}/copias.env" ]; then
     # shellcheck disable=SC1091
     . "${BASE}/copias.env"
   fi
 }
 
+# avisar <dirección> [mensaje]: llama a la dirección; con mensaje, lo envía en el cuerpo (healthchecks.io lo guarda y
+# lo muestra en la alerta). Si el aviso mismo falla no se rompe nada: es un extra, no parte de la copia.
 avisar() {
   if [ -n "${1:-}" ]; then
-    curl -fsS -m 15 --retry 2 "$1" >/dev/null 2>&1 || true
+    curl -fsS -m 15 --retry 2 --data-raw "${2:-}" "$1" > /dev/null 2>&1 || true
   fi
 }
 

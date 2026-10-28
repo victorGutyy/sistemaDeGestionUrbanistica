@@ -35,7 +35,7 @@ fi
 
 fallo() {
   registrar "ERROR: la copia de seguridad FALLÓ (línea $1). Revisa: journalctl -u balder-respaldo -n 50"
-  avisar "${URL_AVISO_FALLO}"
+  avisar "${URL_AVISO_FALLO}" "La copia de seguridad falló en $(hostname) (línea $1). Revisar: journalctl -u balder-respaldo -n 50"
   exit 1
 }
 trap 'fallo $LINENO' ERR
@@ -83,4 +83,4 @@ subir "${BASE}/.env" env "env-${SELLO}"
 find "${DESTINO_LOCAL}" -maxdepth 1 -type f \( -name 'db-*' -o -name 'uploads-*' \) -mtime +"${DIAS_LOCALES}" -delete
 
 registrar "OK: copia ${SELLO} completa (base $(stat -c %s "${DB}") bytes, adjuntos $(stat -c %s "${UP}") bytes)."
-avisar "${URL_AVISO_OK}"
+avisar "${URL_AVISO_OK}" "Copia ${SELLO} completa: base $(stat -c %s "${DB}") bytes, adjuntos $(stat -c %s "${UP}") bytes"
