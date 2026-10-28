@@ -107,6 +107,14 @@ export const ACCIONES_AUDITORIA = {
   ENTREGA_EPP_ANULAR: 'Anuló una entrega de EPP',
   ENTREGA_EPP_FIRMA: 'Marcó que el trabajador firmó el recibido de un EPP',
   SST_DOCUMENTO_SUBIR: 'Adjuntó un documento a un registro SST',
+  ACTIVIDAD_SST_CREAR: 'Creó una actividad del plan de trabajo SST',
+  ACTIVIDAD_SST_EDITAR: 'Editó una actividad del plan de trabajo SST',
+  ACTIVIDAD_SST_COPIAR_PLAN: 'Copió el plan de trabajo SST de un año a otro',
+  CAPACITACION_CREAR: 'Creó una capacitación SST',
+  CAPACITACION_EDITAR: 'Editó una capacitación SST',
+  CAPACITACION_ASISTENCIA_REGISTRAR: 'Registró asistentes a una capacitación',
+  CAPACITACION_ASISTENCIA_EDITAR: 'Editó la asistencia a una capacitación',
+  CAPACITACION_ASISTENCIA_ANULAR: 'Anuló la asistencia de un trabajador a una capacitación',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;

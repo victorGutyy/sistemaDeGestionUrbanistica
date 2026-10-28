@@ -1,27 +1,13 @@
+import { diasEntre, inicioDelDia, sumarDias } from './fechas.js';
+
 // Reglas de reposición de los elementos de protección personal (RF-SST-14). Son funciones puras: reciben fechas y
 // entregas y devuelven el resultado, sin tocar la base de datos. Las fechas son días calendario (hora local de Colombia).
+
+export { diasEntre, inicioDelDia, sumarDias };
 
 export type EstadoReposicion = 'VIGENTE' | 'POR_REPONER' | 'VENCIDO';
 
 export const ESTADOS_REPOSICION: readonly EstadoReposicion[] = ['VIGENTE', 'POR_REPONER', 'VENCIDO'];
-
-const MS_POR_DIA = 24 * 60 * 60 * 1000;
-
-export function inicioDelDia(fecha: Date): Date {
-  return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
-}
-
-export function sumarDias(fecha: Date, dias: number): Date {
-  return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate() + dias);
-}
-
-// Días calendario entre dos fechas (negativo si "hasta" es anterior a "desde"). Se calcula sobre el día, sin horas, para
-// que un cambio de hora del servidor no mueva el resultado.
-export function diasEntre(desde: Date, hasta: Date): number {
-  const a = Date.UTC(desde.getFullYear(), desde.getMonth(), desde.getDate());
-  const b = Date.UTC(hasta.getFullYear(), hasta.getMonth(), hasta.getDate());
-  return Math.round((b - a) / MS_POR_DIA);
-}
 
 // La reposición cae "vida útil" días después de la entrega.
 export function calcularProximaReposicion(fechaEntrega: Date, vidaUtilDias: number): Date {

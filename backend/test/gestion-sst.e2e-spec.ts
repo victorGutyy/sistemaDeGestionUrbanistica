@@ -6,8 +6,10 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ConfiguracionService } from '../src/configuracion/configuracion.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { CapacitacionesService } from '../src/sst/capacitaciones.service.js';
 import { DocumentosSstService } from '../src/sst/documentos-sst.service.js';
 import { EppService } from '../src/sst/epp.service.js';
+import { PlanTrabajoService } from '../src/sst/plan-trabajo.service.js';
 import type { StorageService } from '../src/storage/storage.service.js';
 
 const REVERTIR = new Error('revertir');
@@ -46,6 +48,29 @@ describe('Gestión SST contra Postgres real: reglas de la base (RF-SST-12 a 21)'
   }
 
   const dia = (mes: number, diaDelMes: number) => new Date(2026, mes - 1, diaDelMes);
+
+  // Los servicios reales, trabajando dentro de la transacción de la prueba: lo que escriben se revierte al final.
+  async function serviciosEnTransaccion(tx: Tx) {
+    const proxy = new Proxy(tx, { get: (objetivo, clave) => (clave === '$transaction' ? (accion: (t: Tx) => unknown) => accion(objetivo) : Reflect.get(objetivo, clave)) }) as unknown as PrismaService;
+    const archivos = new Map<string, Buffer>();
+    const almacenamiento = {
+      guardar: (carpeta: string, nombre: string, buffer: Buffer) => {
+        const rutaRelativa = `${carpeta}/${nombre}`;
+        archivos.set(rutaRelativa, buffer);
+        return Promise.resolve({ rutaRelativa });
+      },
+      leer: (ruta: string) => Promise.resolve(archivos.get(ruta) ?? Buffer.alloc(0)),
+    } as unknown as StorageService;
+    const configuracion = new ConfiguracionService(proxy, almacenamiento);
+    const fila = await prisma.usuario.findFirstOrThrow({ include: { rol: true } });
+    const usuario = { id: fila.id, email: fila.email, nombre: fila.nombre, rol: { id: fila.rol.id, clave: fila.rol.clave, nombre: fila.rol.nombre }, permisos: fila.rol.permisos, proyectoIds: null };
+    return {
+      plan: new PlanTrabajoService(proxy, configuracion),
+      capacitaciones: new CapacitacionesService(proxy, configuracion),
+      documentos: new DocumentosSstService(proxy, almacenamiento),
+      usuario,
+    };
+  }
 
   async function escenario(tx: Tx) {
     const sufijo = randomUUID().slice(0, 8);
@@ -288,6 +313,116 @@ describe('Gestión SST contra Postgres real: reglas de la base (RF-SST-12 a 21)'
         'SST_DOCUMENTO_SUBIR',
         'ENTREGA_EPP_REGISTRAR',
         'ENTREGA_EPP_ANULAR',
+      ]);
+    });
+  });
+
+  it('recorrido del plan de trabajo con los servicios reales: crear, cronograma, alertas, editar, evidencia y copiar al año siguiente', async () => {
+    await enTransaccionRevertida(async (tx) => {
+      const { plan, documentos, usuario } = await serviciosEnTransaccion(tx);
+      const hoy = new Date(2026, 5, 10);
+
+      const base = { anio: 2026, ciclo: 'PLANEAR' as const, estandar: 'Recursos', meta: 'Meta de prueba', responsable: 'Responsable Inventado', correoResponsable: 'responsable@ejemplo.test' };
+      const ejecutada = await plan.crear({ ...base, actividad: 'Definir el presupuesto', fechaInicio: '2026-02-01', fechaFin: '2026-03-15', estado: 'EJECUTADA', presupuesto: '500000' }, usuario);
+      const vencida = await plan.crear({ ...base, ciclo: 'HACER', actividad: 'Inspecciones de obra', fechaInicio: '2026-05-01', fechaFin: '2026-06-01', estado: 'EN_EJECUCION', porcentajeAvance: 40 }, usuario);
+      const proxima = await plan.crear({ ...base, ciclo: 'VERIFICAR', actividad: 'Auditoría interna', fechaInicio: '2026-06-01', fechaFin: '2026-06-20' }, usuario);
+      const cancelada = await plan.crear({ ...base, ciclo: 'ACTUAR', actividad: 'Actividad que no va', fechaInicio: '2026-09-01', fechaFin: '2026-09-30', estado: 'CANCELADA' }, usuario);
+      expect(ejecutada.porcentajeAvance).toBe(100);
+
+      const listado = await plan.listar({ anio: '2026' }, hoy);
+      const propias = Object.fromEntries(listado.actividades.filter((a) => [ejecutada.id, vencida.id, proxima.id, cancelada.id].includes(a.id)).map((a) => [a.id, a]));
+      expect(propias[ejecutada.id]).toMatchObject({ alerta: 'SIN_ALERTA' });
+      expect(propias[ejecutada.id].meses.map((m, i) => (m ? i + 1 : 0)).filter(Boolean)).toEqual([2, 3]);
+      expect(propias[vencida.id]).toMatchObject({ alerta: 'VENCIDA', diasRestantes: -9 });
+      expect(propias[proxima.id]).toMatchObject({ alerta: 'PROXIMA', diasRestantes: 10 });
+      expect(propias[cancelada.id]).toMatchObject({ alerta: 'SIN_ALERTA' });
+
+      // Reprogramar la vencida: nueva fecha de fin, vuelve a "próxima".
+      const reprogramada = await plan.actualizar(vencida.id, { fechaFin: '2026-06-18', estado: 'REPROGRAMADA' }, usuario);
+      expect(reprogramada.estado).toBe('REPROGRAMADA');
+      expect((await plan.buscar(vencida.id, hoy)).alerta).toBe('PROXIMA');
+
+      // La base exige lo mismo que el servicio: una ejecutada sin 100 % nunca llega a guardarse.
+      await rechaza(tx, () => tx.actividadPlan.update({ where: { id: ejecutada.id }, data: { porcentajeAvance: 60 } }), /ejecutada_al_cien/);
+
+      // Evidencia adjunta y descarga solo de la actividad dueña.
+      const pdf = Buffer.from('%PDF-1.4\nevidencia inventada');
+      const adjunto = await documentos.subir({ tipo: 'actividadPlan', id: proxima.id }, { buffer: pdf, originalname: 'evidencia.pdf' } as Express.Multer.File, 'Acta de la auditoría', usuario);
+      expect((await documentos.leer({ tipo: 'actividadPlan', id: proxima.id }, adjunto.id)).buffer.equals(pdf)).toBe(true);
+      await expect(documentos.leer({ tipo: 'actividadPlan', id: vencida.id }, adjunto.id)).rejects.toThrow(/No existe el documento/);
+
+      // Copiar al año siguiente: las no canceladas pasan como borrador, con fechas movidas y sin avance.
+      // Si la base tuviera otras actividades de 2026 también se copiarían: lo que se comprueba es lo propio de esta prueba.
+      const copia = await plan.copiarAnio({ anioOrigen: 2026, anioDestino: 2089 }, usuario);
+      expect(copia).toMatchObject({ anioOrigen: 2026, anioDestino: 2089 });
+      const copiadas = await tx.actividadPlan.findMany({ where: { anio: 2089 }, orderBy: { fechaInicio: 'asc' } });
+      expect(copiadas.length).toBeGreaterThanOrEqual(3);
+      expect(copiadas.every((c) => c.estado === 'PROGRAMADA' && c.porcentajeAvance === 0 && c.avisoProximaEn === null)).toBe(true);
+      expect(copiadas.some((c) => c.actividad === 'Actividad que no va')).toBe(false);
+      expect(copiadas.find((c) => c.actividad === 'Auditoría interna')?.fechaFin).toEqual(new Date(2089, 5, 20));
+      await expect(plan.copiarAnio({ anioOrigen: 2026, anioDestino: 2089 }, usuario)).rejects.toThrow(/ya tiene/);
+    });
+  });
+
+  it('recorrido de capacitaciones con los servicios reales: crear, asistencia masiva, cobertura, anulación, ejecutar y soporte', async () => {
+    await enTransaccionRevertida(async (tx) => {
+      const { capacitaciones, documentos, usuario } = await serviciosEnTransaccion(tx);
+      const hoy = new Date(2026, 5, 10);
+      const sufijo = randomUUID().slice(0, 8);
+      const trabajadores = await Promise.all(
+        [1, 2, 3].map((n) => tx.trabajador.create({ data: { nombre: `Persona Inventada ${n}`, documento: `E2E-${sufijo}-${n}`, cargo: 'Oficial', salarioBase: 1_500_000, fechaIngreso: dia(1, 1) } })),
+      );
+
+      const capacitacion = await capacitaciones.crear(
+        { tema: `Alturas E2E ${sufijo}`, objetivo: 'Reducir el riesgo de caídas', dirigidoA: 'Personal de obra', modalidad: 'PRESENCIAL', horas: 2, fechaProgramada: '2026-06-20', responsable: 'Facilitador Inventado', correoResponsable: 'facilitador@ejemplo.test', ejecutor: 'INTERNO', asistentesProgramados: 4 },
+        usuario,
+      );
+      const propia = async () => (await capacitaciones.listar({ anio: '2026' }, hoy)).capacitaciones.find((c) => c.id === capacitacion.id)!;
+      expect(await propia()).toMatchObject({ asistentesReales: 0, cobertura: 0, alerta: 'PROXIMA', diasRestantes: 10 });
+
+      // Asistencia de tres trabajadores de una vez; repetirla no duplica.
+      const registro = await capacitaciones.registrarAsistentes(capacitacion.id, { asistentes: trabajadores.map((t, i) => ({ trabajadorId: t.id, firmo: i < 2, calificacion: i === 0 ? 4.5 : undefined })) }, usuario);
+      expect(registro).toEqual({ registrados: 3, omitidos: 0 });
+      expect(await capacitaciones.registrarAsistentes(capacitacion.id, { asistentes: [{ trabajadorId: trabajadores[0].id }] }, usuario)).toEqual({ registrados: 0, omitidos: 1 });
+      expect(await propia()).toMatchObject({ asistentesReales: 3, cobertura: 75 });
+
+      // Editar firma y calificación; anular a uno por error y volver a registrarlo.
+      const detalle = await capacitaciones.buscar(capacitacion.id, hoy);
+      const deTercero = detalle.asistencias.find((a) => a.trabajadorId === trabajadores[2].id)!;
+      await capacitaciones.actualizarAsistencia(capacitacion.id, deTercero.id, { firmo: true, calificacion: 3 }, usuario);
+      await capacitaciones.anularAsistencia(capacitacion.id, deTercero.id, { motivo: 'Se registró por error' }, usuario);
+      expect(await propia()).toMatchObject({ asistentesReales: 2, cobertura: 50 });
+      await capacitaciones.registrarAsistentes(capacitacion.id, { asistentes: [{ trabajadorId: trabajadores[2].id }] }, usuario);
+      expect(await propia()).toMatchObject({ asistentesReales: 3 });
+      expect((await capacitaciones.buscar(capacitacion.id, hoy)).asistenciasAnuladas).toBe(1);
+
+      // Un retirado no se agrega a la asistencia.
+      await tx.trabajador.update({ where: { id: trabajadores[0].id }, data: { estado: 'INACTIVO', fechaRetiro: dia(6, 1), motivoRetiro: 'Terminó la obra' } });
+      const otraAsistente = await tx.trabajador.create({ data: { nombre: 'Persona Retirada', documento: `E2E-${sufijo}-4`, cargo: 'Ayudante', salarioBase: 1_300_000, fechaIngreso: dia(1, 1), estado: 'INACTIVO', fechaRetiro: dia(6, 1), motivoRetiro: 'Terminó la obra' } });
+      await expect(capacitaciones.registrarAsistentes(capacitacion.id, { asistentes: [{ trabajadorId: otraAsistente.id }] }, usuario)).rejects.toThrow(/retirados/);
+
+      // Ejecutarla exige la fecha de ejecución; ejecutada ya no genera alerta; el listado de asistencia se adjunta.
+      await expect(capacitaciones.actualizar(capacitacion.id, { estado: 'EJECUTADA' }, usuario)).rejects.toThrow(/fecha de ejecución/);
+      await capacitaciones.actualizar(capacitacion.id, { estado: 'EJECUTADA', fechaEjecucion: '2026-06-20', evaluacionEficacia: 4.2 }, usuario);
+      expect(await propia()).toMatchObject({ estado: 'EJECUTADA', alerta: 'SIN_ALERTA' });
+      const pdf = Buffer.from('%PDF-1.4\nlistado inventado');
+      const adjunto = await documentos.subir({ tipo: 'capacitacion', id: capacitacion.id }, { buffer: pdf, originalname: 'listado.pdf' } as Express.Multer.File, 'Listado firmado', usuario);
+      expect((await documentos.leer({ tipo: 'capacitacion', id: capacitacion.id }, adjunto.id)).buffer.equals(pdf)).toBe(true);
+      expect((await capacitaciones.listar({ anio: '2026' }, hoy)).resumen.ejecutadas).toBeGreaterThanOrEqual(1);
+
+      // Una cancelada ya no admite asistentes.
+      const otra = await capacitaciones.crear({ tema: `Otra E2E ${sufijo}`, objetivo: 'Objetivo', dirigidoA: 'Todos', modalidad: 'VIRTUAL', horas: 1, fechaProgramada: '2026-08-01', responsable: 'Facilitador', correoResponsable: 'f@ejemplo.test', ejecutor: 'ARL', asistentesProgramados: 5, estado: 'CANCELADA' }, usuario);
+      await expect(capacitaciones.registrarAsistentes(otra.id, { asistentes: [{ trabajadorId: trabajadores[1].id }] }, usuario)).rejects.toThrow(/cancelada/);
+
+      const acciones = (await tx.registroAuditoria.findMany({ where: { entidadId: capacitacion.id }, orderBy: { createdAt: 'asc' } })).map((r) => r.accion);
+      expect(acciones).toEqual([
+        'CAPACITACION_CREAR',
+        'CAPACITACION_ASISTENCIA_REGISTRAR',
+        'CAPACITACION_ASISTENCIA_EDITAR',
+        'CAPACITACION_ASISTENCIA_ANULAR',
+        'CAPACITACION_ASISTENCIA_REGISTRAR',
+        'CAPACITACION_EDITAR',
+        'SST_DOCUMENTO_SUBIR',
       ]);
     });
   });

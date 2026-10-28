@@ -193,6 +193,63 @@ describe('Trabajadores y SST por rol, con los guardas reales (e2e)', () => {
     });
   });
 
+  // Igual que EPP: solo lecturas y escrituras que el servidor rechaza, para no dejar registros que la base no deja borrar.
+  describe('plan de trabajo y capacitaciones por rol', () => {
+    const LECTURAS = ['/sst/plan', '/sst/capacitaciones'];
+
+    it('el contratista SST, el administrador y el gerente consultan el plan y las capacitaciones', async () => {
+      for (const rol of ['CONTRATISTA', 'ADMINISTRADOR', 'GERENTE']) {
+        for (const ruta of LECTURAS) {
+          await como(rol).get(ruta).expect(200);
+        }
+      }
+    });
+
+    it('el plan y las capacitaciones traen su resumen y la anticipación configurada', async () => {
+      const plan = (await como('CONTRATISTA').get('/sst/plan?anio=2031').expect(200)).body;
+      expect(plan).toMatchObject({ anio: 2031, diasAlerta: 15, actividades: [], resumen: { total: 0, avancePromedio: 0, cumplimiento: 0 } });
+      const capacitaciones = (await como('CONTRATISTA').get('/sst/capacitaciones?anio=2031').expect(200)).body;
+      expect(capacitaciones).toMatchObject({ anio: 2031, capacitaciones: [], resumen: { total: 0, ejecutadas: 0, coberturaEjecutadas: null } });
+    });
+
+    it('consulta, con o sin límite de proyecto, no ve ni escribe nada', async () => {
+      for (const rol of ['CONSULTA', 'CONSULTA_LIMITADA']) {
+        for (const ruta of LECTURAS) {
+          await como(rol).get(ruta).expect(403);
+        }
+        await como(rol).post('/sst/plan').send({}).expect(403);
+        await como(rol).post('/sst/plan/copiar').send({ anioOrigen: 2026, anioDestino: 2027 }).expect(403);
+        await como(rol).post('/sst/capacitaciones').send({}).expect(403);
+        await como(rol).post(`/sst/capacitaciones/${ID_AJENO}/asistencias`).send({ asistentes: [] }).expect(403);
+      }
+    });
+
+    it('los datos de entrada inválidos se rechazan con 400 antes de llegar a la base', async () => {
+      await como('CONTRATISTA').post('/sst/plan').send({}).expect(400);
+      await como('CONTRATISTA').post('/sst/plan').send({ anio: 2026, ciclo: 'INVENTADO', estandar: 'x', actividad: 'Actividad', meta: 'Meta', responsable: 'Resp', correoResponsable: 'correo@ejemplo.test', fechaInicio: '2026-02-01', fechaFin: '2026-02-02' }).expect(400);
+      await como('CONTRATISTA').post('/sst/plan').send({ anio: 2026, ciclo: 'PLANEAR', estandar: 'Recursos', actividad: 'Actividad', meta: 'Meta', responsable: 'Resp', correoResponsable: 'sin-arroba', fechaInicio: '2026-02-01', fechaFin: '2026-02-02' }).expect(400);
+      await como('CONTRATISTA').post('/sst/plan').send({ anio: 2026, ciclo: 'PLANEAR', estandar: 'Recursos', actividad: 'Actividad', meta: 'Meta', responsable: 'Resp', correoResponsable: 'correo@ejemplo.test', fechaInicio: '2026-03-01', fechaFin: '2026-02-01' }).expect(400);
+      await como('CONTRATISTA').post('/sst/capacitaciones').send({}).expect(400);
+      await como('CONTRATISTA').post(`/sst/capacitaciones/${ID_AJENO}/asistencias`).send({ asistentes: [] }).expect(400);
+      await como('CONTRATISTA').post(`/sst/capacitaciones/${ID_AJENO}/asistencias`).send({ asistentes: [{ trabajadorId: 'no-es-uuid' }] }).expect(400);
+      await como('CONTRATISTA').get('/sst/plan?anio=26').expect(400);
+      await como('CONTRATISTA').get('/sst/capacitaciones?estado=INVENTADO').expect(400);
+      await como('CONTRATISTA').get('/sst/plan/no-es-uuid').expect(400);
+    });
+
+    it('copiar el plan al mismo año o desde un año vacío se rechaza sin escribir nada', async () => {
+      await como('CONTRATISTA').post('/sst/plan/copiar').send({ anioOrigen: 2026, anioDestino: 2026 }).expect(400);
+      await como('CONTRATISTA').post('/sst/plan/copiar').send({ anioOrigen: 2090, anioDestino: 2091 }).expect(400);
+    });
+
+    it('un registro que no existe responde 404', async () => {
+      await como('CONTRATISTA').get(`/sst/plan/${ID_AJENO}`).expect(404);
+      await como('CONTRATISTA').get(`/sst/capacitaciones/${ID_AJENO}`).expect(404);
+      await como('CONTRATISTA').get(`/sst/plan/${ID_AJENO}/documentos`).expect(404);
+      await como('CONTRATISTA').post(`/sst/capacitaciones/${ID_AJENO}/asistencias`).send({ asistentes: [{ trabajadorId: ID_AJENO }] }).expect(404);
+    });
+  });
+
   describe('validación de los datos de entrada', () => {
     it('un identificador que no es UUID se rechaza con 400 antes de llegar a la base', async () => {
       await como('GERENTE').get('/trabajadores/no-es-un-uuid').expect(400);
