@@ -24,6 +24,9 @@ export const ENTIDADES_AUDITORIA = {
   EXPORTACION: 'Exportación de datos',
   EQUIPO: 'Equipo de maquinaria',
   COMISION: 'Comisión de venta',
+  PARAMETRO_LEGAL: 'Parámetros legales del año',
+  ENTIDAD_SS: 'Entidad de seguridad social',
+  CLASE_RIESGO_ARL: 'Clase de riesgo de la ARL',
 } as const;
 
 export type EntidadAuditoria = keyof typeof ENTIDADES_AUDITORIA;
@@ -81,6 +84,12 @@ export const ACCIONES_AUDITORIA = {
   COMISION_GENERAR: 'Generó la comisión de una venta',
   COMISION_PAGAR: 'Pagó una comisión',
   COMISION_ANULAR: 'Anuló una comisión',
+  PARAMETRO_LEGAL_CREAR: 'Creó los parámetros legales de un año',
+  PARAMETRO_LEGAL_EDITAR: 'Cambió los parámetros legales de un año',
+  PARAMETRO_LEGAL_VALIDAR: 'Validó los parámetros legales de un año',
+  ENTIDAD_SS_CREAR: 'Creó una entidad de seguridad social',
+  ENTIDAD_SS_EDITAR: 'Cambió una entidad de seguridad social',
+  CLASE_RIESGO_ARL_EDITAR: 'Cambió una clase de riesgo de la ARL',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;

@@ -110,6 +110,13 @@ const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch' | 'delete', ru
   ['post', '/configuracion/categorias-ingreso'],
   ['patch', `/configuracion/categorias-ingreso/${ID}`],
   ['put', '/configuracion/comisiones/REFERIDO'],
+  ['get', '/seguridad-social/catalogos'],
+  ['post', '/seguridad-social/parametros-legales'],
+  ['patch', `/seguridad-social/parametros-legales/${ID}`],
+  ['post', `/seguridad-social/parametros-legales/${ID}/validar`],
+  ['post', '/seguridad-social/entidades'],
+  ['patch', `/seguridad-social/entidades/${ID}`],
+  ['patch', `/seguridad-social/clases-riesgo/${ID}`],
 ];
 
 describe('Seguridad básica (e2e)', () => {
