@@ -32,6 +32,7 @@ const EXENTOS: Record<string, string> = {
   'roles/roles.service.ts': 'Sincroniza los roles del sistema al arrancar la aplicación, sin una persona que actúe.',
   'lotes/separacion.ts': 'Convierte la separación al vender: queda cubierta por el registro de la venta y el cambio de estado del lote.',
   'abonos/recibos-historicos.ts': 'Recibos históricos de abonos anteriores al sistema: los emite el seed, sin una persona que actúe.',
+  'sst/avisos-sst.service.ts': 'Proceso automático del sistema (cron) y su historial de avisos, que solo se inserta (la base lo impide editar); no cambia datos de negocio ni dinero, solo marca qué aviso ya salió.',
   'auditoria/auditoria.ts': 'Es el propio registro de auditoría.',
   'prisma/prisma.service.ts': 'Conexión a la base de datos.',
 };

@@ -250,6 +250,36 @@ describe('Trabajadores y SST por rol, con los guardas reales (e2e)', () => {
     });
   });
 
+  // Enviar los avisos ahora escribe en el historial (que no se puede borrar): solo se prueba lo que se rechaza.
+  describe('resumen y avisos SST por rol', () => {
+    it('el contratista SST, el administrador y el gerente ven el resumen y el historial de avisos', async () => {
+      for (const rol of ['CONTRATISTA', 'ADMINISTRADOR', 'GERENTE']) {
+        const resumen = (await como(rol).get('/sst/resumen').expect(200)).body;
+        expect(resumen).toMatchObject({
+          epp: { vencidos: expect.any(Number), porReponer: expect.any(Number) },
+          plan: { anio: expect.any(Number), vencidas: expect.any(Number), proximas: expect.any(Number) },
+          capacitaciones: { anio: expect.any(Number), vencidas: expect.any(Number), proximas: expect.any(Number) },
+          diasAlerta: 15,
+          totalAlertas: expect.any(Number),
+        });
+        expect(Array.isArray((await como(rol).get('/sst/avisos').expect(200)).body)).toBe(true);
+      }
+    });
+
+    it('consulta, con o sin límite de proyecto, no ve el resumen ni el historial ni envía avisos', async () => {
+      for (const rol of ['CONSULTA', 'CONSULTA_LIMITADA']) {
+        await como(rol).get('/sst/resumen').expect(403);
+        await como(rol).get('/sst/avisos').expect(403);
+        await como(rol).post('/sst/avisos/ejecutar').expect(403);
+      }
+    });
+
+    it('un filtro inválido del historial se rechaza con 400', async () => {
+      await como('CONTRATISTA').get('/sst/avisos?tipo=INVENTADO').expect(400);
+      await como('CONTRATISTA').get('/sst/avisos?estado=INVENTADO').expect(400);
+    });
+  });
+
   describe('validación de los datos de entrada', () => {
     it('un identificador que no es UUID se rechaza con 400 antes de llegar a la base', async () => {
       await como('GERENTE').get('/trabajadores/no-es-un-uuid').expect(400);

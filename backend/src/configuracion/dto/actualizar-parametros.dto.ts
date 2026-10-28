@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsNumber, Max, Min, ValidateIf } from 'class-validator';
+import { IsBoolean, IsEmail, IsInt, IsNumber, IsOptional, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 
 // Los porcentajes se envían como número (30 = 30 %), con máximo 2 decimales.
 export class ActualizarParametrosDto {
@@ -80,4 +80,18 @@ export class ActualizarParametrosDto {
   @Min(1)
   @Max(480)
   minutosInactividad!: number;
+
+  // Seguridad y salud en el trabajo (CC-03). Opcionales: quien no los envía no los cambia.
+  // Con cuántos días de anticipación se alerta una reposición de EPP, una actividad del plan o una capacitación.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  diasAlertaSst?: number;
+
+  // A dónde llega el resumen de EPP por reponer. Vacío o null = no se envía por correo (solo se ve en el panel).
+  @ValidateIf((dto: ActualizarParametrosDto) => Boolean(dto.correoAvisosSst))
+  @IsEmail()
+  @MaxLength(120)
+  correoAvisosSst?: string | null;
 }

@@ -76,6 +76,8 @@ const CAMPOS_PARAMETROS = [
   'intentosMaximosLogin',
   'minutosBloqueoLogin',
   'minutosInactividad',
+  'diasAlertaSst',
+  'correoAvisosSst',
 ] as const;
 const CAMPOS_CUENTA = ['banco', 'tipo', 'numero', 'alias', 'activa'] as const;
 
@@ -211,6 +213,9 @@ export class ConfiguracionService {
           intentosMaximosLogin: dto.intentosMaximosLogin,
           minutosBloqueoLogin: dto.minutosBloqueoLogin,
           minutosInactividad: dto.minutosInactividad,
+          // Los de SST son opcionales: quien no los envía no los cambia. Un correo vacío borra el de avisos.
+          ...(dto.diasAlertaSst === undefined ? {} : { diasAlertaSst: dto.diasAlertaSst }),
+          ...(dto.correoAvisosSst === undefined ? {} : { correoAvisosSst: dto.correoAvisosSst?.trim() || null }),
         },
       });
       await registrarAuditoria(tx, {

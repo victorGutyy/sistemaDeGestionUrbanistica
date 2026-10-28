@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ConfiguracionService } from '../src/configuracion/configuracion.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import type { EmailService } from '../src/email/email.service.js';
+import { AvisosSstService } from '../src/sst/avisos-sst.service.js';
 import { CapacitacionesService } from '../src/sst/capacitaciones.service.js';
 import { DocumentosSstService } from '../src/sst/documentos-sst.service.js';
 import { EppService } from '../src/sst/epp.service.js';
@@ -65,6 +67,9 @@ describe('Gestión SST contra Postgres real: reglas de la base (RF-SST-12 a 21)'
     const fila = await prisma.usuario.findFirstOrThrow({ include: { rol: true } });
     const usuario = { id: fila.id, email: fila.email, nombre: fila.nombre, rol: { id: fila.rol.id, clave: fila.rol.clave, nombre: fila.rol.nombre }, permisos: fila.rol.permisos, proyectoIds: null };
     return {
+      proxy,
+      configuracion,
+      epp: new EppService(proxy, configuracion),
       plan: new PlanTrabajoService(proxy, configuracion),
       capacitaciones: new CapacitacionesService(proxy, configuracion),
       documentos: new DocumentosSstService(proxy, almacenamiento),
@@ -424,6 +429,83 @@ describe('Gestión SST contra Postgres real: reglas de la base (RF-SST-12 a 21)'
         'CAPACITACION_EDITAR',
         'SST_DOCUMENTO_SUBIR',
       ]);
+    });
+  });
+
+  it('avisos por correo con los servicios reales: salen una vez por estado, no se repiten, se rearman al reprogramar y se reintentan tras un fallo', async () => {
+    await enTransaccionRevertida(async (tx) => {
+      const { proxy, configuracion, epp, plan, capacitaciones, usuario } = await serviciosEnTransaccion(tx);
+      const hoy = new Date(2026, 5, 10);
+      const sufijo = randomUUID().slice(0, 8);
+
+      // El correo de avisos SST se configura (el valor es de prueba y se revierte con la transacción).
+      await tx.configuracionEmpresa.update({ where: { id: 1 }, data: { correoAvisosSst: 'sst-prueba@ejemplo.test' } });
+
+      // Un correo falso que guarda lo que se envía y que se puede hacer fallar.
+      const enviados: { to: string; subject: string }[] = [];
+      let fallar = false;
+      const correo = {
+        estaConfigurado: () => true,
+        enviar: (datos: { to: string; subject: string }) => {
+          if (fallar) return Promise.reject(new Error('SMTP caído'));
+          enviados.push({ to: datos.to, subject: datos.subject });
+          return Promise.resolve();
+        },
+      } as unknown as EmailService;
+      const avisos = new AvisosSstService(proxy, correo, configuracion);
+
+      const proximaActividad = await plan.crear({ anio: 2026, ciclo: 'VERIFICAR', estandar: 'Verificación', actividad: `Auditoría E2E ${sufijo}`, meta: 'Auditoría realizada', responsable: 'Responsable Inventado', correoResponsable: `resp-${sufijo}@ejemplo.test`, fechaInicio: '2026-06-01', fechaFin: '2026-06-20' }, usuario);
+      const vencidaActividad = await plan.crear({ anio: 2026, ciclo: 'HACER', estandar: 'Gestión', actividad: `Inspección E2E ${sufijo}`, meta: 'Inspección realizada', responsable: 'Otra Persona Inventada', correoResponsable: `otra-${sufijo}@ejemplo.test`, fechaInicio: '2026-05-01', fechaFin: '2026-06-01', estado: 'EN_EJECUCION' }, usuario);
+      const capacitacion = await capacitaciones.crear({ tema: `Alturas E2E ${sufijo}`, objetivo: 'Objetivo', dirigidoA: 'Personal de obra', modalidad: 'PRESENCIAL', horas: 2, fechaProgramada: '2026-06-15', responsable: 'Facilitador Inventado', correoResponsable: `fac-${sufijo}@ejemplo.test`, ejecutor: 'INTERNO', asistentesProgramados: 5 }, usuario);
+
+      const trabajador = await tx.trabajador.create({ data: { nombre: 'Persona Inventada', documento: `E2E-${sufijo}`, cargo: 'Oficial', salarioBase: 1_500_000, fechaIngreso: dia(1, 1) } });
+      const casco = await epp.crearElemento({ nombre: `Casco E2E ${sufijo}`, vidaUtilDias: 30 }, usuario);
+      await epp.registrarEntrega({ trabajadorId: trabajador.id, elementoId: casco.id, fecha: '2026-04-15', cantidad: 1, motivo: 'DOTACION_INICIAL' }, usuario, hoy);
+
+      // Primera pasada: sale un correo a cada responsable y un resumen de EPP (el casco se entregó el 15 de abril: venció el 15 de mayo).
+      const primera = await avisos.enviarPendientes(hoy);
+      expect(primera.actividades.enviados).toBe(2);
+      expect(primera.capacitaciones.enviados).toBe(1);
+      expect(primera.epp.enviados).toBe(1);
+      const propios = enviados.filter((e) => e.to.includes(sufijo) || e.to === 'sst-prueba@ejemplo.test');
+      expect(propios.map((e) => e.to).sort()).toEqual([`fac-${sufijo}@ejemplo.test`, `otra-${sufijo}@ejemplo.test`, `resp-${sufijo}@ejemplo.test`, 'sst-prueba@ejemplo.test'].sort());
+      expect(propios.find((e) => e.to === `otra-${sufijo}@ejemplo.test`)?.subject).toMatch(/vencida/);
+      expect(propios.find((e) => e.to === `resp-${sufijo}@ejemplo.test`)?.subject).toMatch(/próxima a vencer/);
+
+      // Quedó marcado en la base y anotado en el historial.
+      expect((await tx.actividadPlan.findUniqueOrThrow({ where: { id: proximaActividad.id } })).avisoProximaEn).not.toBeNull();
+      expect((await tx.actividadPlan.findUniqueOrThrow({ where: { id: vencidaActividad.id } })).avisoVencidaEn).not.toBeNull();
+      expect((await tx.capacitacion.findUniqueOrThrow({ where: { id: capacitacion.id } })).avisoProximaEn).not.toBeNull();
+      const historial = await avisos.listarAvisos({ estado: 'ENVIADA' });
+      expect(historial.filter((h) => h.destinatario?.includes(sufijo) || h.destinatario === 'sst-prueba@ejemplo.test').length).toBe(4);
+
+      // Segunda pasada el mismo día: no se repite nada.
+      const cuantos = enviados.length;
+      const segunda = await avisos.enviarPendientes(hoy);
+      expect(segunda).toEqual({ actividades: { enviados: 0, fallidos: 0, omitidos: 0 }, capacitaciones: { enviados: 0, fallidos: 0, omitidos: 0 }, epp: { enviados: 0, fallidos: 0, omitidos: 0 } });
+      expect(enviados.length).toBe(cuantos);
+
+      // Reprogramar la que vencía a una fecha próxima rearma el aviso: sale otra vez al llegar al nuevo estado.
+      await plan.actualizar(vencidaActividad.id, { fechaFin: '2026-06-18', estado: 'REPROGRAMADA' }, usuario);
+      expect((await tx.actividadPlan.findUniqueOrThrow({ where: { id: vencidaActividad.id } })).avisoVencidaEn).toBeNull();
+      const tercera = await avisos.enviarPendientes(hoy);
+      expect(tercera.actividades.enviados).toBe(1);
+      expect(enviados.at(-1)?.subject).toMatch(/próxima a vencer/);
+
+      // Un fallo del correo no pierde el aviso: queda "fallida", se libera y sale al siguiente intento.
+      const aplazada = await capacitaciones.actualizar(capacitacion.id, { fechaProgramada: '2026-06-12', estado: 'REPROGRAMADA' }, usuario);
+      expect(aplazada.avisoProximaEn).toBeNull();
+      fallar = true;
+      const conFallo = await avisos.enviarPendientes(hoy);
+      expect(conFallo.capacitaciones).toEqual({ enviados: 0, fallidos: 1, omitidos: 0 });
+      expect((await tx.capacitacion.findUniqueOrThrow({ where: { id: capacitacion.id } })).avisoProximaEn).toBeNull();
+      expect((await avisos.listarAvisos({ estado: 'FALLIDA' })).some((h) => h.capacitacionId === capacitacion.id && h.detalle === 'SMTP caído')).toBe(true);
+      fallar = false;
+      expect((await avisos.enviarPendientes(hoy)).capacitaciones.enviados).toBe(1);
+
+      // El historial no se puede editar ni borrar, ni con acceso directo a la base.
+      const anotado = await tx.avisoSst.findFirstOrThrow({ where: { tipo: 'EPP' } });
+      await rechaza(tx, () => tx.$executeRaw`DELETE FROM "AvisoSst" WHERE "id" = ${anotado.id}`, /no se pueden editar ni borrar/);
     });
   });
 

@@ -152,6 +152,49 @@ describe('ConfiguracionService', () => {
     });
   });
 
+  describe('actualizarParametros: seguridad y salud en el trabajo (CC-03)', () => {
+    const BASE = {
+      porcentajeCuotaInicial: 30,
+      plazoMaximoMeses: 12,
+      tasaFinanciacionMensual: 0,
+      tasaMoraMensual: null,
+      diasGraciaMora: 0,
+      diasSemaforoAmarillo: 5,
+      diasAntesRecordatorio: 3,
+      diasEntreAvisosMora: 7,
+      enviarReciboPorCorreo: true,
+      diasAlertaVerificacion: 3,
+      minutosVigenciaRecuperacion: 60,
+      recuperacionesPorHora: 3,
+      intentosMaximosLogin: 5,
+      minutosBloqueoLogin: 15,
+      minutosInactividad: 30,
+    };
+
+    it('quien no envía los parámetros de SST no los cambia', async () => {
+      prisma.configuracionEmpresa.findUnique.mockResolvedValue(EMPRESA);
+      await service.actualizarParametros(BASE, USUARIO);
+      const { data } = prisma.configuracionEmpresa.update.mock.calls[0][0];
+      expect('diasAlertaSst' in data).toBe(false);
+      expect('correoAvisosSst' in data).toBe(false);
+    });
+
+    it('guarda los días de anticipación y el correo de avisos sin espacios sobrantes', async () => {
+      prisma.configuracionEmpresa.findUnique.mockResolvedValue(EMPRESA);
+      await service.actualizarParametros({ ...BASE, diasAlertaSst: 30, correoAvisosSst: '  sst@ejemplo.test ' }, USUARIO);
+      const { data } = prisma.configuracionEmpresa.update.mock.calls[0][0];
+      expect(data).toMatchObject({ diasAlertaSst: 30, correoAvisosSst: 'sst@ejemplo.test' });
+    });
+
+    it('un correo vacío o null borra el de avisos', async () => {
+      prisma.configuracionEmpresa.findUnique.mockResolvedValue(EMPRESA);
+      await service.actualizarParametros({ ...BASE, correoAvisosSst: '' }, USUARIO);
+      expect(prisma.configuracionEmpresa.update.mock.calls[0][0].data.correoAvisosSst).toBeNull();
+      await service.actualizarParametros({ ...BASE, correoAvisosSst: null }, USUARIO);
+      expect(prisma.configuracionEmpresa.update.mock.calls[1][0].data.correoAvisosSst).toBeNull();
+    });
+  });
+
   describe('logo', () => {
     it('detecta el tipo real de una imagen por sus primeros bytes, no por el nombre', () => {
       expect(detectarTipoImagen(PNG_REAL)).toBe('png');
