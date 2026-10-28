@@ -34,6 +34,7 @@ import {
   PARAMETROS,
   TIPOS_EQUIPO,
 } from './semillas/empresa-balder.js';
+import { DIAGNOSTICOS_CIE10, TIPOS_AUSENTISMO } from './semillas/ausentismo.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
@@ -87,6 +88,18 @@ async function sembrarConfiguracion() {
   // Sin update: si el contratista ya ajustó la vida útil de un elemento, no se pisa.
   for (const elemento of ELEMENTOS_EPP) {
     await prisma.elementoEpp.upsert({ where: { nombre: elemento.nombre }, update: {}, create: elemento });
+  }
+
+  // Sin update: lo que el gerente haya ajustado (porcentajes, nombres, activo) no se pisa. La regla y la clave no cambian.
+  for (const tipo of TIPOS_AUSENTISMO) {
+    await prisma.tipoAusentismo.upsert({
+      where: { codigo: tipo.codigo },
+      update: {},
+      create: { ...tipo, porcentaje: tipo.porcentaje === null ? null : new Prisma.Decimal(tipo.porcentaje) },
+    });
+  }
+  for (const diagnostico of DIAGNOSTICOS_CIE10) {
+    await prisma.diagnosticoCie10.upsert({ where: { codigo: diagnostico.codigo }, update: {}, create: diagnostico });
   }
 
   // Sin update: si el gerente ya ajustó o validó los valores de 2026, no se pisan.

@@ -239,6 +239,10 @@ model Usuario {
   asistenciasRegistradas      AsistenciaCapacitacion[] @relation("AsistenciasRegistradas")
   asistenciasAnuladas         AsistenciaCapacitacion[] @relation("AsistenciasAnuladas")
   documentosSstSubidos        DocumentoSst[]           @relation("DocumentosSstSubidos")
+  ausentismosRegistrados      Ausentismo[]             @relation("AusentismosRegistrados")
+  ausentismosAnulados         Ausentismo[]             @relation("AusentismosAnulados")
+  ausentismosCorregidos       Ausentismo[]             @relation("AusentismosCorregidos")
+  recobrosActualizados        RecobroAusentismo[]      @relation("RecobrosActualizados")
   ventasRegistradas           Venta[]                  @relation("VentasRegistradas")
   ventasResueltas             Venta[]                  @relation("VentasResueltas")
   createdAt                   DateTime                 @default(now())
@@ -791,6 +795,7 @@ model Trabajador {
   documentos                       DocumentoTrabajador[]
   entregasEpp                      EntregaEpp[]
   asistencias                      AsistenciaCapacitacion[]
+  ausentismos                      Ausentismo[]
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
 }
@@ -1105,7 +1110,8 @@ model AsistenciaCapacitacion {
 }
 
 // Adjunto de un registro SST (RF-SST-21): el acta de entrega de un EPP, la evidencia de una actividad o el listado de
-// asistencia y las evidencias de una capacitación. Pertenece a exactamente uno de los tres (lo exige la base de datos).
+// asistencia y las evidencias de una capacitación o el certificado de un ausentismo. Pertenece a exactamente uno de los
+// cuatro (lo exige la base de datos).
 // Se conserva siempre y solo se descarga con sesión y permiso (RNF-SEG-05).
 model DocumentoSst {
   id              String         @id @default(uuid())
@@ -1115,6 +1121,9 @@ model DocumentoSst {
   actividadPlan   ActividadPlan? @relation(fields: [actividadPlanId], references: [id])
   capacitacionId  String?
   capacitacion    Capacitacion?  @relation(fields: [capacitacionId], references: [id])
+  // Certificados de incapacidad (RF-SST-21): traen el diagnóstico escrito, así que solo los ve quien puede ver diagnósticos.
+  ausentismoId    String?
+  ausentismo      Ausentismo?    @relation(fields: [ausentismoId], references: [id])
   nombreOriginal  String
   ruta            String
   tipoMime        String
@@ -1127,6 +1136,7 @@ model DocumentoSst {
   @@index([entregaEppId])
   @@index([actividadPlanId])
   @@index([capacitacionId])
+  @@index([ausentismoId])
 }
 
 // Historial de los avisos por correo del módulo SST (RF-SST-14, 16 y 20): un registro por intento, con su resultado. Solo
@@ -1147,6 +1157,184 @@ model AvisoSst {
 
   @@index([createdAt])
   @@index([tipo, createdAt])
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Ausentismo (CC-03, fase C): incapacidades y licencias, con la liquidación de apoyo de quién paga cada día y cuánto.
+// No es nómina: el resultado se entrega a la nómina que la empresa lleva fuera del sistema (RF-SST-01 a 11).
+// ---------------------------------------------------------------------------------------------------------------------
+
+// Cómo se liquida cada tipo de ausentismo (RF-SST-04 y 05). Son cinco reglas fijas del sistema; el porcentaje de cada tipo
+// y los valores legales son parámetros editables.
+enum ReglaAusentismo {
+  // Enfermedad general: por tramos de días (empleador, EPS al primer porcentaje, EPS al segundo, AFP desde el último tramo).
+  INCAPACIDAD_GENERAL
+  // Accidente de trabajo o enfermedad laboral: la ARL paga desde el día siguiente al evento.
+  ORIGEN_LABORAL
+  // La EPS paga un porcentaje del tipo (licencias de maternidad y paternidad).
+  PAGA_EPS
+  // El empleador paga un porcentaje del tipo (luto, calamidad, permisos remunerados).
+  PAGA_EMPLEADOR
+  // Se descuenta de la nómina (licencia no remunerada, ausencia injustificada).
+  DESCUENTO
+}
+
+enum EstadoRecobro {
+  PENDIENTE
+  RADICADA
+  PAGADA
+  RECHAZADA
+}
+
+// Entidad a la que se le cobra una incapacidad (RF-SST-09). El sistema solo lleva el seguimiento: no transmite nada.
+enum EntidadRecobro {
+  EPS
+  ARL
+  AFP
+}
+
+// Catálogo de tipos de ausentismo (RF-CFG-14). La regla y la clave no cambian una vez creado el tipo (la base lo impide):
+// se desactiva y se crea otro. Los porcentajes sí se pueden ajustar; cada liquidación guarda el que usó.
+model TipoAusentismo {
+  id                    String          @id @default(uuid())
+  // Clave estable en mayúsculas (ENFERMEDAD_GENERAL, LUTO...). No es lo que ve el usuario.
+  codigo                String          @unique
+  nombre                String          @unique
+  regla                 ReglaAusentismo
+  // Solo para PAGA_EPS, PAGA_EMPLEADOR y DESCUENTO (porcentaje del valor diario). Las incapacidades usan el parámetro legal.
+  porcentaje            Decimal?        @db.Decimal(5, 2)
+  // Las incapacidades exigen el código CIE-10 (RF-SST-02).
+  requiereDiagnostico   Boolean         @default(false)
+  // Accidente de trabajo: el día del evento se paga como laborado y la ARL paga desde el día siguiente (RF-SST-05).
+  diaEventoComoLaborado Boolean         @default(false)
+  activo                Boolean         @default(true)
+  orden                 Int             @default(0)
+  ausentismos           Ausentismo[]
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+}
+
+// Catálogo de diagnósticos CIE-10 (RF-CFG-14). El código no cambia una vez creado (los ausentismos lo referencian). Es un
+// dato de referencia, no un dato de salud de una persona: lo que sí es sensible es QUÉ diagnóstico tiene cada trabajador.
+model DiagnosticoCie10 {
+  id          String       @id @default(uuid())
+  codigo      String       @unique
+  descripcion String
+  activo      Boolean      @default(true)
+  ausentismos Ausentismo[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// Una incapacidad o licencia de un trabajador (RF-SST-01 a 08). Una vez registrada no se edita el trabajador, el tipo ni las
+// fechas (lo impide la base): se anula con motivo y se registra de nuevo. Quedan como foto el cargo, las entidades y el
+// salario del día, y los parámetros con los que se liquidó. El diagnóstico (dato de salud, Ley 1581) y los valores solo los
+// ven los roles con permiso.
+model Ausentismo {
+  id                    String              @id @default(uuid())
+  trabajadorId          String
+  trabajador            Trabajador          @relation(fields: [trabajadorId], references: [id])
+  tipoId                String
+  tipo                  TipoAusentismo      @relation(fields: [tipoId], references: [id])
+  fechaInicio           DateTime
+  fechaFin              DateTime
+  // Días calendario, y mes y año de inicio (RF-SST-03).
+  dias                  Int
+  anio                  Int
+  mes                   Int
+  // Número de la incapacidad o del certificado.
+  numeroDocumento       String?
+  // Prórroga: continúa otra incapacidad. Los días de la anterior cuentan para los tramos (RF-SST-04).
+  esProrroga            Boolean             @default(false)
+  prorrogaDeId          String?
+  prorrogaDe            Ausentismo?         @relation("Prorrogas", fields: [prorrogaDeId], references: [id])
+  prorrogas             Ausentismo[]        @relation("Prorrogas")
+  // Días acumulados antes de la fecha de inicio (de la incapacidad anterior en el sistema o digitados si venía de fuera).
+  diasPrevios           Int                 @default(0)
+  diagnosticoId         String?
+  diagnostico           DiagnosticoCie10?   @relation(fields: [diagnosticoId], references: [id])
+  observaciones         String?
+  // Foto del trabajador el día del registro (RF-SST-03).
+  cargoFoto             String
+  salarioFoto           Decimal             @db.Decimal(14, 2)
+  epsFoto               String?
+  arlFoto               String?
+  afpFoto               String?
+  // Liquidación: valor diario usado, piso diario, y los parámetros y el resultado calculado (RF-CFG-13: la liquidación no
+  // cambia si el parámetro se actualiza después).
+  baseDiaria            Decimal             @db.Decimal(14, 2)
+  pisoDiario            Decimal             @db.Decimal(14, 2)
+  parametrosLiquidacion Json
+  liquidacionCalculada  Json
+  // Corrección manual de la liquidación (RF-SST-08): con motivo; el cálculo original queda en liquidacionCalculada.
+  corregida             Boolean             @default(false)
+  motivoCorreccion      String?
+  corregidaEn           DateTime?
+  corregidaPorId        String?
+  corregidaPor          Usuario?            @relation("AusentismosCorregidos", fields: [corregidaPorId], references: [id])
+  anulada               Boolean             @default(false)
+  anuladaEn             DateTime?
+  anuladaPorId          String?
+  anuladaPor            Usuario?            @relation("AusentismosAnulados", fields: [anuladaPorId], references: [id])
+  motivoAnulacion       String?
+  registradaPorId       String
+  registradaPor         Usuario             @relation("AusentismosRegistrados", fields: [registradaPorId], references: [id])
+  periodos              AusentismoPeriodo[]
+  recobros              RecobroAusentismo[]
+  documentos            DocumentoSst[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([trabajadorId, fechaInicio])
+  @@index([anio, mes])
+  @@index([prorrogaDeId])
+}
+
+// La parte de un ausentismo que cae en cada mes (RF-SST-06), con los días y el valor de cada pagador. Son los valores
+// vigentes: si hubo corrección manual, estos son los corregidos.
+model AusentismoPeriodo {
+  id             String     @id @default(uuid())
+  ausentismoId   String
+  ausentismo     Ausentismo @relation(fields: [ausentismoId], references: [id])
+  anio           Int
+  mes            Int
+  dias           Int
+  diasEmpleador  Int        @default(0)
+  diasEps        Int        @default(0)
+  diasArl        Int        @default(0)
+  diasAfp        Int        @default(0)
+  // Días que se pagan como laborados (el día de un accidente de trabajo): no tienen valor de ausentismo.
+  diasLaborados  Int        @default(0)
+  diasDescuento  Int        @default(0)
+  valorEmpleador Decimal    @default(0) @db.Decimal(14, 2)
+  valorEps       Decimal    @default(0) @db.Decimal(14, 2)
+  valorArl       Decimal    @default(0) @db.Decimal(14, 2)
+  valorAfp       Decimal    @default(0) @db.Decimal(14, 2)
+  valorDescuento Decimal    @default(0) @db.Decimal(14, 2)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([ausentismoId, anio, mes])
+  @@index([anio, mes])
+}
+
+// Seguimiento del cobro de una incapacidad a la entidad que la reconoce (RF-SST-09). Una fila por ausentismo y entidad.
+model RecobroAusentismo {
+  id               String         @id @default(uuid())
+  ausentismoId     String
+  ausentismo       Ausentismo     @relation(fields: [ausentismoId], references: [id])
+  entidad          EntidadRecobro
+  estado           EstadoRecobro  @default(PENDIENTE)
+  valorReconocido  Decimal?       @db.Decimal(14, 2)
+  fechaRadicacion  DateTime?
+  fechaPago        DateTime?
+  observaciones    String?
+  actualizadoPorId String?
+  actualizadoPor   Usuario?       @relation("RecobrosActualizados", fields: [actualizadoPorId], references: [id])
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([ausentismoId, entidad])
 }
 
 // Pago de nómina de un Trabajador por un período. salarioBase y

@@ -31,6 +31,8 @@ export const ENTIDADES_AUDITORIA = {
   ENTREGA_EPP: 'Entrega de EPP',
   ACTIVIDAD_SST: 'Actividad del plan de trabajo SST',
   CAPACITACION: 'Capacitación SST',
+  TIPO_AUSENTISMO: 'Tipo de ausentismo',
+  DIAGNOSTICO_CIE10: 'Diagnóstico CIE-10 (catálogo)',
 } as const;
 
 export type EntidadAuditoria = keyof typeof ENTIDADES_AUDITORIA;
@@ -115,6 +117,10 @@ export const ACCIONES_AUDITORIA = {
   CAPACITACION_ASISTENCIA_REGISTRAR: 'Registró asistentes a una capacitación',
   CAPACITACION_ASISTENCIA_EDITAR: 'Editó la asistencia a una capacitación',
   CAPACITACION_ASISTENCIA_ANULAR: 'Anuló la asistencia de un trabajador a una capacitación',
+  TIPO_AUSENTISMO_CREAR: 'Creó un tipo de ausentismo',
+  TIPO_AUSENTISMO_EDITAR: 'Cambió un tipo de ausentismo',
+  DIAGNOSTICO_CIE10_CREAR: 'Agregó un diagnóstico CIE-10 al catálogo',
+  DIAGNOSTICO_CIE10_EDITAR: 'Cambió un diagnóstico CIE-10 del catálogo',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;
