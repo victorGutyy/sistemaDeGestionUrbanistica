@@ -15,6 +15,10 @@ import { ImportacionPage } from './pages/ImportacionPage'
 import { CarteraPage } from './pages/CarteraPage'
 import { CierreDetallePage } from './pages/CierreDetallePage'
 import { ConfiguracionPage } from './pages/ConfiguracionPage'
+import { ConfiguracionSeguridadSocialPage } from './pages/ConfiguracionSeguridadSocialPage'
+import { EditarTrabajadorPage } from './pages/EditarTrabajadorPage'
+import { SstPage } from './pages/SstPage'
+import { SstTrabajadorPage } from './pages/SstTrabajadorPage'
 import { ContabilidadPage } from './pages/ContabilidadPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { EditarUsuarioPage } from './pages/EditarUsuarioPage'
@@ -109,7 +113,13 @@ function App() {
                 <Route path="/nomina" element={<NominaPage />} />
                 <Route path="/trabajadores/nuevo" element={<RegistrarTrabajadorPage />} />
                 <Route path="/trabajadores/:id/pagos/nuevo" element={<RegistrarPagoNominaPage />} />
+                <Route path="/trabajadores/:id/editar" element={<EditarTrabajadorPage />} />
                 <Route path="/trabajadores/:id" element={<TrabajadorDetallePage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute permiso={PERMISOS.SST_VER} />}>
+                <Route path="/sst" element={<SstPage />} />
+                <Route path="/sst/trabajadores/:id" element={<SstTrabajadorPage />} />
               </Route>
 
               <Route element={<ProtectedRoute permiso={PERMISOS.AUDITORIA_VER} />}>
@@ -128,6 +138,7 @@ function App() {
 
               <Route element={<ProtectedRoute permiso={PERMISOS.CONFIGURACION_EDITAR} />}>
                 <Route path="/configuracion" element={<ConfiguracionPage />} />
+                <Route path="/configuracion/seguridad-social" element={<ConfiguracionSeguridadSocialPage />} />
               </Route>
             </Route>
           </Route>

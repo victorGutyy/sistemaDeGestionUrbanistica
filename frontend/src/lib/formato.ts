@@ -50,6 +50,13 @@ export function estaVencida(fecha: string | Date | null | undefined): boolean {
   return FORMATO_FECHA_ISO.format(instante) < FORMATO_FECHA_ISO.format(new Date())
 }
 
+// El instante ISO que manda el servidor como aaaa-mm-dd (día calendario en Colombia), para un <input type="date">.
+export function fechaParaInput(fecha: string | Date | null | undefined): string {
+  if (!fecha) return ''
+  const instante = fecha instanceof Date ? fecha : new Date(fecha)
+  return Number.isNaN(instante.getTime()) ? '' : FORMATO_FECHA_ISO.format(instante)
+}
+
 // Fecha de hoy en Colombia como aaaa-mm-dd (lo que espera un <input type="date">).
 // No usar new Date().toISOString(): da la fecha en UTC y, después de las 7 p. m.
 // en Bogotá, ya sería "mañana".

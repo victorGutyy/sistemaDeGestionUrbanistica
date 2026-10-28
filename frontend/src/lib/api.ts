@@ -1352,26 +1352,267 @@ export function obtenerConsolidadoCaja(filtro?: { desde?: string; hasta?: string
 export type EstadoTrabajador = 'ACTIVO' | 'INACTIVO'
 export type TipoNovedad = 'HORAS_EXTRA' | 'DESCUENTO' | 'INCAPACIDAD'
 
-export interface Trabajador {
+export type TipoContrato = 'OBRA_LABOR' | 'TERMINO_FIJO' | 'TERMINO_INDEFINIDO' | 'PRESTACION_SERVICIOS'
+export type SexoTrabajador = 'FEMENINO' | 'MASCULINO' | 'OTRO'
+
+// Lo que se sabe de un trabajador sin su salario: es lo que ve el contratista SST.
+export interface DatosTrabajador {
   id: string
   nombre: string
+  nombres: string | null
+  apellidos: string | null
   documento: string
+  tipoDocumento: TipoDocumento
+  fechaNacimiento: string | null
+  sexo: SexoTrabajador | null
+  area: string | null
   cargo: string
-  salarioBase: string
+  tipoContrato: TipoContrato
   fechaIngreso: string
+  fechaRetiro: string | null
+  motivoRetiro: string | null
   telefono: string | null
+  celular: string | null
   email: string | null
   estado: EstadoTrabajador
+  // Autorización para tratar sus datos de salud (Ley 1581 de 2012).
+  autorizaDatosSalud: boolean
+  fechaAutorizacionSalud: string | null
+  autorizacionSaludRegistradaPor?: { nombre: string } | null
+}
+
+export interface Trabajador extends DatosTrabajador {
+  salarioBase: string
 }
 
 export interface CrearTrabajadorPayload {
-  nombre: string
+  // Si se omite, el servidor lo arma con nombres y apellidos.
+  nombre?: string
+  nombres?: string
+  apellidos?: string
   documento: string
+  tipoDocumento?: TipoDocumento
+  fechaNacimiento?: string
+  sexo?: SexoTrabajador
+  area?: string
   cargo: string
+  tipoContrato?: TipoContrato
   salarioBase: string
   fechaIngreso: string
   telefono?: string
+  celular?: string
   email?: string
+}
+
+// Solo se cambia lo que se envía; en nombres, apellidos, área, teléfono, celular y correo un texto vacío borra el dato.
+export type ActualizarTrabajadorPayload = Partial<Omit<CrearTrabajadorPayload, 'documento'>>
+
+export function actualizarTrabajador(id: string, payload: ActualizarTrabajadorPayload) {
+  return solicitar<Trabajador>(`/trabajadores/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export function retirarTrabajador(id: string, payload: { fechaRetiro: string; motivo: string }) {
+  return solicitar<Trabajador>(`/trabajadores/${id}/retiro`, { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function reactivarTrabajador(id: string) {
+  return solicitar<Trabajador>(`/trabajadores/${id}/reactivar`, { method: 'POST' })
+}
+
+// ---------- Seguridad social y SST (CC-03) ----------
+
+export type TipoEntidadSS = 'EPS' | 'AFP' | 'CESANTIAS' | 'ARL' | 'CAJA'
+export type TipoDocumentoTrabajador = 'CERTIFICADO_AFILIACION' | 'AUTORIZACION_DATOS' | 'CONTRATO' | 'OTRO'
+
+export interface ParametroLegal {
+  id: string
+  anio: number
+  smmlv: string
+  auxilioTransporte: string
+  topeAuxilioSmmlv: string
+  porcentajeIncapacidadTramo1: string
+  porcentajeIncapacidadTramo2: string
+  porcentajeIncapacidadLaboral: string
+  diasEmpleador: number
+  diasTramo1Hasta: number
+  diasTramo2Hasta: number
+  diasBaseMes: number
+  notas: string | null
+  // null = todavía sin validar por el asesor laboral.
+  validadoEn: string | null
+  validadoPor: { nombre: string } | null
+}
+
+export interface EntidadSS {
+  id: string
+  tipo: TipoEntidadSS
+  nombre: string
+  activa: boolean
+}
+
+export interface ClaseRiesgoArl {
+  id: string
+  clase: number
+  // Porcentaje: 0.522 = 0,522 %.
+  tasa: string
+  activa: boolean
+}
+
+export interface CatalogosSeguridadSocial {
+  parametrosLegales: ParametroLegal[]
+  entidades: EntidadSS[]
+  clasesRiesgo: ClaseRiesgoArl[]
+}
+
+export function obtenerCatalogosSeguridadSocial() {
+  return solicitar<CatalogosSeguridadSocial>('/seguridad-social/catalogos')
+}
+
+// Valores legales de un año: pesos como texto, porcentajes como número (66,67 = 66,67 %).
+export interface DatosParametroLegal {
+  smmlv: string
+  auxilioTransporte: string
+  topeAuxilioSmmlv: number
+  porcentajeIncapacidadTramo1: number
+  porcentajeIncapacidadTramo2: number
+  porcentajeIncapacidadLaboral: number
+  diasEmpleador: number
+  diasTramo1Hasta: number
+  diasTramo2Hasta: number
+  diasBaseMes: number
+  notas?: string
+}
+
+export function crearParametroLegal(anio: number, datos: DatosParametroLegal) {
+  return solicitar<ParametroLegal>('/seguridad-social/parametros-legales', { method: 'POST', body: JSON.stringify({ anio, ...datos }) })
+}
+
+export function actualizarParametroLegal(id: string, datos: Partial<DatosParametroLegal>) {
+  return solicitar<ParametroLegal>(`/seguridad-social/parametros-legales/${id}`, { method: 'PATCH', body: JSON.stringify(datos) })
+}
+
+export function validarParametroLegal(id: string) {
+  return solicitar<ParametroLegal>(`/seguridad-social/parametros-legales/${id}/validar`, { method: 'POST' })
+}
+
+export function crearEntidadSS(tipo: TipoEntidadSS, nombre: string) {
+  return solicitar<EntidadSS>('/seguridad-social/entidades', { method: 'POST', body: JSON.stringify({ tipo, nombre }) })
+}
+
+export function actualizarEntidadSS(id: string, payload: { nombre?: string; activa?: boolean }) {
+  return solicitar<EntidadSS>(`/seguridad-social/entidades/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export function actualizarClaseRiesgoArl(id: string, payload: { tasa?: number; activa?: boolean }) {
+  return solicitar<ClaseRiesgoArl>(`/seguridad-social/clases-riesgo/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export interface AfiliacionTrabajador {
+  id: string
+  tipo: TipoEntidadSS
+  entidad: { id: string; nombre: string; tipo: TipoEntidadSS }
+  claseRiesgo: { id: string; clase: number; tasa: string } | null
+  fechaInicio: string
+  // null = vigente.
+  fechaFin: string | null
+  registradaPor: { nombre: string }
+}
+
+export interface DocumentoTrabajador {
+  id: string
+  tipo: TipoDocumentoTrabajador
+  nombreOriginal: string
+  tipoMime: string
+  tamano: number
+  descripcion: string | null
+  createdAt: string
+  subidoPor?: { nombre: string }
+}
+
+// Auxilio de transporte y tasa de la ARL, calculados con los parámetros legales del año en curso.
+export interface DatosLegalesTrabajador {
+  anio: number
+  hayParametros: boolean
+  parametrosValidados: boolean
+  // null si el año no tiene parámetros, o si quien consulta no ve salarios.
+  auxilioTransporte: { aplica: boolean; valor: string } | null
+  tasaArl: { clase: number; tasa: string } | null
+}
+
+export interface FichaTrabajadorSst extends DatosTrabajador {
+  afiliaciones: AfiliacionTrabajador[]
+  documentos: DocumentoTrabajador[]
+  legales: DatosLegalesTrabajador
+}
+
+export interface TrabajadorSst extends DatosTrabajador {
+  // Solo las afiliaciones vigentes.
+  afiliaciones: AfiliacionTrabajador[]
+}
+
+export function listarTrabajadoresSst() {
+  return solicitar<TrabajadorSst[]>('/trabajadores/sst')
+}
+
+export function obtenerFichaSst(id: string) {
+  return solicitar<FichaTrabajadorSst>(`/trabajadores/${id}/ficha-sst`)
+}
+
+export interface AlertaTrabajador {
+  trabajadorId: string
+  nombre: string
+  documento: string
+  afiliacionesFaltantes: TipoEntidadSS[]
+  sinCertificadoAfiliacion: boolean
+  sinAutorizacionSalud: boolean
+}
+
+export interface AlertasSst {
+  resumen: {
+    trabajadoresRevisados: number
+    conAlertas: number
+    sinAfiliacionCompleta: number
+    sinCertificadoAfiliacion: number
+    sinAutorizacionSalud: number
+  }
+  trabajadores: AlertaTrabajador[]
+}
+
+export function obtenerAlertasSst() {
+  return solicitar<AlertasSst>('/trabajadores/alertas-sst')
+}
+
+export function registrarAutorizacionSalud(id: string, autoriza: boolean) {
+  return solicitar<Trabajador>(`/trabajadores/${id}/autorizacion-salud`, { method: 'PUT', body: JSON.stringify({ autoriza }) })
+}
+
+export interface RegistrarAfiliacionPayload {
+  tipo: TipoEntidadSS
+  entidadId: string
+  // Obligatoria en la ARL.
+  claseRiesgoId?: string
+  fechaInicio: string
+}
+
+export function registrarAfiliacion(trabajadorId: string, payload: RegistrarAfiliacionPayload) {
+  return solicitar<AfiliacionTrabajador>(`/trabajadores/${trabajadorId}/afiliaciones`, { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function cerrarAfiliacion(trabajadorId: string, afiliacionId: string, fechaFin: string) {
+  return solicitar<AfiliacionTrabajador>(`/trabajadores/${trabajadorId}/afiliaciones/${afiliacionId}/cerrar`, { method: 'POST', body: JSON.stringify({ fechaFin }) })
+}
+
+export function subirDocumentoTrabajador(trabajadorId: string, archivo: File, tipo: TipoDocumentoTrabajador, descripcion?: string) {
+  const formData = new FormData()
+  formData.append('documento', archivo)
+  formData.append('tipo', tipo)
+  if (descripcion) formData.append('descripcion', descripcion)
+  return solicitar<DocumentoTrabajador>(`/trabajadores/${trabajadorId}/documentos`, { method: 'POST', body: formData })
+}
+
+// Se abre con descarga autenticada: un enlace directo no llevaría el token de sesión.
+export function abrirDocumentoTrabajador(trabajadorId: string, documentoId: string) {
+  return abrirArchivo(`/trabajadores/${trabajadorId}/documentos/${documentoId}`)
 }
 
 export function listarTrabajadores() {
@@ -1406,6 +1647,9 @@ export interface PagoNomina {
 
 export interface TrabajadorConPagos extends Trabajador {
   pagos: PagoNomina[]
+  afiliaciones: AfiliacionTrabajador[]
+  documentos: DocumentoTrabajador[]
+  legales: DatosLegalesTrabajador
 }
 
 export function obtenerTrabajador(id: string) {

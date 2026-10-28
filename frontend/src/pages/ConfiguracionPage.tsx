@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { LogoEmpresa } from '../components/LogoEmpresa'
 import { useAuth } from '../contexts/AuthContext'
 import { useEmpresa } from '../contexts/EmpresaContext'
@@ -962,6 +963,11 @@ export function ConfiguracionPage() {
         actualizar={actualizarCategoriaIngreso}
       />
       <SeccionTiposEquipo tipos={config.tiposEquipo} onCambio={(tiposEquipo) => setConfig({ ...config, tiposEquipo })} />
+      <Seccion titulo="Seguridad social" descripcion="Parámetros legales de cada año (salario mínimo, auxilio de transporte, incapacidades), entidades (EPS, pensión, cesantías, ARL, cajas) y clases de riesgo de la ARL.">
+        <Link to="/configuracion/seguridad-social" className={CLASE_BOTON}>
+          Administrar seguridad social
+        </Link>
+      </Seccion>
       <SeccionComisiones comisiones={config.comisiones} onCambio={(comisiones) => setConfig({ ...config, comisiones })} />
       {tiene(PERMISOS.EXPORTACION_COMPLETA) && <SeccionExportacion />}
     </div>

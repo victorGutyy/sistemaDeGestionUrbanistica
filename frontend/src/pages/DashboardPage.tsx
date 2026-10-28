@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
-import { ejecutarRecordatorios, exportarDashboard, listarProyectos, obtenerDashboard, type ConteoAvisos, type Proyecto, type ResumenDashboard } from '../lib/api'
+import { ejecutarRecordatorios, exportarDashboard, listarProyectos, obtenerAlertasSst, obtenerDashboard, type AlertasSst, type ConteoAvisos, type Proyecto, type ResumenDashboard } from '../lib/api'
 import { ETIQUETA_ESTADO_LOTE } from '../lib/estadoLote'
 import { formatearCOP } from '../lib/formato'
 import { textoDeEspera } from '../lib/verificacion'
@@ -18,6 +18,16 @@ export function DashboardPage() {
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false)
   const [resultadoRecordatorios, setResultadoRecordatorios] = useState<string | null>(null)
   const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null)
+  // Alertas de seguridad social (CC-03): solo para quien usa el módulo SST. Si falla, el panel sigue sin la tarjeta.
+  const [alertasSst, setAlertasSst] = useState<AlertasSst | null>(null)
+  const veSst = tiene(PERMISOS.SST_VER)
+
+  useEffect(() => {
+    if (!veSst) return
+    obtenerAlertasSst()
+      .then(setAlertasSst)
+      .catch(() => setAlertasSst(null))
+  }, [veSst])
 
   async function handleExportar(formato: 'pdf' | 'excel') {
     setExportando(formato)
@@ -199,8 +209,25 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {(resumen.comisionesPendientes || resumen.cierresPorAprobar !== undefined || resumen.consignacionesPorVerificar !== undefined) && <h2 className="mt-6 text-sm font-semibold text-slate-900">Pendientes</h2>}
+          {(resumen.comisionesPendientes || resumen.cierresPorAprobar !== undefined || resumen.consignacionesPorVerificar !== undefined || alertasSst) && <h2 className="mt-6 text-sm font-semibold text-slate-900">Pendientes</h2>}
           <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {alertasSst && (
+            <Link
+              to="/sst"
+              className={`block rounded-lg border p-4 ${alertasSst.resumen.conAlertas > 0 ? 'border-amber-200 bg-amber-50 hover:bg-amber-100' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+            >
+              <p className={`text-xs ${alertasSst.resumen.conAlertas > 0 ? 'text-amber-800' : 'text-slate-500'}`}>Trabajadores con seguridad social por completar</p>
+              <p className={`mt-1 text-lg font-semibold ${alertasSst.resumen.conAlertas > 0 ? 'text-amber-900' : 'text-slate-900'}`}>
+                {alertasSst.resumen.conAlertas}
+                <span className="text-sm font-normal"> de {alertasSst.resumen.trabajadoresRevisados}</span>
+              </p>
+              {alertasSst.resumen.conAlertas > 0 && (
+                <p className="text-xs text-slate-600">
+                  {alertasSst.resumen.sinAfiliacionCompleta} sin afiliación completa · {alertasSst.resumen.sinCertificadoAfiliacion} sin certificado · {alertasSst.resumen.sinAutorizacionSalud} sin autorización
+                </p>
+              )}
+            </Link>
+          )}
           {resumen.cierresPorAprobar !== undefined && (
             <Link
               to="/caja"
