@@ -344,6 +344,25 @@ Luego, en **Configuración → Correo de avisos → Enviar correo de prueba**, c
 
 El guion no toca el `.env` ni los datos.
 
+### Actualizar con una migración o con catálogos nuevos
+
+Cuando una versión trae una migración de base de datos (tablas o columnas nuevas), se agregan dos pasos al flujo normal:
+
+1. **Antes de desplegar**, una copia manual en el servidor (la migración solo agrega, pero la copia deja un punto de retorno):
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/respaldos/respaldar.sh
+```
+
+2. Desplegar como siempre (`desplegar.sh`): aplica la migración sola y arranca la API. Los roles nuevos del sistema (p. ej. Contratista SST) y sus permisos se sincronizan solos al arrancar la API.
+3. **Después de desplegar**, si la versión trae catálogos iniciales (entidades de seguridad social, clases de riesgo de la ARL, parámetros legales del año), las tablas nuevas nacen vacías y se siembran con:
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/sembrar-catalogos.sh
+```
+
+   No pide contraseñas ni toca a ningún usuario, y es seguro repetirlo: solo crea lo que falta y no pisa lo que el gerente ya editó.
+
 ### Comandos útiles en el servidor
 
 Todos se escriben dentro de la carpeta de la aplicación:
