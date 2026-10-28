@@ -66,6 +66,45 @@ export const CATEGORIAS_INGRESO = [
 // Tipos de equipo de ejemplo (RF-MAQ-02). El cliente aún no confirma los suyos: el gerente los edita en Configuración.
 export const TIPOS_EQUIPO = ['Excavadora', 'Retroexcavadora', 'Volqueta'];
 
+// Seguridad social (CC-03, RF-CFG-14). Lista inicial de ejemplo: el gerente agrega o desactiva entidades en
+// Configuración. Quedan fuera las que el cliente no use; ninguna afiliación depende de esta lista.
+export const ENTIDADES_SS = [
+  ...['Sura', 'Sanitas', 'Nueva EPS', 'Salud Total', 'Compensar', 'Famisanar', 'Coosalud', 'Asmet Salud'].map((nombre) => ({ tipo: 'EPS' as const, nombre })),
+  ...['Porvenir', 'Protección', 'Colfondos', 'Skandia', 'Colpensiones'].map((nombre) => ({ tipo: 'AFP' as const, nombre })),
+  ...['Porvenir', 'Protección', 'Colfondos', 'Skandia', 'Fondo Nacional del Ahorro'].map((nombre) => ({ tipo: 'CESANTIAS' as const, nombre })),
+  ...['Positiva', 'Sura', 'Colmena', 'Bolívar', 'La Equidad', 'Liberty'].map((nombre) => ({ tipo: 'ARL' as const, nombre })),
+  ...['Comfenalco Quindío', 'Comfamiliar Risaralda', 'Cafam', 'Colsubsidio', 'Compensar'].map((nombre) => ({ tipo: 'CAJA' as const, nombre })),
+];
+
+// Clases de riesgo de la ARL con su tasa en porcentaje (RF-CFG-14, RF-PER-18). Tarifas del Decreto 1295 de 1994;
+// el asesor laboral debe confirmarlas y el gerente puede ajustarlas.
+export const CLASES_RIESGO_ARL = [
+  { clase: 1, tasa: '0.522' },
+  { clase: 2, tasa: '1.044' },
+  { clase: 3, tasa: '2.436' },
+  { clase: 4, tasa: '4.350' },
+  { clase: 5, tasa: '6.960' },
+];
+
+// Valores legales de 2026 (RF-CFG-13), tomados del libro de especificación que envió el cliente. Se siembran SIN
+// VALIDAR (validadoEn vacío) hasta que el asesor laboral los confirme; el gerente los edita en Configuración.
+// Los días de cada tramo siguen la regla usual (empleador 2 días, EPS hasta el día 90 y hasta el 180): también
+// quedan por validar.
+export const PARAMETRO_LEGAL_2026 = {
+  anio: 2026,
+  smmlv: '1750905',
+  auxilioTransporte: '249095',
+  topeAuxilioSmmlv: '2',
+  porcentajeIncapacidadTramo1: '66.67',
+  porcentajeIncapacidadTramo2: '50',
+  porcentajeIncapacidadLaboral: '100',
+  diasEmpleador: 2,
+  diasTramo1Hasta: 90,
+  diasTramo2Hasta: 180,
+  diasBaseMes: 30,
+  notas: 'Valores del libro del cliente (28/10/2026). Pendiente de validación por el asesor laboral.',
+};
+
 export const COMISIONES = [
   { tipo: 'ASESOR_INMOBILIARIO' as const, valor: '1000000' },
   { tipo: 'REFERIDO' as const, valor: '500000' },

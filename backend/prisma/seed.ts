@@ -21,7 +21,18 @@ import { CLAVE_GERENTE, ROLES_SISTEMA } from '../src/auth/permisos.js';
 import { MEDIOS_ACTIVOS_POR_DEFECTO } from '../src/configuracion/configuracion.service.js';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
 import { MedioPago } from '../src/generated/prisma/enums.js';
-import { CATEGORIAS_GASTO, CATEGORIAS_INGRESO, COMISIONES, CUENTAS, EMPRESA, PARAMETROS, TIPOS_EQUIPO } from './semillas/empresa-balder.js';
+import {
+  CATEGORIAS_GASTO,
+  CATEGORIAS_INGRESO,
+  CLASES_RIESGO_ARL,
+  COMISIONES,
+  CUENTAS,
+  EMPRESA,
+  ENTIDADES_SS,
+  PARAMETRO_LEGAL_2026,
+  PARAMETROS,
+  TIPOS_EQUIPO,
+} from './semillas/empresa-balder.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
@@ -60,6 +71,33 @@ async function sembrarConfiguracion() {
     await prisma.tipoEquipo.upsert({ where: { nombre }, update: {}, create: { nombre } });
   }
 
+  for (const entidad of ENTIDADES_SS) {
+    await prisma.entidadSS.upsert({ where: { tipo_nombre: { tipo: entidad.tipo, nombre: entidad.nombre } }, update: {}, create: entidad });
+  }
+
+  for (const clase of CLASES_RIESGO_ARL) {
+    await prisma.claseRiesgoArl.upsert({
+      where: { clase: clase.clase },
+      update: {},
+      create: { clase: clase.clase, tasa: new Prisma.Decimal(clase.tasa) },
+    });
+  }
+
+  // Sin update: si el gerente ya ajustó o validó los valores de 2026, no se pisan.
+  await prisma.parametroLegal.upsert({
+    where: { anio: PARAMETRO_LEGAL_2026.anio },
+    update: {},
+    create: {
+      ...PARAMETRO_LEGAL_2026,
+      smmlv: new Prisma.Decimal(PARAMETRO_LEGAL_2026.smmlv),
+      auxilioTransporte: new Prisma.Decimal(PARAMETRO_LEGAL_2026.auxilioTransporte),
+      topeAuxilioSmmlv: new Prisma.Decimal(PARAMETRO_LEGAL_2026.topeAuxilioSmmlv),
+      porcentajeIncapacidadTramo1: new Prisma.Decimal(PARAMETRO_LEGAL_2026.porcentajeIncapacidadTramo1),
+      porcentajeIncapacidadTramo2: new Prisma.Decimal(PARAMETRO_LEGAL_2026.porcentajeIncapacidadTramo2),
+      porcentajeIncapacidadLaboral: new Prisma.Decimal(PARAMETRO_LEGAL_2026.porcentajeIncapacidadLaboral),
+    },
+  });
+
   await prisma.medioPagoConfig.createMany({
     // El efectivo no se verifica contra el extracto (se cuadra en el cierre de caja); los demás medios sí (RF-REC-10).
     data: Object.values(MedioPago).map((medio) => ({ medio, activo: MEDIOS_ACTIVOS_POR_DEFECTO[medio], requiereVerificacion: medio !== MedioPago.EFECTIVO })),
@@ -71,7 +109,7 @@ async function sembrarConfiguracion() {
     skipDuplicates: true,
   });
 
-  console.log('Configuración inicial lista (empresa, parámetros, cuentas, categorías de gasto e ingreso, tipos de equipo, medios de pago, comisiones).');
+  console.log('Configuración inicial lista (empresa, parámetros, cuentas, categorías de gasto e ingreso, tipos de equipo, entidades de seguridad social, clases de riesgo ARL, parámetros legales, medios de pago, comisiones).');
 }
 
 async function sembrarRoles() {

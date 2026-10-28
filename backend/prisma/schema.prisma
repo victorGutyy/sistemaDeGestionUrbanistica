@@ -190,48 +190,52 @@ model RolUsuario {
 // Cuenta de acceso a la app. No hay registro público: las crea el gerente
 // desde la sección de Usuarios.
 model Usuario {
-  id                        String                 @id @default(uuid())
-  nombre                    String
-  email                     String                 @unique
-  passwordHash              String
-  rolId                     String
-  rol                       RolUsuario             @relation(fields: [rolId], references: [id])
-  estado                    EstadoUsuario          @default(ACTIVO)
+  id                          String                 @id @default(uuid())
+  nombre                      String
+  email                       String                 @unique
+  passwordHash                String
+  rolId                       String
+  rol                         RolUsuario             @relation(fields: [rolId], references: [id])
+  estado                      EstadoUsuario          @default(ACTIVO)
   // Bloqueo temporal por intentos fallidos de ingreso.
-  intentosFallidos          Int                    @default(0)
-  bloqueadoHasta            DateTime?
-  ultimoIngreso             DateTime?
+  intentosFallidos            Int                    @default(0)
+  bloqueadoHasta              DateTime?
+  ultimoIngreso               DateTime?
   // Las sesiones (tokens) emitidas antes de esta fecha dejan de valer: se usa al restablecer la contraseña.
-  sesionesValidasDesde      DateTime?
+  sesionesValidasDesde        DateTime?
   // Alcance por proyecto: true = ve todos los proyectos. Si es false, solo ve
   // los de proyectosPermitidos (solo se permite en roles limitablePorProyecto).
-  todosLosProyectos         Boolean                @default(true)
-  proyectosPermitidos       UsuarioProyecto[]
-  historialLotes            LoteHistorial[]
-  abonosRegistrados         Abono[]                @relation("AbonosRegistrados")
-  abonosAnulados            Abono[]                @relation("AbonosAnulados")
-  movimientosRegistrados    MovimientoFinanciero[] @relation("MovimientosRegistrados")
-  movimientosAnulados       MovimientoFinanciero[] @relation("MovimientosAnulados")
-  cierresCreados            CierreCaja[]           @relation("CierresCreados")
-  cierresCerrados           CierreCaja[]           @relation("CierresCerrados")
-  cierresResueltos          CierreCaja[]           @relation("CierresResueltos")
-  historialCierres          CierreCajaHistorial[]
-  registrosAuditoria        RegistroAuditoria[]
-  importaciones             Importacion[]
-  clientesAutorizados       Cliente[]              @relation("AutorizacionesRegistradas")
-  equiposDadosDeBaja        Equipo[]               @relation("EquiposDadosDeBaja")
-  comisionesPagadas         Comision[]             @relation("ComisionesPagadas")
-  comisionesAnuladas        Comision[]             @relation("ComisionesAnuladas")
-  notificaciones            Notificacion[]
-  abonosVerificados         Abono[]                @relation("AbonosVerificados")
-  recuperacionesPassword    RecuperacionPassword[]
-  separacionesRegistradas   Separacion[]
-  documentosSubidos         DocumentoVenta[]
-  desistimientosRegistrados Desistimiento[]
-  ventasRegistradas         Venta[]                @relation("VentasRegistradas")
-  ventasResueltas           Venta[]                @relation("VentasResueltas")
-  createdAt                 DateTime               @default(now())
-  updatedAt                 DateTime               @updatedAt
+  todosLosProyectos           Boolean                @default(true)
+  proyectosPermitidos         UsuarioProyecto[]
+  historialLotes              LoteHistorial[]
+  abonosRegistrados           Abono[]                @relation("AbonosRegistrados")
+  abonosAnulados              Abono[]                @relation("AbonosAnulados")
+  movimientosRegistrados      MovimientoFinanciero[] @relation("MovimientosRegistrados")
+  movimientosAnulados         MovimientoFinanciero[] @relation("MovimientosAnulados")
+  cierresCreados              CierreCaja[]           @relation("CierresCreados")
+  cierresCerrados             CierreCaja[]           @relation("CierresCerrados")
+  cierresResueltos            CierreCaja[]           @relation("CierresResueltos")
+  historialCierres            CierreCajaHistorial[]
+  registrosAuditoria          RegistroAuditoria[]
+  importaciones               Importacion[]
+  clientesAutorizados         Cliente[]              @relation("AutorizacionesRegistradas")
+  equiposDadosDeBaja          Equipo[]               @relation("EquiposDadosDeBaja")
+  comisionesPagadas           Comision[]             @relation("ComisionesPagadas")
+  comisionesAnuladas          Comision[]             @relation("ComisionesAnuladas")
+  notificaciones              Notificacion[]
+  abonosVerificados           Abono[]                @relation("AbonosVerificados")
+  recuperacionesPassword      RecuperacionPassword[]
+  separacionesRegistradas     Separacion[]
+  documentosSubidos           DocumentoVenta[]
+  desistimientosRegistrados   Desistimiento[]
+  trabajadoresAutorizados     Trabajador[]           @relation("AutorizacionesSaludRegistradas")
+  parametrosLegalesValidados  ParametroLegal[]       @relation("ParametrosLegalesValidados")
+  afiliacionesRegistradas     AfiliacionTrabajador[] @relation("AfiliacionesRegistradas")
+  documentosTrabajadorSubidos DocumentoTrabajador[]  @relation("DocumentosTrabajadorSubidos")
+  ventasRegistradas           Venta[]                @relation("VentasRegistradas")
+  ventasResueltas             Venta[]                @relation("VentasResueltas")
+  createdAt                   DateTime               @default(now())
+  updatedAt                   DateTime               @updatedAt
 
   @@index([rolId])
 }
@@ -352,23 +356,23 @@ model LoteHistorial {
 
 // Comprador de uno o más lotes.
 model Cliente {
-  id                          String        @id @default(uuid())
+  id                          String         @id @default(uuid())
   nombre                      String
-  documento                   String        @unique
-  tipoDocumento               TipoDocumento @default(CC)
+  documento                   String         @unique
+  tipoDocumento               TipoDocumento  @default(CC)
   telefono                    String?
   email                       String?
   direccion                   String?
   // Autorización de tratamiento de datos personales (Ley 1581 de 2012, RF-CLI-04): si la dio, cuándo y quién la registró.
-  autorizaDatos               Boolean       @default(false)
+  autorizaDatos               Boolean        @default(false)
   fechaAutorizacion           DateTime?
   autorizacionRegistradaPorId String?
-  autorizacionRegistradaPor   Usuario?      @relation("AutorizacionesRegistradas", fields: [autorizacionRegistradaPorId], references: [id])
+  autorizacionRegistradaPor   Usuario?       @relation("AutorizacionesRegistradas", fields: [autorizacionRegistradaPorId], references: [id])
   ventas                      Venta[]
   separaciones                Separacion[]
   notificaciones              Notificacion[]
-  createdAt                   DateTime      @default(now())
-  updatedAt                   DateTime      @updatedAt
+  createdAt                   DateTime       @default(now())
+  updatedAt                   DateTime       @updatedAt
 }
 
 // Apartado de un lote antes de formalizar la venta. El valor es solo informativo (lo que dejó el
@@ -524,38 +528,38 @@ model Cuota {
 // las cuotas está en AplicacionAbono y el comprobante de caja en Recibo. Los triggers de la migración
 // impiden cambiar o borrar un abono por cualquier camino.
 model Abono {
-  id              String            @id @default(uuid())
-  ventaId         String
-  venta           Venta             @relation(fields: [ventaId], references: [id])
-  fecha           DateTime
-  valor           Decimal           @db.Decimal(14, 2)
-  medioPago       MedioPago
+  id               String             @id @default(uuid())
+  ventaId          String
+  venta            Venta              @relation(fields: [ventaId], references: [id])
+  fecha            DateTime
+  valor            Decimal            @db.Decimal(14, 2)
+  medioPago        MedioPago
   // Cuenta donde entró el dinero (obligatoria si no es efectivo) y referencia de la transacción.
-  cuentaDestinoId String?
-  cuentaDestino   CuentaBancaria?   @relation(fields: [cuentaDestinoId], references: [id])
-  referencia      String?
+  cuentaDestinoId  String?
+  cuentaDestino    CuentaBancaria?    @relation(fields: [cuentaDestinoId], references: [id])
+  referencia       String?
   // Soporte de pago del cliente (foto o PDF). El nombre de la columna es histórico.
-  comprobanteUrl  String?
-  estado          EstadoAbono       @default(ACTIVO)
+  comprobanteUrl   String?
+  estado           EstadoAbono        @default(ACTIVO)
   // Quién lo registró (nulo en abonos anteriores al control por usuario).
-  registradoPorId String?
-  registradoPor   Usuario?          @relation("AbonosRegistrados", fields: [registradoPorId], references: [id])
-  anuladoPorId    String?
-  anuladoPor      Usuario?          @relation("AbonosAnulados", fields: [anuladoPorId], references: [id])
-  anuladoEn       DateTime?
-  motivoAnulacion String?
+  registradoPorId  String?
+  registradoPor    Usuario?           @relation("AbonosRegistrados", fields: [registradoPorId], references: [id])
+  anuladoPorId     String?
+  anuladoPor       Usuario?           @relation("AbonosAnulados", fields: [anuladoPorId], references: [id])
+  anuladoEn        DateTime?
+  motivoAnulacion  String?
   // Verificación contra el extracto del banco (RF-REC-10): los pagos que no son en efectivo nacen POR_VERIFICAR.
   // Un abono por verificar cuenta igual en el saldo y tiene su recibo; la marca solo dice que falta confirmarlo.
-  verificacion       EstadoVerificacion @default(NO_REQUIERE)
-  verificadoPorId    String?
-  verificadoPor      Usuario?           @relation("AbonosVerificados", fields: [verificadoPorId], references: [id], onDelete: Restrict)
-  verificadoEn       DateTime?
-  notaVerificacion   String?
-  aplicaciones    AplicacionAbono[]
-  recibo          Recibo?
-  notificaciones  Notificacion[]
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  verificacion     EstadoVerificacion @default(NO_REQUIERE)
+  verificadoPorId  String?
+  verificadoPor    Usuario?           @relation("AbonosVerificados", fields: [verificadoPorId], references: [id], onDelete: Restrict)
+  verificadoEn     DateTime?
+  notaVerificacion String?
+  aplicaciones     AplicacionAbono[]
+  recibo           Recibo?
+  notificaciones   Notificacion[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@index([ventaId, estado])
 }
@@ -746,19 +750,164 @@ model RegistroAuditoria {
 }
 
 // Empleado de la empresa (no de un proyecto en particular).
+// CC-03 (RF-PER-17): la ficha se amplía con columnas opcionales. `nombre` se conserva completo (nómina y PDF lo usan);
+// `nombres` y `apellidos` son la versión separada que pide la seguridad social.
 model Trabajador {
-  id           String           @id @default(uuid())
+  id                               String                 @id @default(uuid())
+  nombre                           String
+  documento                        String                 @unique
+  tipoDocumento                    TipoDocumento          @default(CC)
+  nombres                          String?
+  apellidos                        String?
+  fechaNacimiento                  DateTime?
+  sexo                             SexoTrabajador?
+  area                             String?
+  cargo                            String
+  tipoContrato                     TipoContrato           @default(OBRA_LABOR)
+  salarioBase                      Decimal                @db.Decimal(14, 2)
+  fechaIngreso                     DateTime
+  // El retiro no borra al trabajador: queda la fecha y el motivo (RF-PER-17).
+  fechaRetiro                      DateTime?
+  motivoRetiro                     String?
+  telefono                         String?
+  celular                          String?
+  email                            String?
+  estado                           EstadoTrabajador       @default(ACTIVO)
+  // Autorización de tratamiento de datos de salud (Ley 1581 de 2012, RNF-LEG-03): si la dio, cuándo y quién la registró.
+  // Mismo patrón que Cliente.autorizaDatos.
+  autorizaDatosSalud               Boolean                @default(false)
+  fechaAutorizacionSalud           DateTime?
+  autorizacionSaludRegistradaPorId String?
+  autorizacionSaludRegistradaPor   Usuario?               @relation("AutorizacionesSaludRegistradas", fields: [autorizacionSaludRegistradaPorId], references: [id])
+  pagos                            PagoNomina[]
+  afiliaciones                     AfiliacionTrabajador[]
+  documentos                       DocumentoTrabajador[]
+  createdAt                        DateTime               @default(now())
+  updatedAt                        DateTime               @updatedAt
+}
+
+enum SexoTrabajador {
+  FEMENINO
+  MASCULINO
+  OTRO
+}
+
+enum TipoContrato {
+  OBRA_LABOR
+  TERMINO_FIJO
+  TERMINO_INDEFINIDO
+  PRESTACION_SERVICIOS
+}
+
+// Clase de entidad del sistema de seguridad social (RF-CFG-14). CESANTIAS es el fondo de cesantías.
+enum TipoEntidadSS {
+  EPS
+  AFP
+  CESANTIAS
+  ARL
+  CAJA
+}
+
+// EPS, fondos de pensión y de cesantías, ARL y cajas de compensación (RF-CFG-14). Las administra el gerente; se
+// desactivan, no se borran: una afiliación vieja puede apuntar a ellas.
+model EntidadSS {
+  id           String                 @id @default(uuid())
+  tipo         TipoEntidadSS
   nombre       String
-  documento    String           @unique
-  cargo        String
-  salarioBase  Decimal          @db.Decimal(14, 2)
-  fechaIngreso DateTime
-  telefono     String?
-  email        String?
-  estado       EstadoTrabajador @default(ACTIVO)
-  pagos        PagoNomina[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  activa       Boolean                @default(true)
+  afiliaciones AfiliacionTrabajador[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@unique([tipo, nombre])
+}
+
+// Clase de riesgo de la ARL y su tasa de cotización (RF-CFG-14, RF-PER-18). La tasa se guarda como porcentaje
+// (0,522 = 0,522 %), igual que el resto de porcentajes del sistema.
+model ClaseRiesgoArl {
+  id           String                 @id @default(uuid())
+  clase        Int                    @unique
+  tasa         Decimal                @db.Decimal(6, 3)
+  activa       Boolean                @default(true)
+  afiliaciones AfiliacionTrabajador[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+}
+
+// Valores legales de un año (RF-CFG-13): una fila por año, con histórico. Son parámetros editables y deben ser
+// validados por el asesor laboral de la empresa (validadoEn); el sistema no certifica el cumplimiento legal.
+// Los porcentajes se guardan como porcentaje (66,67 = 66,67 %).
+model ParametroLegal {
+  id                           String    @id @default(uuid())
+  anio                         Int       @unique
+  smmlv                        Decimal   @db.Decimal(14, 2)
+  auxilioTransporte            Decimal   @db.Decimal(14, 2)
+  // El auxilio de transporte aplica si el salario no supera este número de SMMLV (RF-PER-18).
+  topeAuxilioSmmlv             Decimal   @default(2) @db.Decimal(5, 2)
+  // Parámetros de apoyo para la liquidación de incapacidades (Fase C).
+  porcentajeIncapacidadTramo1  Decimal   @db.Decimal(5, 2)
+  porcentajeIncapacidadTramo2  Decimal   @db.Decimal(5, 2)
+  porcentajeIncapacidadLaboral Decimal   @db.Decimal(5, 2)
+  diasEmpleador                Int
+  diasTramo1Hasta              Int
+  diasTramo2Hasta              Int
+  diasBaseMes                  Int       @default(30)
+  notas                        String?
+  // null = todavía sin validar por el asesor laboral.
+  validadoEn                   DateTime?
+  validadoPorId                String?
+  validadoPor                  Usuario?  @relation("ParametrosLegalesValidados", fields: [validadoPorId], references: [id])
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+}
+
+// Afiliación de un trabajador a una entidad (RF-PER-04). Con historial: cambiar de EPS cierra la afiliación anterior
+// (fechaFin) y abre la nueva. Solo puede haber una vigente (fechaFin vacía) por trabajador y tipo (índice parcial
+// escrito a mano en la migración). Nunca se borra.
+model AfiliacionTrabajador {
+  id              String          @id @default(uuid())
+  trabajadorId    String
+  trabajador      Trabajador      @relation(fields: [trabajadorId], references: [id])
+  tipo            TipoEntidadSS
+  entidadId       String
+  entidad         EntidadSS       @relation(fields: [entidadId], references: [id])
+  // Solo las afiliaciones a ARL llevan clase de riesgo (el CHECK de la migración lo exige).
+  claseRiesgoId   String?
+  claseRiesgo     ClaseRiesgoArl? @relation(fields: [claseRiesgoId], references: [id])
+  fechaInicio     DateTime
+  fechaFin        DateTime?
+  registradaPorId String
+  registradaPor   Usuario         @relation("AfiliacionesRegistradas", fields: [registradaPorId], references: [id])
+  createdAt       DateTime        @default(now())
+
+  @@index([trabajadorId, tipo])
+  @@index([entidadId])
+}
+
+enum TipoDocumentoTrabajador {
+  CERTIFICADO_AFILIACION
+  AUTORIZACION_DATOS
+  CONTRATO
+  OTRO
+}
+
+// Documento adjunto de un trabajador (RF-PER-06): certificados de afiliación, autorización de datos, contrato.
+// Mismo manejo que DocumentoVenta: se conservan siempre y solo se descargan con sesión y permiso (RNF-SEG-05).
+model DocumentoTrabajador {
+  id             String                  @id @default(uuid())
+  trabajadorId   String
+  trabajador     Trabajador              @relation(fields: [trabajadorId], references: [id])
+  tipo           TipoDocumentoTrabajador
+  nombreOriginal String
+  ruta           String
+  tipoMime       String
+  tamano         Int
+  descripcion    String?
+  subidoPorId    String
+  subidoPor      Usuario                 @relation("DocumentosTrabajadorSubidos", fields: [subidoPorId], references: [id])
+  createdAt      DateTime                @default(now())
+
+  @@index([trabajadorId])
 }
 
 // Pago de nómina de un Trabajador por un período. salarioBase y
@@ -819,28 +968,28 @@ model ConfiguracionEmpresa {
 
   // Parámetros de negocio (RF-CFG-03 a RF-CFG-05). Los porcentajes y tasas
   // se guardan como porcentaje (30 = 30 %).
-  porcentajeCuotaInicial  Decimal  @default(30) @db.Decimal(5, 2)
-  plazoMaximoMeses        Int      @default(12)
-  tasaFinanciacionMensual Decimal  @default(0) @db.Decimal(5, 2)
+  porcentajeCuotaInicial      Decimal  @default(30) @db.Decimal(5, 2)
+  plazoMaximoMeses            Int      @default(12)
+  tasaFinanciacionMensual     Decimal  @default(0) @db.Decimal(5, 2)
   // null = el gerente todavía no la define: no se calcula interés de mora.
-  tasaMoraMensual         Decimal? @db.Decimal(5, 2)
-  diasGraciaMora          Int      @default(0)
-  diasSemaforoAmarillo    Int      @default(5)
-  prefijoRecibo           String   @default("RC-")
-  diasAntesRecordatorio   Int      @default(3)
+  tasaMoraMensual             Decimal? @db.Decimal(5, 2)
+  diasGraciaMora              Int      @default(0)
+  diasSemaforoAmarillo        Int      @default(5)
+  prefijoRecibo               String   @default("RC-")
+  diasAntesRecordatorio       Int      @default(3)
   // Cada cuántos días se le repite el aviso de mora a una venta con cuotas vencidas (RF-NOT-03).
-  diasEntreAvisosMora     Int      @default(7)
+  diasEntreAvisosMora         Int      @default(7)
   // Si el recibo de cada abono nuevo sale solo al correo del cliente (RF-NOT-01).
-  enviarReciboPorCorreo   Boolean  @default(true)
+  enviarReciboPorCorreo       Boolean  @default(true)
   // Desde cuántos días de antigüedad un abono por verificar se resalta en rojo en el panel (RF-NOT-07).
-  diasAlertaVerificacion  Int      @default(3)
+  diasAlertaVerificacion      Int      @default(3)
   // Recuperación de contraseña por correo (RF-USR-06): cuánto vale el enlace y cuántos se pueden pedir por hora y cuenta.
-  minutosVigenciaRecuperacion Int  @default(60)
-  recuperacionesPorHora       Int  @default(3)
+  minutosVigenciaRecuperacion Int      @default(60)
+  recuperacionesPorHora       Int      @default(3)
   // Seguridad de sesión: bloqueo tras intentos fallidos y cierre por inactividad.
-  intentosMaximosLogin    Int      @default(5)
-  minutosBloqueoLogin     Int      @default(15)
-  minutosInactividad      Int      @default(30)
+  intentosMaximosLogin        Int      @default(5)
+  minutosBloqueoLogin         Int      @default(15)
+  minutosInactividad          Int      @default(30)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -939,12 +1088,12 @@ model CategoriaIngreso {
 // Una fila por valor de MedioPago: dice si está habilitado para registrar
 // abonos y egresos.
 model MedioPagoConfig {
-  medio     MedioPago @id
-  activo    Boolean   @default(true)
+  medio                MedioPago @id
+  activo               Boolean   @default(true)
   // Los abonos con este medio quedan "por verificar" hasta que el administrador los confirma contra el extracto
   // (RF-REC-10). El efectivo no se verifica en el banco: se cuadra en el cierre de caja.
-  requiereVerificacion Boolean @default(true)
-  updatedAt DateTime  @updatedAt
+  requiereVerificacion Boolean   @default(true)
+  updatedAt            DateTime  @updatedAt
 }
 
 // Valor fijo de comisión por tipo de vendedor.
