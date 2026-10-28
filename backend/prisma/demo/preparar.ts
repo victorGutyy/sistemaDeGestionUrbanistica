@@ -23,7 +23,7 @@ const base = baseDeEntorno(modo);
 const raizBackend = process.cwd();
 
 const claveAleatoria = () => randomBytes(9).toString('base64url');
-const EMAIL = { gerente: 'gerente.demo@ejemplo.test', admin: 'admin.demo@ejemplo.test', socio: 'socio.demo@ejemplo.test' };
+const EMAIL = { gerente: 'gerente.demo@ejemplo.test', admin: 'admin.demo@ejemplo.test', socio: 'socio.demo@ejemplo.test', contratista: 'contratista.demo@ejemplo.test' };
 
 function ejecutar(descripcion: string, comando: string, args: string[], env: NodeJS.ProcessEnv) {
   console.log(`▶ ${descripcion}`);
@@ -52,7 +52,7 @@ async function main() {
   console.log(`Preparando la base "${base.nombre}" (la de desarrollo, "${base.nombreOriginal}", no se toca)`);
   await crearBase();
 
-  const claves = { gerente: claveAleatoria(), admin: claveAleatoria(), socio: claveAleatoria() };
+  const claves = { gerente: claveAleatoria(), admin: claveAleatoria(), socio: claveAleatoria(), contratista: claveAleatoria() };
   const entornoHijo = {
     ...process.env,
     DATABASE_URL: base.url,
@@ -79,6 +79,8 @@ async function main() {
     if (modo === 'demo') {
       const { cargarDemo } = await import('./datos-demo.js');
       await cargarDemo(ctx, { gerente, admin, emailSocio: EMAIL.socio, passwordSocio: claves.socio });
+      const { cargarSst } = await import('./datos-sst.js');
+      await cargarSst(ctx, { gerente, admin, emailContratista: EMAIL.contratista, passwordContratista: claves.contratista });
     } else {
       const { cargarVolumen } = await import('./datos-volumen.js');
       await cargarVolumen(ctx, { gerente, admin });
@@ -98,7 +100,7 @@ async function main() {
     `Base: ${base.nombre}`,
     `Gerente:        ${EMAIL.gerente}  ${claves.gerente}`,
     `Administrador:  ${EMAIL.admin}  ${claves.admin}`,
-    ...(modo === 'demo' ? [`Socio (Consulta, solo La Floresta): ${EMAIL.socio}  ${claves.socio}`] : []),
+    ...(modo === 'demo' ? [`Socio (Consulta, solo La Floresta): ${EMAIL.socio}  ${claves.socio}`, `Contratista SST: ${EMAIL.contratista}  ${claves.contratista}`] : []),
     '',
   ];
   writeFileSync(join(carpeta, 'credenciales.txt'), lineas.join('\n'), 'utf8');

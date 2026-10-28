@@ -19,6 +19,10 @@ import type { NominaService } from '../../src/nomina/nomina.service.js';
 import type { PrismaService } from '../../src/prisma/prisma.service.js';
 import type { ProyectosService } from '../../src/proyectos/proyectos.service.js';
 import type { TrabajadoresService } from '../../src/trabajadores/trabajadores.service.js';
+import type { AfiliacionesTrabajadorService } from '../../src/trabajadores/afiliaciones-trabajador.service.js';
+import type { CapacitacionesService } from '../../src/sst/capacitaciones.service.js';
+import type { EppService } from '../../src/sst/epp.service.js';
+import type { PlanTrabajoService } from '../../src/sst/plan-trabajo.service.js';
 import type { UsuariosService } from '../../src/usuarios/usuarios.service.js';
 import type { VentasService } from '../../src/ventas/ventas.service.js';
 
@@ -37,6 +41,10 @@ export interface Contexto {
   finanzas: FinanzasService;
   equipos: EquiposService;
   trabajadores: TrabajadoresService;
+  afiliaciones: AfiliacionesTrabajadorService;
+  epp: EppService;
+  planSst: PlanTrabajoService;
+  capacitaciones: CapacitacionesService;
   nomina: NominaService;
   cierres: CierresCajaService;
   comisiones: ComisionesService;
@@ -82,6 +90,10 @@ export async function abrirContexto(): Promise<Contexto> {
     finanzas: await obtener<FinanzasService>('../../src/finanzas/finanzas.service.js', 'FinanzasService'),
     equipos: await obtener<EquiposService>('../../src/equipos/equipos.service.js', 'EquiposService'),
     trabajadores: await obtener<TrabajadoresService>('../../src/trabajadores/trabajadores.service.js', 'TrabajadoresService'),
+    afiliaciones: await obtener<AfiliacionesTrabajadorService>('../../src/trabajadores/afiliaciones-trabajador.service.js', 'AfiliacionesTrabajadorService'),
+    epp: await obtener<EppService>('../../src/sst/epp.service.js', 'EppService'),
+    planSst: await obtener<PlanTrabajoService>('../../src/sst/plan-trabajo.service.js', 'PlanTrabajoService'),
+    capacitaciones: await obtener<CapacitacionesService>('../../src/sst/capacitaciones.service.js', 'CapacitacionesService'),
     nomina: await obtener<NominaService>('../../src/nomina/nomina.service.js', 'NominaService'),
     cierres: await obtener<CierresCajaService>('../../src/cierres-caja/cierres-caja.service.js', 'CierresCajaService'),
     comisiones: await obtener<ComisionesService>('../../src/comisiones/comisiones.service.js', 'ComisionesService'),

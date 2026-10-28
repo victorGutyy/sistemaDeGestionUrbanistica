@@ -543,7 +543,12 @@ const capitulos = [
     await ir('/nomina', 1500);
     const t = await enlaceDe('main a', 'María Fernanda Valencia Salazar');
     await ir(t, 1500);
-    await foto('trabajador-ficha', 'Ficha de un trabajador', { alto: 700, marcas: [{ t: 'Registrar pago', n: 1, r: 'Registra un pago de nómina.' }] });
+    await foto('trabajador-ficha', 'Ficha de un trabajador', { alto: 1000, marcas: [
+      { t: 'Registrar pago', n: 1, tag: 'BUTTON|A', r: 'Registra un pago de nómina.' },
+      { t: 'Editar', n: 2, tag: 'BUTTON|A', r: 'Corrige los datos del trabajador.' },
+      { t: 'Ver en SST', n: 3, tag: 'BUTTON|A', r: 'Abre su ficha de seguridad y salud.' },
+      { t: 'Retirar trabajador', n: 4, tag: 'BUTTON', r: 'Registra el retiro con su fecha y motivo; la ficha se conserva.' },
+    ] });
     await ir(t + '/pagos/nuevo', 1500);
     await foto('pago-nomina-nuevo', 'Formulario para registrar un pago de nómina', { alto: 900, marcas: [
       { campo: 'Período desde', n: 1, r: 'Primer día del período que se paga.' },
@@ -587,7 +592,7 @@ const capitulos = [
       { campo: 'Rol', n: 3, r: 'Gerente, administrador o consulta.' },
     ] });
     await ir('/usuarios', 1500);
-    const ed = await nav.evaluar(`[...document.querySelectorAll('main a[href$="/editar"]')].map(a => a.getAttribute('href'))[2]`);
+    const ed = await nav.evaluar(`(() => { const a = [...document.querySelectorAll('main a[href$="/editar"]')].find((x) => (x.closest('tr, li') ?? x.parentElement).innerText.includes('Socio de La Floresta')); return a ? a.getAttribute('href') : null; })()`);
     await ir(ed, 1500);
     await foto('usuario-editar', 'Editar un usuario y limitar sus proyectos', { alto: 1100, marcas: [
       { t: 'Solo algunos proyectos', n: 1, r: 'Limita lo que la persona puede ver (útil para un socio).' },
@@ -697,6 +702,125 @@ const capitulos = [
       { campo: 'Equipo', n: 1, r: 'El equipo al que pertenece el movimiento, o "general de la flota".' },
       { campo: 'Categoría', n: 2, r: 'Combustible, repuestos, operario, alquiler…' },
     ] });
+  }),
+
+  // Módulo de seguridad y salud en el trabajo (CC-03, fases A y B). Los datos salen de prisma/demo/datos-sst.ts.
+  cap('sst', async () => {
+    const trabajadores = await llamar('/trabajadores');
+    const maestro = trabajadores.find((x) => x.cargo === 'Maestro de obra');
+    const incompleto = trabajadores.find((x) => x.documento === '1000000503') ?? trabajadores[3];
+    const fichaMaestro = '/sst/trabajadores/' + maestro.id;
+    const fichaIncompleto = '/sst/trabajadores/' + incompleto.id;
+
+    await ir('/sst', 2200);
+    await foto('sst-trabajadores', 'Seguridad y salud: trabajadores y sus alertas', { alto: 1000, marcas: [
+      { t: 'Trabajadores', n: 1, sel: 'nav[aria-label] a[href="/sst"]', r: 'Las pestañas del módulo: trabajadores, EPP, plan de trabajo, capacitaciones y avisos.' },
+      { t: 'Con alguna alerta', n: 2, caja: true, tag: 'P|SPAN|DIV', r: 'Cuántos trabajadores tienen algo por completar.' },
+      { sel: 'input[placeholder="Buscar por nombre o documento"]', n: 3, r: 'Busca a un trabajador por su nombre o su documento.' },
+      { t: 'Parámetros y entidades', n: 4, r: 'Solo el gerente: valores legales del año y entidades de seguridad social.' },
+    ] });
+    await foto('sst-ficha', 'Ficha de seguridad social de un trabajador', { alto: 1200, antes: async () => { await ir(fichaMaestro, 2000); }, marcas: [
+      { t: 'Ver ficha de nómina', n: 1, r: 'Pasa a la ficha de nómina del mismo trabajador (solo para quien tiene permiso).' },
+      { t: 'Datos del trabajador', n: 2, tag: 'H2|H3', r: 'Documento, cargo, tipo de contrato y datos de contacto.' },
+      { t: 'Valores legales de 2026', n: 3, tag: 'H2|H3', r: 'Se calculan con los parámetros legales del año; el aviso amarillo indica que aún no están validados.' },
+      { t: 'Afiliaciones a la seguridad social', n: 4, tag: 'H2|H3', r: 'La entidad vigente de cada tipo: EPS, pensión, cesantías, ARL y caja.' },
+    ] });
+    await foto('sst-afiliacion-pendiente', 'Afiliaciones por completar', { alto: 1000, antes: async () => { await ir(fichaIncompleto, 2000); }, desplazar: 'Afiliaciones a la seguridad social', marcas: [
+      { t: 'Sin afiliación vigente', n: 1, r: 'Falta registrar esta afiliación.' },
+      { t: 'Registrar', n: 2, tag: 'BUTTON', r: 'Registra la entidad a la que está afiliado.' },
+      { t: 'Cambiar', n: 3, tag: 'BUTTON', r: 'Cambia de entidad; la anterior se cierra sola y queda en el historial.' },
+      { t: 'Cerrar', n: 4, tag: 'BUTTON', r: 'Cierra la afiliación cuando el trabajador deja la entidad.' },
+    ] });
+    await foto('sst-afiliacion-form', 'Formulario para registrar una afiliación', { alto: 900, antes: async () => { await ir(fichaIncompleto, 2000); await clicDespuesDe('Fondo de pensión', 'Registrar'); await pausa(600); }, desplazar: 'Afiliaciones a la seguridad social', marcas: [
+      { campo: 'Fondo de pensión', n: 1, r: 'Elige la entidad de la lista.' },
+      { campo: 'Afiliado desde', n: 2, r: 'La fecha en que empezó la afiliación.' },
+      { t: 'Guardar afiliación', n: 3, tag: 'BUTTON', r: 'Guarda la afiliación; queda en el historial del trabajador.' },
+    ] });
+    await foto('sst-autorizacion', 'Autorización de datos de salud y documentos', { alto: 1000, antes: async () => { await ir(fichaMaestro, 2000); }, desplazar: 'Autorización de datos de salud', marcas: [
+      { t: 'Autorización de datos de salud', n: 1, r: 'Se registra que el trabajador autorizó por escrito el uso de sus datos de salud.' },
+      { t: 'Documentos', n: 2, tag: 'H2|H3', r: 'Certificados de afiliación y otros soportes: PDF, PNG o JPG de hasta 10 MB.' },
+    ] });
+
+    await ir('/sst/epp', 2200);
+    await foto('sst-epp', 'Elementos de protección personal: reposiciones', { alto: 1000, marcas: [
+      { t: 'Lo que pide atención', n: 1, r: 'Los elementos por reponer o vencidos, con su fecha de reposición.' },
+      { t: 'Registrar entrega de EPP', n: 2, tag: 'BUTTON', r: 'Registra la entrega de un elemento a un trabajador.' },
+    ] });
+    await foto('sst-epp-entrega', 'Formulario para registrar una entrega de EPP', { alto: 1000, antes: async () => { await ir('/sst/epp', 1800); await nav.clicTexto('Registrar entrega de EPP', 'button'); await pausa(600); }, marcas: [
+      { campo: 'Trabajador', n: 1, r: 'Quién recibe el elemento.' },
+      { campo: 'Elemento', n: 2, r: 'Del catálogo; debajo aparece su vida útil.' },
+      { campo: 'Motivo', n: 3, r: 'Dotación inicial, reposición, daño, pérdida o cambio de cargo.' },
+      { campo: 'Acta firmada', n: 4, r: 'Adjunta el acta firmada, si la hay.' },
+    ] });
+    await foto('sst-epp-entregas', 'Entregas de EPP registradas', { alto: 1000, antes: async () => { await ir('/sst/epp', 2000); }, desplazar: 'Entregas', marcas: [
+      { t: 'Entregas', n: 1, tag: 'H2|H3', r: 'Cada entrega con su acta. No se editan ni se borran: se anulan con motivo.' },
+      { t: 'Incluir anuladas', n: 2, tag: 'LABEL', r: 'Muestra también las entregas anuladas.' },
+      { t: 'Ver', n: 3, tag: 'BUTTON|A', r: 'Abre la entrega: su acta, la firma y la anulación.' },
+    ] });
+    await foto('sst-epp-catalogo', 'Catálogo de elementos de protección', { alto: 1000, antes: async () => { await ir('/sst/epp', 2000); await nav.clicTexto('Catálogo de elementos'); await pausa(500); }, desplazar: 'Catálogo de elementos', marcas: [
+      { t: 'Catálogo de elementos', n: 1, tag: 'SUMMARY', r: 'La lista de elementos que se pueden entregar, con su vida útil en días y un botón para desactivarlos.' },
+    ] });
+
+    await ir('/sst/plan', 2200);
+    await foto('sst-plan', 'Plan de trabajo anual con su cronograma', { alto: 1100, ancho: 1500, marcas: [
+      { t: 'Cumplimiento', n: 1, caja: true, tag: 'P|SPAN|DIV', r: 'Qué porcentaje de las actividades ya se ejecutó.' },
+      { t: 'Nueva actividad', n: 2, tag: 'BUTTON', r: 'Agrega una actividad al plan del año.' },
+      { t: 'Copiar de otro', n: 3, tag: 'BUTTON', r: 'Copia el plan de un año como borrador del siguiente.' },
+    ] });
+    await foto('sst-plan-actividad', 'Formulario de una actividad del plan', { alto: 1100, antes: async () => { await ir('/sst/plan', 1800); await nav.clicTexto('Nueva actividad', 'button'); await pausa(600); }, marcas: [
+      { campo: 'Ciclo PHVA', n: 1, r: 'Planear, hacer, verificar o actuar.' },
+      { campo: 'Correo del responsable', n: 2, r: 'A este correo llegan los recordatorios.' },
+      { campo: 'Fecha de fin', n: 3, r: 'Debe caer dentro del año del plan.' },
+    ] });
+
+    await ir('/sst/capacitaciones', 2200);
+    await foto('sst-capacitaciones', 'Plan de capacitación del año', { alto: 1000, marcas: [
+      { t: 'Cobertura de las ejecutadas', n: 1, caja: true, tag: 'P|SPAN|DIV', r: 'Asistentes reales sobre asistentes programados.' },
+      { t: 'Nueva capacitación', n: 2, tag: 'BUTTON', r: 'Programa una capacitación.' },
+    ] });
+    const cdet = await enlaceDe('main a', 'Trabajo seguro en alturas');
+    await foto('sst-capacitacion', 'Asistencia a una capacitación', { alto: 1200, antes: async () => { await ir(cdet, 2000); }, marcas: [
+      { t: 'Agregar asistentes', n: 1, tag: 'BUTTON', r: 'Marca a varios trabajadores y regístralos juntos.' },
+      { t: 'Cobertura', n: 2, caja: true, tag: 'P|SPAN|DIV', r: 'Asistentes reales sobre asistentes programados.' },
+      { t: 'Quitar', n: 3, tag: 'BUTTON|A', r: 'Anula una asistencia con motivo; no se borra.' },
+    ] });
+    await foto('sst-asistentes', 'Agregar varios asistentes de una vez', { alto: 1100, antes: async () => { await ir(cdet, 1800); await nav.clicTexto('Agregar asistentes', 'button'); await pausa(600); }, desplazar: 'Asistencia', marcas: [
+      { sel: 'input[placeholder="Buscar por nombre o documento"]', n: 1, r: 'Busca al trabajador.' },
+    ] });
+
+    await ir('/sst/avisos', 2200);
+    // La demostración no tiene correo configurado: los avisos quedan "omitidos" y no sale nada a nadie.
+    await nav.clicTexto('Enviar avisos ahora', 'button');
+    await nav.esperarCarga(2500);
+    await foto('sst-avisos', 'Avisos por correo y su historial', { alto: 900, marcas: [
+      { t: 'Enviar avisos ahora', n: 1, tag: 'BUTTON', r: 'Envía ya los avisos que el sistema enviaría solo cada mañana.' },
+      { t: 'Historial', n: 2, tag: 'H2|H3', r: 'Cada intento con su resultado. No se puede editar.' },
+    ] });
+
+    await ir('/configuracion/seguridad-social', 2500);
+    await foto('sst-parametros', 'Parámetros legales por año', { alto: 1100, marcas: [
+      { t: 'Agregar año', n: 1, tag: 'BUTTON', r: 'Cada año tiene sus propios valores legales.' },
+      { t: 'Pendiente de validar', n: 2, r: 'Los valores aún no los confirma el asesor laboral.' },
+      { t: 'Marcar como validado', n: 3, tag: 'BUTTON', r: 'Se pulsa cuando el asesor laboral confirmó los valores.' },
+      { t: 'Editar', n: 4, tag: 'BUTTON', r: 'Cambia los valores del año; al cambiar uno, se pierde la validación.' },
+    ] });
+    await foto('sst-entidades', 'Entidades de seguridad social y clases de riesgo', { alto: 1100, antes: async () => { await nav.clicTexto('EPS (salud)'); await pausa(500); }, desplazar: 'Entidades', marcas: [
+      { t: 'EPS (salud)', n: 1, tag: 'SUMMARY', r: 'Cada tipo de entidad se abre para ver sus entidades.' },
+      { sel: 'input[placeholder="Nombre de la entidad"]', n: 2, r: 'Escribe el nombre y pulsa Agregar para sumar una EPS, un fondo, una ARL o una caja.' },
+      { t: 'Desactivar', n: 3, tag: 'BUTTON', r: 'Una entidad no se borra: se desactiva y deja de ofrecerse.' },
+    ] });
+    await ir('/configuracion', 2000);
+    await foto('config-sst', 'Configuración: seguridad y salud en el trabajo', { alto: 700, desplazar: 'Seguridad y salud en el trabajo', marcas: [
+      { campo: 'Días de anticipación de las alertas', n: 1, r: 'Con cuántos días de aviso se marca como próxima una reposición, actividad o capacitación.' },
+      { campo: 'Correo de avisos SST', n: 2, r: 'A dónde llega el resumen de EPP por reponer. Vacío: solo se ve en el panel.' },
+    ] });
+
+    // Rol de solo seguridad y salud: lo ve el contratista externo.
+    const tCont = await token('Contratista');
+    await conSesion(tCont);
+    await ir('/sst', 2200);
+    await foto('rol-contratista', 'Menú del rol Contratista SST', { conMenu: true, alto: 900 });
+    await conSesion(tokenGerente);
   }),
 
   cap('operaciones', async () => {

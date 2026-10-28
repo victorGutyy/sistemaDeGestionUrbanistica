@@ -13,9 +13,9 @@
 
 TITULO = "Manual de usuario del Sistema de gestión de urbanismo"
 SUBTITULO = "Guía paso a paso para vender lotes, registrar abonos, cuidar la caja y entender las finanzas"
-AUTOR = "Víctor [apellidos]"
+AUTOR = "Victor Alfonso Gutierrez Lopez"
 EDICION = "Edición para Balder Ingeniería y Mantenimiento SAS"
-VERSION = "Versión 1.0"
+VERSION = "Versión 1.1"
 FECHA = "Octubre de 2026"
 
 C = []  # contenido
@@ -37,7 +37,7 @@ def apendice(t): C.append(("apendice", t))
 # =====================================================================  PRESENTACIÓN
 C.append(("presentacion", "Presentación"))
 p("Este manual explica, con palabras sencillas y con imágenes del propio sistema, cómo usar cada parte del Sistema de gestión de urbanismo. Está pensado para cualquier persona de la empresa, sin importar su experiencia con computadores: si sabes usar WhatsApp en el celular, puedes aprender a usar este sistema.")
-p("El sistema sirve para una empresa que compra terrenos grandes, los divide en lotes y los vende de contado o con financiación propia. Ayuda a registrar los pagos de los clientes, entregar recibos, cuidar la caja, ver quién está atrasado y rendir cuentas a los socios. También lleva proyectos de remodelación y de maquinaria.")
+p("El sistema sirve para una empresa que compra terrenos grandes, los divide en lotes y los vende de contado o con financiación propia. Ayuda a registrar los pagos de los clientes, entregar recibos, cuidar la caja, ver quién está atrasado y rendir cuentas a los socios. También lleva proyectos de remodelación y de maquinaria, y ayuda a cuidar al personal: sus afiliaciones a la seguridad social, los elementos de protección, el plan de trabajo y las capacitaciones de seguridad y salud en el trabajo.")
 h2("Cómo está organizado")
 p("Cada capítulo corresponde a una opción del menú del sistema y sigue el mismo orden: para qué sirve, quién puede usarlo, qué ventajas te da, los pasos explicados con imágenes y algunos consejos. Al final encontrarás un cuadro con lo que puede hacer cada rol, un glosario, las preguntas frecuentes y una guía para resolver problemas.")
 h2("Cómo leer las imágenes")
@@ -45,9 +45,9 @@ ul("Los **círculos rojos con un número** señalan el botón, el campo o la zon
    "Los cuadros de **Consejo** te ayudan a trabajar mejor. Los cuadros de **Importante** te avisan de algo que no se puede deshacer o que conviene hacer con cuidado.",
    "Todas las imágenes usan **datos de demostración inventados** (personas, documentos, teléfonos y valores ficticios). Ningún dato real de la empresa ni de sus clientes aparece en este manual.")
 h2("Esta versión del manual")
-p("Este manual describe el sistema tal como está hoy. Cuando se agreguen funciones nuevas, el manual se actualizará y cambiará el número de versión que aparece en la portada.")
+p("Este manual describe el sistema tal como está hoy. La versión 1.1 agrega el capítulo de Seguridad y salud en el trabajo y los cambios que ese módulo trajo a Nómina, Usuarios y roles y Configuración. Cuando se agreguen funciones nuevas, el manual se actualizará y cambiará el número de versión que aparece en la portada.")
 h2("Qué cambia según tu rol")
-p("No todas las personas ven todas las opciones. El menú se adapta al rol que tiene tu cuenta (Gerente, Administrador o Consulta). Si en este manual lees una opción que no aparece en tu menú, es porque tu rol no la incluye. En el Apéndice A hay un cuadro completo.")
+p("No todas las personas ven todas las opciones. El menú se adapta al rol que tiene tu cuenta (Gerente, Administrador, Consulta o Contratista SST). Si en este manual lees una opción que no aparece en tu menú, es porque tu rol no la incluye. En el Apéndice A hay un cuadro completo.")
 
 # =====================================================================  1
 cap("Conoce el sistema")
@@ -67,6 +67,7 @@ tabla("roles", "Roles del sistema y sus responsabilidades", ["Rol", "Para qué s
     ["Gerente", "Control total: configuración, usuarios, aprobaciones (ventas con excepción, cierres de caja, anulaciones) y auditoría."],
     ["Administrador", "Operación diaria: ventas, abonos, egresos, cierres de caja y personal. Ve todos los proyectos."],
     ["Consulta", "Solo mira: no cambia nada. Puede ver todos los proyectos o solo algunos (por ejemplo, un socio que solo sigue un proyecto)."],
+    ["Contratista SST", "Persona externa encargada de la seguridad y salud en el trabajo. Solo ve y trabaja el módulo de Seguridad y salud: no ve dinero, salarios, clientes ni proyectos."],
     ["Cliente comprador", "No ingresa al sistema. Recibe sus recibos, recordatorios y avisos por correo o WhatsApp."],
     ["Sistema", "Hace solo las tareas automáticas: recordatorios de pago, avisos de mora y numeración de recibos."],
 ], [24, 76], "Nota. Los permisos de cada rol se detallan en el Apéndice A.")
@@ -120,6 +121,7 @@ p("La sección **Finanzas** tiene cinco tarjetas: ingresos por ventas, ingresos 
 h3("Leer los pendientes y la cartera")
 p("Más abajo, la {fig:panel-pendientes} muestra los pendientes y la cartera. La tarjeta de **cierres de caja por aprobar** (1) cuenta los cierres que esperan la decisión del gerente. La de **pagos por verificar contra el extracto** (2) se pone roja cuando hay pagos esperando demasiado tiempo. En **Cartera**, la **cartera vencida** (3) es el dinero que los clientes ya debieron pagar, y el **interés de mora** (4) es el interés que ese atraso va acumulando.")
 fig("panel-pendientes")
+p("Si tu rol ve la seguridad y salud en el trabajo, al comienzo de los pendientes aparecen dos tarjetas más. **Gestión SST por atender** suma los elementos de protección por reponer y las actividades del plan y las capacitaciones que están próximas o vencidas. **Trabajadores con seguridad social por completar** cuenta a quienes todavía tienen alguna afiliación sin registrar, no tienen el certificado de afiliación o no han dado su autorización de datos de salud. Al tocarlas llegas al módulo de Seguridad y salud, que se explica en el capítulo 16.")
 p("Debajo están los **lotes por estado** (disponibles, separados, vendidos, escriturados y desistidos) y una tabla **por proyecto** con la caja neta, la cartera vencida, lo que está por vencer y el interés de mora de cada uno.")
 fig("panel-lotes")
 h3("Ver un solo proyecto")
@@ -475,20 +477,95 @@ h2("Qué ventajas te da")
 ul("Cada pago guarda su período, su fecha, su medio y sus novedades.",
    "Los pagos de nómina se suman solos a los egresos de la empresa.",
    "Queda el historial de pagos de cada trabajador.")
-importante("El sistema **registra** los pagos, pero no liquida la nómina: no calcula seguridad social, prestaciones ni transmite nómina electrónica. Eso lo sigue haciendo quien lleva la contabilidad de la empresa.")
+importante("El sistema **registra** los pagos, pero no liquida la nómina: no calcula aportes de seguridad social ni prestaciones, ni transmite nómina electrónica. Eso lo sigue haciendo quien lleva la contabilidad de la empresa. Las afiliaciones de cada trabajador (EPS, pensión, cesantías, ARL y caja) sí se registran, en el módulo de Seguridad y salud en el trabajo que se explica en el capítulo 16.")
 h2("Paso a paso")
 h3("Ver los trabajadores y registrar uno nuevo")
 p("La opción **Nómina** ({fig:nomina-lista}) lista los trabajadores con su cargo, su salario base y su estado. Para agregar uno pulsa **Nuevo trabajador** (1), y para ver sus pagos toca su nombre (2).")
 fig("nomina-lista")
-p("En el formulario de la {fig:trabajador-nuevo} escribe el nombre, el documento, el **cargo** (1), el **salario base** (2) y la fecha de ingreso; el teléfono y el correo son opcionales. Guarda con **Registrar trabajador** (3).")
+p("En el formulario de la {fig:trabajador-nuevo} elige el tipo de documento y escribe su número, los **nombres** y los **apellidos** (si lo prefieres, escribe el nombre completo y el sistema lo arma solo). Luego completa el **cargo** (1), el tipo de contrato (por defecto, obra o labor), el **salario base** (2) y la fecha de ingreso. La fecha de nacimiento, el sexo, el área, el celular, el teléfono y el correo son opcionales, pero conviene llenarlos: la ficha de seguridad social los usa. Guarda con **Registrar trabajador** (3).")
 fig("trabajador-nuevo")
+consejo("Después de registrar al trabajador, entra a su ficha de seguridad social y registra sus afiliaciones. Mientras falten, el panel lo marca como pendiente.")
 h3("Registrar un pago de nómina")
-p("Abre la ficha del trabajador ({fig:trabajador-ficha}). Allí ves sus pagos anteriores (período, fecha de pago, novedades y valor pagado). Pulsa **Registrar pago** (1).")
+p("Abre la ficha del trabajador ({fig:trabajador-ficha}). Allí ves sus datos y sus pagos anteriores (período, fecha de pago, novedades y valor pagado). Pulsa **Registrar pago** (1). Con **Editar** (2) corriges sus datos; el número de documento no se cambia, porque es la identidad del trabajador. **Ver en SST** (3) abre su ficha de seguridad y salud, y **Retirar trabajador** (4) registra la fecha y el motivo del retiro: el trabajador no se borra, queda como retirado con todo su historial.")
 fig("trabajador-ficha")
 p("En el formulario de la {fig:pago-nomina-nuevo} indica el período que se paga, desde (1) hasta (2), la fecha de pago y el medio de pago. El salario base se toma del trabajador en ese momento. Si hay horas extras, bonos o descuentos, pulsa **+ Agregar novedad** (3). Termina con **Registrar pago** (4).")
 fig("pago-nomina-nuevo")
 
 # =====================================================================  16
+cap("Seguridad y salud en el trabajo")
+p("Este módulo ayuda a cuidar al personal y a tener en orden los papeles de seguridad y salud: a qué entidades está afiliado cada trabajador, qué elementos de protección se le entregaron y cuándo toca reponerlos, qué actividades tiene el plan de trabajo del año y qué capacitaciones se dictaron.")
+h2("Para qué sirve")
+p("Reemplaza las hojas de cálculo y los cuadernos donde hoy se anota todo esto. Cada dato queda con su fecha y con quién lo registró, y el sistema avisa solo cuando algo está por vencerse, para que nada se olvide.")
+h2("Quién puede usarlo")
+ul("**Gerente y administrador:** ven y trabajan todo el módulo. El administrador también registra las afiliaciones de los trabajadores.",
+   "**Contratista SST:** la persona externa que lleva la seguridad y salud de la empresa. Ve el módulo completo y trabaja los elementos de protección, el plan de trabajo, las capacitaciones y las autorizaciones y documentos de cada trabajador. No ve salarios, dinero ni proyectos.",
+   "**Consulta:** no ve este módulo.",
+   "**Parámetros y entidades** (valores legales del año, entidades y clases de riesgo): solo el gerente los cambia.")
+h2("Qué ventajas te da")
+ul("Ves de un vistazo qué trabajadores tienen afiliaciones, certificados o autorizaciones por completar.",
+   "Sabes qué elementos de protección están por reponerse o vencidos, según su vida útil.",
+   "El plan de trabajo del año se ve como un cronograma de colores, y las actividades próximas o vencidas se marcan solas.",
+   "Cada capacitación guarda quién asistió, quién firmó y qué calificación sacó, y calcula la cobertura.",
+   "El sistema manda avisos por correo cada mañana, una sola vez por estado, para no llenar de mensajes a nadie.",
+   "Nada se borra: lo que se hizo por error se anula o se cierra con su motivo, y queda en el historial.")
+importante("Esta herramienta **ayuda a llevar el control**, pero no certifica que la empresa cumpla la ley. Los valores legales (salario mínimo, auxilio de transporte, tasas de la ARL) los escribe la empresa y deben ser revisados por su asesor laboral; mientras no estén validados, el sistema lo avisa. Tampoco liquida la nómina, ni reporta nada a la EPS, la ARL o el fondo de pensión, ni registra todavía incapacidades, exámenes médicos o accidentes.")
+importante("La **autorización de datos de salud** es un dato sensible protegido por la Ley 1581 de 2012. El sistema permite registrar que el trabajador la dio por escrito y adjuntar el documento firmado.")
+h2("Paso a paso")
+h3("Trabajadores y sus pendientes")
+p("La opción **Seguridad y salud** del menú abre la {fig:sst-trabajadores}. Arriba están las pestañas del módulo (1): Trabajadores, EPP, Plan de trabajo, Capacitaciones y Avisos. En las pestañas aparece, con un número amarillo, cuántas cosas hay por atender. Las tarjetas resumen cuántos trabajadores tienen alguna alerta (2): sin afiliación completa, sin certificado de afiliación o sin autorización de datos de salud. Para buscar a una persona escribe su nombre o su documento (3). El botón **Parámetros y entidades** (4) lo ve solo el gerente.")
+fig("sst-trabajadores")
+p("En la tabla, cada afiliación aparece como una etiqueta: **verde** si el trabajador ya la tiene (EPS, pensión, cesantías, ARL y caja) y **gris** si falta. En la columna **Pendientes** se lee en amarillo lo que hay que completar. Hoy el sistema espera las cinco afiliaciones de todo trabajador activo, salvo en los contratos de prestación de servicios. Toca el nombre de un trabajador para abrir su ficha.")
+h3("La ficha de seguridad social")
+p("La ficha ({fig:sst-ficha}) reúne todo lo de una persona. Arriba están sus datos (2) y, si tienes permiso, el botón para pasar a su ficha de nómina (1). Más abajo, los **valores legales** del año (3), por ejemplo la tasa de cotización a la ARL según su clase de riesgo, y las **afiliaciones** (4). El aviso amarillo de los valores legales significa que el asesor laboral todavía no ha validado los parámetros del año: tómalos como provisionales.")
+fig("sst-ficha")
+h3("Registrar, cambiar y cerrar una afiliación")
+p("En la sección de afiliaciones ({fig:sst-afiliacion-pendiente}) hay una fila por cada tipo de entidad. Si falta alguna, ves el aviso **Sin afiliación vigente** (1) y el botón **Registrar** (2). Si ya existe, puedes **Cambiar** (3) de entidad o **Cerrar** (4) la afiliación cuando el trabajador sale de ella.")
+fig("sst-afiliacion-pendiente")
+p("Al pulsar **Registrar** se abre el formulario de la {fig:sst-afiliacion-form}. Elige la entidad de la lista (1), escribe desde qué fecha está afiliado (2) y guarda con **Guardar afiliación** (3). En la ARL, el formulario también pide la **clase de riesgo**, de donde sale la tasa de cotización.")
+fig("sst-afiliacion-form")
+consejo("Cuando cambias a un trabajador de entidad, la anterior se cierra sola el día antes y queda en el historial. Si registraste una afiliación por error no se borra: ciérrala y registra la correcta.")
+h3("Autorización de datos de salud y documentos")
+p("En la {fig:sst-autorizacion} están dos secciones. En **Autorización de datos de salud** (1) se registra que el trabajador autorizó por escrito el tratamiento de sus datos de salud; se puede retirar la autorización si él lo pide. En **Documentos** (2) se adjuntan los certificados de afiliación, la autorización firmada y otros soportes, en PDF, PNG o JPG de hasta 10 MB. Los documentos se conservan siempre y solo se descargan con la sesión iniciada y el permiso correspondiente. El contratista SST no ve ni sube contratos.")
+fig("sst-autorizacion")
+h3("Elementos de protección personal (EPP)")
+p("La pestaña **EPP** ({fig:sst-epp}) muestra tres tarjetas: los elementos **vencidos**, los que están **por reponer** (por defecto, con 15 días de anticipación) y los **vigentes**. Debajo, la lista de **Reposiciones** trae la última entrega de cada trabajador y elemento, con su fecha de reposición. El filtro (1) elige qué ver: lo que pide atención, solo vencidos, solo por reponer, solo vigentes o todos. **Registrar entrega de EPP** (2) abre el formulario, y el botón **Reponer** de cada fila lo abre ya con el trabajador y el elemento elegidos.")
+fig("sst-epp")
+p("En el formulario de la {fig:sst-epp-entrega} elige el **trabajador** (1) y el **elemento** (2); debajo del elemento aparece su vida útil. Escribe la fecha de entrega (no puede ser futura), la cantidad, la talla o referencia y el **motivo** (3): dotación inicial, reposición por vida útil, por daño, por pérdida o por cambio de cargo. Si ya tienes el acta firmada, adjúntala en **Acta firmada** (4); si el trabajador ya firmó el recibido, marca la casilla.")
+fig("sst-epp-entrega")
+p("Las entregas quedan en la lista de la {fig:sst-epp-entregas} (1), que puedes filtrar por trabajador y elemento. Una entrega **no se edita ni se borra**: si hubo un error, ábrela con **Ver** (3), anúlala con su motivo y registra la correcta. Las anuladas se ven marcando **Incluir anuladas** (2). Dentro de una entrega también puedes adjuntar el acta y marcar que el trabajador firmó el recibido.")
+fig("sst-epp-entregas")
+p("Al final de la pestaña está el **catálogo de elementos** ({fig:sst-epp-catalogo}). Cada elemento tiene su **vida útil en días**, que el sistema usa para calcular la fecha de reposición. Puedes cambiar los días, agregar elementos nuevos y desactivar los que ya no uses. Cambiar la vida útil no mueve las reposiciones de entregas anteriores: cada entrega guarda la vida útil que tenía el día que se hizo.")
+fig("sst-epp-catalogo")
+importante("Los elementos y los días de vida útil que trae el catálogo son una **referencia**. Ajústalos con la ficha técnica del fabricante y con la matriz de EPP de la empresa.")
+h3("Plan de trabajo anual")
+p("La pestaña **Plan de trabajo** ({fig:sst-plan}) muestra el plan del año. Arriba eliges el año y, si quieres, un estado. Las tarjetas dan el **cumplimiento** (1), el avance promedio, las actividades vencidas y las próximas. En la tabla, cada actividad trae su ciclo (planear, hacer, verificar o actuar), el estándar al que aporta, el responsable, las fechas, el estado, el avance y un **cronograma por meses**: azul si está en ejecución, verde si ya se ejecutó, rojo si está vencida y gris si está programada. Con **Editar** y **Detalle** abres cada actividad y adjuntas sus evidencias.")
+fig("sst-plan")
+p("**Nueva actividad** (2) abre el formulario de la {fig:sst-plan-actividad}. Elige el **ciclo** (1), escribe el estándar o componente, la actividad y una meta que se pueda medir. Indica el responsable y su **correo** (2), porque ahí llegan los recordatorios, y las fechas de inicio y de fin (3), que deben caer dentro del año del plan. Los recursos y el presupuesto son opcionales.")
+fig("sst-plan-actividad")
+p("Para empezar un año nuevo no hace falta escribir todo otra vez: **Copiar de otro año** (3 en la {fig:sst-plan}) trae las actividades de un año como borrador del siguiente. Solo se puede copiar sobre un año vacío. Una actividad no se borra: si ya no se hará, se pasa a **Cancelada**.")
+h3("Capacitaciones")
+p("La pestaña **Capacitaciones** ({fig:sst-capacitaciones}) lista las del año con su fecha, su facilitador, su estado y su asistencia. La **cobertura** (1) compara los asistentes reales con los programados en las capacitaciones ya dictadas. Para programar una pulsa **Nueva capacitación** (2) y completa el tema, el objetivo, a quién va dirigida, la modalidad, las horas, la fecha, el facilitador con su correo, quién la ejecuta (la propia empresa, la ARL, un proveedor externo o el SENA) y cuántos asistentes se esperan.")
+fig("sst-capacitaciones")
+p("Al tocar el tema de una capacitación se abre su detalle ({fig:sst-capacitacion}). La sección **Asistencia** calcula la **cobertura** (2): asistentes reales sobre programados. Cada asistente muestra si firmó el listado y su calificación de 0 a 5. Si alguien quedó anotado por error, **Quitar** (3) anula su asistencia con un motivo, sin borrarla. Para sumar gente pulsa **Agregar asistentes** (1).")
+fig("sst-capacitacion")
+p("**Agregar asistentes** abre la lista de la {fig:sst-asistentes}. Busca por nombre o documento (1), marca a los trabajadores que asistieron, indica si todos firmaron y pulsa **Registrar** con el número de asistentes. Así se carga una cuadrilla completa de una sola vez, sin repetir a quienes ya estaban. Más abajo se adjunta el **listado de asistencia firmado**, las fotos o la evaluación.")
+fig("sst-asistentes")
+h3("Avisos por correo")
+p("Cada mañana, a las 8:10 (hora de Colombia), el sistema avisa por correo al responsable de cada actividad del plan y de cada capacitación cuando queda **próxima** y cuando se **vence**, y manda un resumen de los EPP por reponer al correo de avisos de SST que se define en Configuración. Cada aviso sale **una sola vez por estado**. En la pestaña **Avisos** ({fig:sst-avisos}) puedes pulsar **Enviar avisos ahora** (1) para no esperar a la mañana, y consultar en el **historial** (2) cada intento con su resultado: enviado, omitido o fallido. El historial no se puede editar.")
+fig("sst-avisos")
+consejo("Si el correo de la empresa todavía no está configurado, los avisos quedan como **omitidos** y salen solos cuando se configure. Mientras tanto, las alertas se ven en las pestañas y en el panel general.")
+h3("Parámetros legales, entidades y clases de riesgo")
+p("Solo el gerente entra a **Parámetros y entidades** (también está en Configuración). La primera sección ({fig:sst-parametros}) guarda los valores legales **de cada año**: salario mínimo, auxilio de transporte y su tope, los porcentajes y los días de las incapacidades, y los días base del mes. **Agregar año** (1) crea el del año siguiente. Cada año muestra si está **pendiente de validar** (2). Cuando el asesor laboral confirma los valores, el gerente pulsa **Marcar como validado** (3). Con **Editar** (4) se cambian los valores; si cambias un valor legal, la validación se pierde y hay que volver a confirmarla.")
+fig("sst-parametros")
+p("La segunda sección ({fig:sst-entidades}) es el catálogo de **entidades**: EPS, fondos de pensión, fondos de cesantías, ARL y cajas de compensación. Abre cada tipo (1) para ver su lista, agrega una escribiendo su nombre (2) y **Desactivar** (3) las que ya no se usen: una entidad desactivada deja de ofrecerse, pero las afiliaciones que la tienen la conservan. La tercera sección guarda las cinco **clases de riesgo de la ARL** con su tasa de cotización en porcentaje.")
+fig("sst-entidades")
+p("Dos valores del módulo se cambian en Configuración, en la sección **Seguridad y salud en el trabajo** ({fig:config-sst}): los **días de anticipación** de las alertas (1), que por defecto son 15, y el **correo de avisos SST** (2) al que llega el resumen de EPP por reponer. Si dejas el correo vacío, ese resumen solo se ve en el panel.")
+fig("config-sst")
+h3("Lo que ve el contratista SST")
+p("Una persona con el rol Contratista SST entra al sistema y ve solamente la opción **Seguridad y salud** en su menú ({fig:rol-contratista}). Puede consultar a los trabajadores y sus afiliaciones, registrar las autorizaciones de datos de salud, adjuntar documentos y trabajar los elementos de protección, el plan de trabajo y las capacitaciones. No ve salarios, pagos, clientes, ventas ni proyectos. El gerente crea esta cuenta en Usuarios, como se explica en el capítulo 19.")
+fig("rol-contratista")
+
+# =====================================================================  17
 cap("Auditoría")
 p("La auditoría es el registro de todo lo importante que se hace en el sistema: quién lo hizo, cuándo, qué cambió y qué valores tenía antes y después.")
 h2("Para qué sirve")
@@ -537,7 +614,8 @@ h2("Paso a paso")
 h3("Ver y crear usuarios")
 p("La opción **Usuarios** ({fig:usuarios-lista}) lista las cuentas con su rol, su estado y su último ingreso. Para crear una pulsa **Nuevo usuario** (1). En cada cuenta puedes **Editar** (2) o **Desactivar** (3).")
 fig("usuarios-lista")
-p("En el formulario de la {fig:usuario-nuevo} escribe el nombre, el **correo** (1) con el que ingresará la persona, una **contraseña** de mínimo 8 caracteres (2) y elige el **rol** (3). Entrégale la contraseña por un medio seguro.")
+p("Además del gerente, el administrador y la consulta, hay un rol para la persona externa que lleva la seguridad y salud: el **Contratista SST**. Al crear su cuenta, elígelo en el campo **Rol**. Esa persona ve solo el módulo de Seguridad y salud en el trabajo (capítulo 16), sin salarios, dinero ni proyectos.")
+p("En el formulario de la {fig:usuario-nuevo} escribe el nombre, el **correo** (1) con el que ingresará la persona, una **contraseña** de mínimo 8 caracteres (2) y elige el **rol** (3): gerente, administrador, consulta o contratista SST. Entrégale la contraseña por un medio seguro.")
 fig("usuario-nuevo")
 h3("Cambiar el rol o limitar los proyectos")
 p("Al editar un usuario ({fig:usuario-editar}) puedes cambiar su rol; el cambio aplica de inmediato. Si el rol es Consulta, puedes elegir **Solo algunos proyectos** (1) y marcar cuáles ve. Una persona limitada no ve datos de otros proyectos, ni nómina, ni configuración.")
@@ -567,6 +645,7 @@ fig("config-parametros")
 p("Más abajo están los **avisos a clientes**, la **verificación de pagos** y la **seguridad de la sesión** ({fig:config-avisos} y {fig:config-seguridad}): cuántos días antes se manda el recordatorio, cada cuántos días se repite el aviso de mora, si el recibo se manda solo por correo, cuántos días de espera antes de que un pago sin verificar se ponga en rojo, cuántos intentos fallidos bloquean una cuenta y cuántos minutos de inactividad cierran la sesión. Todo se guarda con **Guardar parámetros**.")
 fig("config-avisos")
 fig("config-seguridad")
+p("En esa misma sección están los parámetros de **Seguridad y salud en el trabajo**: con cuántos días de anticipación se marcan como próximas las reposiciones de EPP, las actividades del plan y las capacitaciones, y el correo al que llega el resumen de EPP por reponer. Se explican, con su imagen, en el capítulo 16. Los valores legales por año (salario mínimo, auxilio de transporte, tasas de la ARL) y las entidades de seguridad social se editan en una pantalla aparte: en Configuración está la sección **Seguridad social**, con el botón **Administrar seguridad social**.")
 h3("Correo de avisos")
 p("La sección **Correo de avisos** ({fig:config-correo}) muestra si el correo de la empresa está configurado. El correo se configura en el servidor, no aquí; en esta pantalla solo compruebas que funciona: escribe una dirección a la que tengas acceso y pulsa **Enviar correo de prueba** (1).")
 fig("config-correo")
@@ -585,57 +664,71 @@ fig("config-exportar")
 apendice("Qué puede hacer cada rol")
 p("La {tabla:permisos} resume los permisos de cada rol. Un guion significa que el rol no tiene esa función.")
 SI, NO = "Sí", "—"
-tabla("permisos", "Permisos por rol", ["Función", "Gerente", "Administrador", "Consulta"], [
-    ["Ver panel general, proyectos, ventas, clientes y recibos", SI, SI, SI + " (solo sus proyectos)"],
-    ["Ver cartera, finanzas y reportes", SI, SI, SI],
-    ["Crear proyectos y lotes", SI, SI, NO],
-    ["Finalizar o reactivar un proyecto", SI, NO, NO],
-    ["Registrar y editar clientes", SI, SI, NO],
-    ["Registrar ventas", SI, SI, NO],
-    ["Aprobar o rechazar ventas con excepción", SI, NO, NO],
-    ["Registrar un desistimiento", SI, NO, NO],
-    ["Registrar abonos", SI, SI, NO],
-    ["Anular un abono y su recibo", SI, NO, NO],
-    ["Verificar pagos contra el extracto", SI, SI, NO],
-    ["Generar y cerrar cierres de caja", SI, SI, NO],
-    ["Aprobar o devolver un cierre de caja", SI, NO, NO],
-    ["Registrar egresos e ingresos", SI, SI, NO],
-    ["Anular un egreso o ingreso", SI, NO, NO],
-    ["Ver y pagar comisiones", SI, SI, NO],
-    ["Anular una comisión", SI, NO, NO],
-    ["Ver el historial de notificaciones y enviar avisos", SI, SI, NO],
-    ["Trabajadores y pagos de nómina", SI, SI, NO],
-    ["Registrar equipos de maquinaria", SI, SI, NO],
-    ["Dar de baja un equipo", SI, NO, NO],
-    ["Consultar la auditoría", SI, NO, NO],
-    ["Importar datos desde Excel", SI, NO, NO],
-    ["Exportar todos los datos a Excel", SI, NO, NO],
-    ["Crear usuarios y cambiar roles", SI, NO, NO],
-    ["Cambiar la configuración", SI, NO, NO],
-], [46, 16, 20, 18], "Nota. La opción Configuración no aparece en el menú del administrador ni en el de Consulta.")
-p("Así se ve el menú de cada rol. El administrador ({fig:rol-administrador}) no ve Auditoría, Importar Excel, Usuarios ni Configuración. Un usuario de Consulta limitado a un proyecto ({fig:rol-consulta}) solo ve lo de ese proyecto y no puede cambiar nada.")
+tabla("permisos", "Permisos por rol", ["Función", "Gerente", "Administrador", "Consulta", "Contratista SST"], [
+    ["Ver panel general, proyectos, ventas, clientes y recibos", SI, SI, SI + " (solo sus proyectos)", NO],
+    ["Ver cartera, finanzas y reportes", SI, SI, SI, NO],
+    ["Crear proyectos y lotes", SI, SI, NO, NO],
+    ["Finalizar o reactivar un proyecto", SI, NO, NO, NO],
+    ["Registrar y editar clientes", SI, SI, NO, NO],
+    ["Registrar ventas", SI, SI, NO, NO],
+    ["Aprobar o rechazar ventas con excepción", SI, NO, NO, NO],
+    ["Registrar un desistimiento", SI, NO, NO, NO],
+    ["Registrar abonos", SI, SI, NO, NO],
+    ["Anular un abono y su recibo", SI, NO, NO, NO],
+    ["Verificar pagos contra el extracto", SI, SI, NO, NO],
+    ["Generar y cerrar cierres de caja", SI, SI, NO, NO],
+    ["Aprobar o devolver un cierre de caja", SI, NO, NO, NO],
+    ["Registrar egresos e ingresos", SI, SI, NO, NO],
+    ["Anular un egreso o ingreso", SI, NO, NO, NO],
+    ["Ver y pagar comisiones", SI, SI, NO, NO],
+    ["Anular una comisión", SI, NO, NO, NO],
+    ["Ver el historial de notificaciones y enviar avisos", SI, SI, NO, NO],
+    ["Trabajadores y pagos de nómina", SI, SI, NO, NO],
+    ["Ver Seguridad y salud (trabajadores, EPP, plan y capacitaciones)", SI, SI, NO, SI],
+    ["Registrar afiliaciones, editar y retirar trabajadores", SI, SI, NO, NO],
+    ["Registrar EPP, plan de trabajo, capacitaciones y autorizaciones de datos de salud", SI, SI, NO, SI],
+    ["Cambiar parámetros legales, entidades y clases de riesgo", SI, NO, NO, NO],
+    ["Registrar equipos de maquinaria", SI, SI, NO, NO],
+    ["Dar de baja un equipo", SI, NO, NO, NO],
+    ["Consultar la auditoría", SI, NO, NO, NO],
+    ["Importar datos desde Excel", SI, NO, NO, NO],
+    ["Exportar todos los datos a Excel", SI, NO, NO, NO],
+    ["Crear usuarios y cambiar roles", SI, NO, NO, NO],
+    ["Cambiar la configuración", SI, NO, NO, NO],
+], [34, 14, 18, 17, 17], "Nota. La opción Configuración no aparece en el menú del administrador, ni en el de Consulta, ni en el del Contratista SST.")
+p("Así se ve el menú de cada rol. El administrador ({fig:rol-administrador}) no ve Auditoría, Importar Excel, Usuarios ni Configuración. Un usuario de Consulta limitado a un proyecto ({fig:rol-consulta}) solo ve lo de ese proyecto y no puede cambiar nada. El Contratista SST ({fig:rol-contratista}, en el capítulo 16) solo ve la opción Seguridad y salud.")
 fig("rol-administrador")
 fig("rol-consulta")
 
 apendice("Glosario")
 tabla("glosario", "Palabras que verás en el sistema", ["Palabra", "Qué significa"], [
     ["Abono", "Cualquier pago que hace un cliente: cuota inicial, cuota o pago extra."],
+    ["AFP", "Fondo de pensiones al que está afiliado un trabajador."],
     ["Anular", "Dejar sin efecto un registro equivocado, sin borrarlo. Queda a la vista, marcado como anulado, con su motivo."],
+    ["ARL", "Administradora de riesgos laborales: la entidad a la que se afilia al trabajador para cubrir accidentes y enfermedades del trabajo. Su tasa de cotización depende de la clase de riesgo (de 1 a 5)."],
     ["Auditoría", "Registro de quién hizo cada cambio importante, cuándo y qué valores tenía antes y después."],
+    ["Autorización de datos de salud", "Permiso escrito del trabajador para que la empresa trate sus datos de salud. Es un dato sensible protegido por la Ley 1581 de 2012."],
+    ["Caja de compensación", "Entidad de subsidio familiar a la que se afilia al trabajador."],
     ["Cartera", "El dinero que los clientes le deben a la empresa."],
     ["Cierre de caja", "Resumen de lo que entró y salió de la caja en un período, con el conteo del efectivo."],
     ["Cuota inicial", "Primer pago de una venta financiada, que se hace al firmar. Se cuenta como la cuota 0."],
     ["Desistimiento", "Cuando el comprador se retira de la compra. Se registra sin borrar los abonos ni los recibos."],
+    ["EPP", "Elementos de protección personal: casco, guantes, botas, gafas y demás que se entregan al trabajador. Cada uno tiene una vida útil, al cabo de la cual se repone."],
+    ["EPS", "Entidad promotora de salud a la que está afiliado el trabajador."],
     ["Escriturar", "Marcar que el lote ya tiene su escritura firmada."],
     ["Excepción", "Una venta que se sale de las reglas (por ejemplo, cuota inicial menor). Necesita aprobación del gerente."],
     ["Extracto", "El documento del banco que muestra los movimientos de una cuenta."],
     ["Financiada", "Venta en la que la empresa le da plazo al comprador para pagar el saldo."],
     ["Lote", "Cada porción del terreno que se vende."],
     ["Mora", "Atraso en el pago de una cuota."],
+    ["PHVA", "Planear, hacer, verificar y actuar: los cuatro ciclos con los que se ordenan las actividades del plan de trabajo de seguridad y salud."],
     ["Recibo de caja", "Comprobante numerado que se entrega por cada pago recibido."],
     ["Semáforo", "Colores de la cartera: verde (al día), amarillo (por vencer) y rojo (en mora)."],
     ["Separar", "Apartar un lote para un cliente interesado, con una fecha límite para formalizar la venta."],
+    ["SMMLV", "Salario mínimo mensual legal vigente. Es uno de los valores legales que se guardan por año en el módulo de Seguridad y salud."],
+    ["SST", "Seguridad y salud en el trabajo: el módulo que lleva las afiliaciones, los EPP, el plan de trabajo y las capacitaciones del personal."],
     ["Verificar", "Confirmar que un pago hecho por banco aparece en el extracto."],
+    ["Vida útil", "Los días que dura un elemento de protección antes de reponerlo. De ella sale la fecha de reposición."],
 ], [24, 76])
 
 apendice("Preguntas frecuentes")
@@ -651,6 +744,12 @@ h3("¿Cómo sé si el cliente recibió el recibo?")
 p("Mira la opción Notificaciones: allí queda cada aviso con su resultado. Si el resultado es “Omitida”, el cliente no tiene correo registrado: usa WhatsApp o edita su ficha.")
 h3("¿Puedo usar el sistema desde el celular?")
 p("Sí. Las pantallas se adaptan al celular. Registrar un abono y consultar el estado de cuenta funcionan en un Android de gama media.")
+h3("¿Por qué un trabajador aparece con afiliaciones pendientes?")
+p("Porque todavía no se le ha registrado alguna de las cinco afiliaciones (EPS, pensión, cesantías, ARL y caja), o no tiene el certificado de afiliación o la autorización de datos de salud. Entra a su ficha de seguridad social y complétalo; la alerta desaparece sola.")
+h3("¿Puedo borrar una entrega de EPP que registré mal?")
+p("No se borra, se anula. Abre la entrega, pulsa **Anular entrega** y escribe el motivo. Luego registra la entrega correcta.")
+h3("¿Por qué los avisos de seguridad y salud salen como “Omitido”?")
+p("Porque el correo de la empresa todavía no está configurado. Los avisos se guardan y salen solos cuando se configure. Mientras tanto, las alertas se ven en las pestañas del módulo y en el panel general.")
 h3("¿Se pueden recuperar los datos si algo sale mal?")
 p("Sí. La información nunca se borra del sistema y el gerente puede exportar todos los datos a Excel desde Configuración en cualquier momento.")
 
@@ -662,6 +761,8 @@ tabla("problemas", "Problemas frecuentes y qué hacer", ["Qué ves", "Qué hacer
     ["No veo una opción del menú", "Tu rol no la incluye. Consulta el Apéndice A o pregúntale al gerente."],
     ["El sistema dice que la referencia ya existe", "Esa referencia ya se usó en la misma cuenta. Revisa que no estés registrando dos veces el mismo pago."],
     ["Un reporte tarda en abrir", "Los reportes grandes pueden tardar unos segundos. Espera a que termine; si falla, intenta con un rango de fechas más corto."],
+    ["No veo la opción Seguridad y salud", "Tu rol no la incluye (el rol Consulta no la ve). Pídele al gerente que revise tu rol."],
+    ["No puedo registrar una afiliación", "Solo el gerente y el administrador registran afiliaciones. El contratista SST las consulta, pero no las cambia."],
     ["Un aviso aparece como “Omitida”", "El cliente no tiene correo o el correo de la empresa no está configurado. Usa WhatsApp o completa los datos."],
     ["Algo se ve raro en el celular", "Recarga la página. Si sigue igual, cuéntale al gerente qué pantalla era y qué estabas haciendo."],
 ], [32, 68])
@@ -670,5 +771,5 @@ p("Si el problema continúa, avisa al gerente con tres datos: qué estabas hacie
 C.append(("referencias", [
     "American Psychological Association. (2020). *Publication manual of the American Psychological Association* (7.ª ed.). https://doi.org/10.1037/0000165-000",
     "Congreso de la República de Colombia. (2012, 17 de octubre). *Ley 1581 de 2012, por la cual se dictan disposiciones generales para la protección de datos personales*. Diario Oficial n.º 48.587.",
-    "[Nombre del autor]. (2026). *Sistema de gestión de urbanismo* (versión 1.0) [Software]. Edición para Balder Ingeniería y Mantenimiento SAS.",
+    "Gutierrez Lopez, V. A. (2026). *Sistema de gestión de urbanismo* (versión 1.0) [Software]. Edición para Balder Ingeniería y Mantenimiento SAS.",
 ]))
