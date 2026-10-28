@@ -537,11 +537,17 @@ Cuando alguien se pasa, la API responde `429` con el mensaje "Demasiados intento
 - **Se ajusta sin tocar código**, con las variables `LIMITE_LOGIN_PETICIONES` y `LIMITE_LOGIN_SEGUNDOS` (y las equivalentes `LIMITE_RECUPERAR_*` y `LIMITE_RESTABLECER_*`) en `/opt/balder/.env`. Después: `docker compose --env-file /opt/balder/.env up -d api`. Un valor vacío o inválido se ignora y rige el de reserva.
 - El código está en `backend/src/auth/limite-por-ip.ts`, con pruebas en `limite-por-ip.spec.ts`.
 
-**Cómo comprobarlo en producción** (desde PowerShell en tu computador; usa `curl.exe` y no `curl`, que en Windows es otro comando). Con 12 intentos seguidos de iniciar sesión con datos falsos, los primeros 10 responden `400` o `401` y los siguientes `429`:
+**Cómo comprobarlo en producción** (desde PowerShell en tu computador). Se usa `curl.exe` y no `curl` (en Windows `curl` es otro comando), y el cuerpo de la petición se guarda en un archivo: **Windows PowerShell les quita las comillas dobles a los textos que pasa a un programa**, el servidor recibiría un JSON roto y respondería `400` sin llegar a revisar el límite.
 
 ```bash
-1..12 | ForEach-Object { curl.exe -s -o NUL -w "%{http_code} " -X POST https://sistema.balderingenieria.com/api/auth/login -H "content-type: application/json" -d '{"email":"prueba@ejemplo.test","password":"Incorrecta-123"}' }
+'{"email":"prueba@ejemplo.test","password":"Incorrecta-123"}' | Set-Content -Encoding ascii "$env:TEMP\prueba-login.json"
 ```
+
+```bash
+1..12 | ForEach-Object { curl.exe -s -o NUL -w "%{http_code} " -X POST https://sistema.balderingenieria.com/api/auth/login -H "content-type: application/json" --data-binary "@$env:TEMP\prueba-login.json" }
+```
+
+Con doce intentos seguidos y datos falsos, los primeros 10 responden `401` y los siguientes `429`. Si salen doce `401` sin ningún `429`, el servidor no tiene el límite (faltó desplegar). Si salen `400`, el archivo no quedó bien.
 
 Después de la prueba, tu conexión queda limitada durante un minuto; espera y vuelve a ingresar con normalidad.
 
