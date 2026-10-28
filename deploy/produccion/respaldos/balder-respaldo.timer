@@ -1,0 +1,12 @@
+[Unit]
+Description=Balder: copia de seguridad cada noche a las 2:00 a. m. (hora de Bogotá)
+
+[Timer]
+# La zona horaria del servidor es America/Bogota (la deja el paso 1 de la preparación).
+OnCalendar=*-*-* 02:00:00
+# Si el servidor estaba apagado a esa hora, la hace al encender.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

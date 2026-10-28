@@ -11,8 +11,8 @@ Cómo se publica el Sistema de gestión de urbanismo en un servidor propio (VPS 
 | 0 | Dominio, servidor y DNS | **Hecho** (27/10/2026) |
 | 1 | Proteger el servidor | **Hecho y comprobado** (27/10/2026): `deploy` entra con llave; `root` y la contraseña quedaron cerrados |
 | 2 | Docker y prueba de HTTPS | **Hecho y comprobado** (27/10/2026): Docker instalado; certificado de Let's Encrypt obtenido y página de prueba con candado |
-| 3 | Empaquetar y arrancar el sistema | **Listo y probado en local; por ejecutar en el servidor** |
-| 4 | Copias de seguridad diarias y prueba de restauración | Por escribir |
+| 3 | Empaquetar y arrancar el sistema | **Hecho y en producción** (27/10/2026): `https://sistema.balderingenieria.com` responde, el gerente ingresa y la base está vacía |
+| 4 | Copias de seguridad diarias y prueba de restauración | **Escrita y probada en local; falta configurarla en el servidor** (cuenta de Backblaze B2, ver 4.1) |
 | 5 | Primer arranque: gerente, correo, datos y medición de rendimiento | Por escribir |
 
 ## Lo que ya existe (fase 0)
@@ -297,7 +297,8 @@ Ya dentro:
 
 ```bash
 tar -xzf ~/balder-fuente.tar.gz deploy/produccion/desplegar.sh deploy/produccion/crear-gerente.sh
-sed -i 's/$//' ~/deploy/produccion/desplegar.sh ~/deploy/produccion/crear-gerente.sh
+sed -i 's/
+$//' ~/deploy/produccion/desplegar.sh ~/deploy/produccion/crear-gerente.sh
 bash ~/deploy/produccion/desplegar.sh ~/balder-fuente.tar.gz
 ```
 
@@ -365,7 +366,107 @@ cd /opt/balder/fuente/deploy/produccion
 - **No cargues datos reales** (el Excel de la empresa) hasta terminar la fase 4. Sin copias de seguridad diarias fuera del servidor, un daño en el servidor perdería todo.
 - No abras otros puertos ni publiques la base de datos.
 
-## Fases siguientes (por escribir)
+## Fase 4. Copias de seguridad
 
-4. **Copias de seguridad:** diarias, de la base de datos y de los adjuntos, **fuera del servidor**, con 30 días de historia, y una prueba de restauración documentada (RNF-DIS-02).
-5. **Primer arranque con datos reales:** cargar los datos con el importador, probar el correo y repetir la medición de rendimiento en este servidor (RNF-REN-01 a 04). Pendientes de endurecimiento: límite de peticiones por IP en el inicio de sesión (requiere agregar `@nestjs/throttler`) y una política de seguridad de contenido (CSP) probada con las descargas de PDF.
+Requisito RNF-DIS-02: copia automática **diaria** de la base de datos y de los adjuntos, conservada **al menos 30 días**, con **prueba de restauración**. Se guardan **fuera del servidor**, en Backblaze B2, y **cifradas antes de salir**: en Backblaze solo hay datos ilegibles (los datos de los clientes están protegidos por la Ley 1581 de 2012).
+
+| Qué | Cómo |
+|---|---|
+| Cuándo | Cada noche a las 2:00 a. m. (hora de Bogotá), con un temporizador del sistema (systemd) |
+| Qué se copia | La base de datos completa, los adjuntos (`uploads`) y el archivo de secretos (`.env`) |
+| Cifrado | `rclone crypt`: contenido y nombres de archivo cifrados con **dos contraseñas** que se generan al configurar y que se guardan en el gestor de contraseñas |
+| Verificación | Antes de subir se comprueba que cada archivo se pueda leer entero; después se compara su tamaño en la nube con el local |
+| Retención | En el servidor, 3 días (restauración rápida). En la nube, 30 días: la regla de ciclo de vida de Backblaze borra lo más viejo. Estos guiones nunca borran nada en la nube |
+| Prueba | Cada día 1 del mes, 3:30 a. m., se restaura la última copia en una base temporal, se compara con la real y se borra |
+
+Los guiones están en [`deploy/produccion/respaldos/`](../deploy/produccion/respaldos/). **Se probaron en un computador** con el sistema completo en Docker y un destino cifrado local: la copia se hace y se verifica, la nube solo ve archivos ilegibles, la prueba de restauración funciona, y la restauración real devolvió una base alterada y un adjunto vaciado a su estado original. También se probó que un fallo de subida termina con error y dispara el aviso (esa prueba encontró y corrigió un defecto: el aviso no se ejecutaba si el fallo ocurría dentro de una función).
+
+### 4.1 Crear la cuenta y el bucket en Backblaze (en el navegador, por la persona responsable)
+
+1. Crea una cuenta en Backblaze (producto **B2 Cloud Storage**) con el correo del proyecto y activa la **verificación en dos pasos**. Guarda los códigos de recuperación en el gestor.
+2. Si Backblaze pide una tarjeta, es solo por si algún día se superan los 10 GB gratis. En **Caps & Alerts** pon un tope de gasto bajo para evitar sorpresas.
+3. **Buckets → Create a Bucket**:
+   - Nombre: `balder-copias-` seguido de letras y números al azar (debe ser único en todo Backblaze).
+   - Archivos: **Private**.
+   - Cifrado de Backblaze (SSE-B2): déjalo activado (es adicional; el cifrado fuerte ya lo hace `rclone`).
+   - **Object Lock** (bloqueo de objetos): actívalo si la consola lo ofrece al crear el bucket, y define una retención por defecto de **30 días**. Así, aunque alguien robara el servidor y la llave de aplicación, no podría borrar las copias recientes. Si no aparece o no queda claro, sigue sin él y anota la limitación.
+4. En el bucket, **Lifecycle Settings → custom**: deja el prefijo vacío, **Days Till Hide = 31** y **Days Till Delete = 1**. Es la regla que borra lo de más de 30 días; sin ella las copias se acumulan para siempre.
+5. **Application Keys → Add a New Application Key**:
+   - Nombre: `balder-servidor`.
+   - Acceso: **solo a ese bucket**.
+   - Tipo: **Read and Write**.
+   - Al crearla, Backblaze muestra el **keyID** y la **applicationKey UNA sola vez**: cópialos a una nota segura del gestor. La applicationKey se escribirá solo en el servidor, nunca en un chat.
+
+### 4.2 Subir los guiones al servidor
+
+Los guiones nuevos viajan en el paquete de código, como en la fase 3. Con todo confirmado en Git, en PowerShell, en la raíz del proyecto:
+
+```bash
+git archive --format=tar.gz --output=balder-fuente.tar.gz HEAD backend frontend deploy
+```
+
+```bash
+scp balder-fuente.tar.gz deploy@179.197.85.236:~/
+```
+
+En el servidor:
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/desplegar.sh ~/balder-fuente.tar.gz
+```
+
+(Actualiza el código; no toca el `.env` ni los datos.)
+
+### 4.3 Configurar las copias (en el servidor, una sola vez)
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/respaldos/configurar-copias.sh
+```
+
+El guion pide el nombre del bucket, el keyID y la applicationKey (no se ve al pegarla). Después:
+
+1. Instala `rclone`.
+2. Genera **dos contraseñas de cifrado al azar y te las muestra una sola vez**. **Guárdalas en una nota segura del gestor** ("Balder - cifrado de copias") y escribe `GUARDADO`. Sin esas dos contraseñas, nadie, ni siquiera tú, puede abrir las copias.
+3. Prueba subir, leer y descifrar un archivo.
+4. Instala los dos temporizadores (copia diaria y prueba mensual).
+5. Hace la **primera copia completa**.
+
+Si ya existe una configuración, el guion se niega a sobrescribirla: generar contraseñas nuevas dejaría ilegibles las copias anteriores.
+
+### 4.4 Probar que la copia sirve (obligatorio antes de cargar datos reales)
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/respaldos/restaurar.sh probar
+```
+
+Descarga la última copia, la descifra, la restaura en una base temporal (`restauracion_prueba`), muestra una tabla con las filas de la copia contra las de producción, y borra la base temporal. Debe terminar con **`PRUEBA OK`**. No toca nada de producción.
+
+### 4.5 Comprobar el estado cuando quieras
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/respaldos/restaurar.sh listar
+```
+
+Muestra las copias que hay en la nube (tamaño y nombre). El informe `03-verificar-servidor.sh` también muestra la hora de la próxima copia, el resultado de la última y el de la última prueba.
+
+### 4.6 Avisos (recomendado)
+
+Si una copia falla una noche y nadie lo ve, se descubre cuando ya hace falta. Para recibir un aviso, crea un chequeo gratuito en [healthchecks.io](https://healthchecks.io) (o un servicio equivalente), pon sus dos direcciones (la de "OK" y la de "fallo") en `/opt/balder/copias.env`, y configúralo para que avise por correo si no llega el "OK" a tiempo. El guion llama a una u otra al terminar. Sin avisos, alguien debe mirar `03-verificar-servidor.sh` cada semana.
+
+### Si el servidor se pierde (recuperación total)
+
+1. Ten a mano, del gestor de contraseñas: las **dos contraseñas de cifrado**, el **nombre del bucket**, el **keyID** y la **applicationKey** (si se perdió, se crea otra en Backblaze).
+2. Crea un servidor nuevo y repite las fases 1 y 2 (protegerlo e instalar Docker).
+3. En el servidor nuevo: `sudo apt-get install -y rclone`, y crea `/opt/balder/rclone.conf` (permisos 600) con las mismas secciones `[b2]` y `[copias]` que se muestran al configurar (las contraseñas se ofuscan con `rclone obscure`).
+4. Recupera el archivo de secretos: `rclone copyto copias:env/env-<el más reciente> /opt/balder/.env && chmod 600 /opt/balder/.env` (`rclone lsf copias:env` lista los disponibles).
+5. Despliega (`desplegar.sh`, fase 3). Como ya existe el `.env`, no se generan contraseñas nuevas.
+6. Trae los datos: `bash /opt/balder/fuente/deploy/produccion/respaldos/restaurar.sh real`. Pide escribir `RESTAURAR` y trae la última copia (o una anterior: `restaurar.sh real 20261101-020000`).
+7. Apunta el DNS al servidor nuevo si cambió la IP, y comprueba entrando con un usuario conocido y revisando un recibo.
+
+### Qué NO está en las copias (y por qué no hace falta)
+
+El código vive en Git; las imágenes se reconstruyen con `desplegar.sh`; los certificados HTTPS los vuelve a pedir Caddy solo.
+
+## Fase 5. Primer arranque con datos reales (por escribir)
+
+**Primer arranque con datos reales:** cargar los datos con el importador, probar el correo y repetir la medición de rendimiento en este servidor (RNF-REN-01 a 04). Pendientes de endurecimiento: límite de peticiones por IP en el inicio de sesión (requiere agregar `@nestjs/throttler`) y una política de seguridad de contenido (CSP) probada con las descargas de PDF.

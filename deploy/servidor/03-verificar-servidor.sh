@@ -45,5 +45,16 @@ for h in /root /home/*; do
   [ -f "$h/.ssh/authorized_keys" ] && echo "$(basename "$h"): $(grep -cE '^(ssh-|ecdsa-)' "$h/.ssh/authorized_keys") llave(s)"
 done
 
+titulo "Copias de seguridad (si ya están configuradas)"
+if systemctl list-unit-files 'balder-respaldo.timer' --no-legend 2>/dev/null | grep -q balder; then
+  systemctl list-timers 'balder-*' --no-pager 2>/dev/null | sed -n '1,4p'
+  echo "-- última copia diaria:"
+  journalctl -u balder-respaldo -n 2 --no-pager -o cat 2>/dev/null | cut -c1-160
+  echo "-- última prueba de restauración:"
+  journalctl -u balder-prueba-restauracion -n 1 --no-pager -o cat 2>/dev/null | cut -c1-160
+else
+  echo "Aún no están configuradas (ver docs/despliegue.md, fase 4)"
+fi
+
 titulo "Docker (si ya está instalado)"
 command -v docker >/dev/null 2>&1 && docker --version || echo "Docker aún no está instalado"
