@@ -7,7 +7,7 @@ Urbanix es la base genérica de un sistema web para empresas que compran predios
 El alcance está en `docs/requerimientos.md` (112 requerimientos funcionales RF-XXX-00 y 32 no funcionales RNF-XXX-00, con prioridad Debe/Debería/Podría y etapa 1, 2 o 3). Reglas:
 - Lee ese documento antes de planear cualquier paso, y cita los IDs que cada cambio cubre.
 - Si algo del código, de un prompt o de una conversación contradice el documento, gana el documento y me avisas. Los cambios de alcance se registran ahí (control de cambios), no solo en el chat.
-- Control de cambios: al final del documento. CC-02 (16 oct 2026) agrega 8 RF: proyectos tipo Maquinaria con catálogo de equipos y utilidad por equipo (no incluye contratos de alquiler, horómetro, cartera de alquileres ni alertas de mantenimiento). CC-01 (16 oct 2026) agrega 11 RF: proyectos de remodelación con ingresos y egresos propios, finanzas detalladas por proyecto, flujo de caja diario/semanal/quincenal/mensual, y préstamos a trabajadores con alerta previa a la nómina y carta de descuento (PDF, firma en papel, enlace de WhatsApp). Pendiente la confirmación comercial con el cliente.
+- Control de cambios: al final del documento. CC-02 (16 oct 2026) agrega 8 RF: proyectos tipo Maquinaria con catálogo de equipos y utilidad por equipo (no incluye contratos de alquiler, horómetro, cartera de alquileres ni alertas de mantenimiento). CC-01 (16 oct 2026) agrega 11 RF: proyectos de remodelación con ingresos y egresos propios, finanzas detalladas por proyecto, flujo de caja diario/semanal/quincenal/mensual, y préstamos a trabajadores con alerta previa a la nómina y carta de descuento (PDF, firma en papel, enlace de WhatsApp). Pendiente la confirmación comercial con el cliente. CC-03 (28 oct 2026) agrega 29 RF y 2 RNF: módulo de seguridad social y SST (ficha del trabajador con afiliaciones, ausentismo con liquidación de apoyo, EPP, plan de trabajo anual, capacitaciones, rol Contratista SST), en 4 fases A a D que no alteran las etapas; se cotiza como adicional y está pendiente de confirmación comercial.
 - Reparto original: Etapa 1 = 77 RF (68 "Debe"), Etapa 2 = 24, Etapa 3 = 11. Una etapa se acepta cuando están todos sus "Debe"; los "Debería" y "Podría" se mueven primero si hay atraso.
 - Restricciones: aplicación web en la nube, PostgreSQL, construida sobre la base Urbanix (el desarrollador conserva sus derechos), servicios en la nube y dominio a nombre de la empresa y pagados por ella, presupuesto $10.000.000 COP en tres etapas, unas 11 semanas.
 
@@ -17,6 +17,7 @@ El alcance está en `docs/requerimientos.md` (112 requerimientos funcionales RF-
 - **Consulta**: solo lectura; acceso a todos los proyectos o restringido a uno o varios (caso: socio de La Floresta). Solo este rol se limita por proyecto.
 - **Cliente comprador**: no ingresa al sistema; recibe recibos, recordatorios y avisos.
 - **Sistema**: procesos automáticos (mora, recordatorios, consecutivos).
+- **Contratista SST** (CC-03): persona externa que solo ve el módulo de seguridad y salud en el trabajo. Los diagnósticos (dato sensible de salud, Ley 1581) y los valores liquidados de ausentismo llevan permisos propios. Ojo: el rol Administrador recibe todos los permisos nuevos salvo los que se excluyan a propósito en `backend/src/auth/permisos.ts`; por defecto el Administrador NO debe ver diagnósticos ni el Contratista SST ver valores.
 - Los roles son filas de una tabla con permisos tomados de un catálogo fijo (`backend/src/auth/permisos.ts`); cada endpoint declara el permiso que exige y una ruta sin declarar se rechaza para todos. El rol de mayor nivel ya se llama GERENTE (antes PROPIETARIO).
 
 ## Regla de arquitectura más importante
@@ -57,7 +58,7 @@ La base debe seguir siendo genérica y reutilizable con otros clientes (el desar
 - Personal: unos 20 trabajadores por proyecto, contrato por obra o labor, pago semanal o quincenal.
 
 ## Fuera del alcance (no construir)
-- Liquidación automática de nómina, seguridad social y prestaciones, y transmisión de nómina electrónica a la DIAN.
+- Liquidación automática de nómina, seguridad social y prestaciones, y transmisión de nómina electrónica a la DIAN. Excepción CC-03: solo la liquidación de apoyo de incapacidades y licencias (quién paga cada día y cuánto); nómina, PILA, prestaciones y nómina electrónica siguen fuera, y no se transmite nada a EPS, ARL ni AFP. Tampoco: exámenes médicos ocupacionales, investigación de accidentes, matriz de peligros, reporte a la ARL, indicadores de accidentalidad ni autoevaluación de estándares mínimos.
 - Contabilidad general (la lleva un contador externo con su propio software).
 - Facturación electrónica.
 - Pagos en línea (PSE, tarjetas).
@@ -78,6 +79,7 @@ Todo esto entra como configuración editable o valor provisional claramente marc
 - Logo de la empresa en buena calidad.
 - El Excel real de la empresa (la copia llega a más tardar el martes 20/10/2026): la plantilla de importación (paso 2.9) es un BORRADOR y hay que ajustarla a ese archivo. Todo vive en `backend/src/importacion/plantilla-definicion.ts` (hojas, columnas, alias de encabezado). Definir también si el plan de cuotas real se carga en la hoja opcional Cuotas, y si las escrituras se importan (hoy no).
 - Comisiones de las ventas que se importen del Excel: hoy las ventas importadas NO generan comisión (son historia y quizá ya se pagaron). Definir si el Excel real trae una columna de comisión (pagada o pendiente) y qué hacer con ella. También confirmar quién puede pagar comisiones (hoy gerente y administrador; solo el gerente las anula) y que una comisión sin valor configurado ($0) no se genera.
+- CC-03 (SST): cotización; validación del asesor laboral de las reglas de liquidación, porcentajes y valores 2026 del libro (parámetros editables, nunca constantes; no se certifica cumplimiento legal); base de liquidación (IBC o salario/30); texto de autorización de datos de salud (abogada); quién registra incapacidades y qué puede hacer el contratista SST; CIE-10 completo o los más usados; clases de riesgo y tasas ARL; cuántos trabajadores y si hay registros reales que cargar. El libro de Excel del cliente NO está en el repositorio.
 - Si CC-01 y CC-02 entran en el presupuesto o se cotiza adicional; si una remodelación guarda cliente de la obra y valor del contrato; si el préstamo se descuenta en una nómina o en cuotas y quién lo aprueba; definición de la quincena; concepto de la abogada sobre la carta de descuento; si el alquiler de maquinaria es siempre de contado y si se cobra el uso interno a proyectos propios.
 
 ## Deuda técnica conocida (quitar de aquí cuando se resuelva)

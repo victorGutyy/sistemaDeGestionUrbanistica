@@ -10,7 +10,7 @@ Fuentes: formulario de levantamiento (14 de octubre de 2026), entrevista y acta 
 
 Reparto por etapa (verificado): Etapa 1 = 77 requerimientos funcionales (68 "Debe"), Etapa 2 = 24, Etapa 3 = 11.
 
-Los cambios de alcance posteriores a esta versión se registran en la sección **Control de cambios** (al final). Los cambios CC-01 (11 requerimientos) y CC-02 (8 requerimientos) agregan 19 requerimientos funcionales sin alterar los 112 originales.
+Los cambios de alcance posteriores a esta versión se registran en la sección **Control de cambios** (al final). Los cambios CC-01 (11 requerimientos), CC-02 (8) y CC-03 (29 funcionales y 2 no funcionales) agregan 48 requerimientos funcionales y 2 no funcionales sin alterar los 112 y 32 originales.
 
 ## Convenciones
 
@@ -32,6 +32,7 @@ Los cambios de alcance posteriores a esta versión se registran en la sección *
 | Consulta | Solo lectura; puede tener acceso a todos los proyectos o solo a algunos (por ejemplo, el socio de La Floresta) |
 | Cliente comprador | No ingresa al sistema; recibe recibos, recordatorios y avisos |
 | Sistema | Procesos automáticos: mora, recordatorios, consecutivos |
+| Contratista SST (CC-03) | Persona externa que gestiona la seguridad y salud en el trabajo; solo ve el módulo SST |
 
 ---
 
@@ -336,7 +337,8 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 
 ### Fuera del alcance
 
-- Liquidación automática de nómina, seguridad social y prestaciones, y transmisión de nómina electrónica a la DIAN.
+- Liquidación automática de nómina, seguridad social y prestaciones, y transmisión de nómina electrónica a la DIAN. Excepción registrada en CC-03: la liquidación de apoyo de incapacidades y licencias (quién paga cada día y cuánto); la nómina, la PILA, las prestaciones y la nómina electrónica siguen fuera.
+- Exámenes médicos ocupacionales, investigación de accidentes e incidentes, matriz de peligros, reporte de accidentes a la ARL, indicadores de accidentalidad y autoevaluación de estándares mínimos de SST (CC-03 solo incluye lo que trae el libro de la empresa).
 - Contabilidad general.
 - Facturación electrónica.
 - Pagos en línea (PSE y tarjetas).
@@ -432,3 +434,85 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 | Si se usan las máquinas en proyectos propios y se quiere cobrar internamente ese uso al proyecto | RF-MAQ-03 |
 | Categorías de gasto que la empresa maneja para la maquinaria | RF-MAQ-06 |
 | Cantidad y tipos de equipos actuales, para la carga inicial | RF-MAQ-01, RF-MAQ-02 |
+
+### CC-03 · 28 de octubre de 2026 · Seguridad social y salud ocupacional (SST)
+
+**Origen:** solicitud del cliente enviada al desarrollador el 28 de octubre de 2026: un libro de Excel de especificación (`SST_Seguridad_Social_Especificacion.xlsx`, con datos de ejemplo ficticios) y una nota de voz. La empresa quiere el módulo en el área administrativa por razones jurídicas, completo y funcionando de una vez, y lo usaría un contratista externo de SST.
+
+**Estado:** aprobado por el desarrollador para el diseño; **pendiente la confirmación comercial con el cliente** (se cotiza como adicional: no está en el presupuesto de $10.000.000), junto con CC-01 y CC-02.
+
+**Resumen:** (1) la ficha del trabajador incluye sus afiliaciones y datos de seguridad social; (2) el ausentismo (incapacidades y licencias) se registra con sus validaciones y se liquida quién paga cada día y cuánto, para pasarlo a la nómina que se lleva fuera del sistema; (3) la gestión de SST cubre la entrega de EPP, el plan de trabajo anual y el plan de capacitación con su asistencia; (4) un contratista externo de SST usa el sistema con un rol que solo ve este módulo.
+
+**Fases de entrega.** Son propias de CC-03 y no alteran el reparto de las etapas 1, 2 y 3. Cada fase queda usable en producción.
+
+| Fase | Contenido | Requerimientos |
+|---|---|---|
+| A. Base | Parámetros legales por año, catálogos, ficha ampliada del trabajador con afiliaciones, rol Contratista SST, permisos y autorización de datos de salud | RF-CFG-13, RF-CFG-14, RF-PER-17, RF-PER-18, RF-USR-10, RF-USR-11, RNF-LEG-03, RNF-SEG-08 |
+| B. Gestión SST | Entrega de EPP, plan de trabajo anual, plan de capacitación con asistencia, evidencias adjuntas y alertas por correo | RF-SST-12 a RF-SST-21 |
+| C. Ausentismo | Registro de incapacidades y licencias, liquidación por pagador, resumen mensual y novedades hacia la nómina | RF-SST-01 a RF-SST-11 |
+| D. Cierre | Reportes en pantalla, PDF y Excel, carga inicial desde Excel, pruebas, manual y despliegue | RF-SST-22, RF-SST-23 |
+
+**Requerimientos funcionales**
+
+| ID | Requerimiento | Prioridad | Fase |
+|---|---|---|---|
+| RF-CFG-13 | El gerente administra los parámetros legales con histórico por año (salario mínimo, auxilio de transporte, porcentajes de pago de incapacidades, límites de días de cada tramo y días base del mes). Cada liquidación guarda los valores que usó y no cambia si el parámetro se actualiza después | Debe | A |
+| RF-CFG-14 | El gerente administra los catálogos de EPS, fondos de pensión y de cesantías, ARL (con clase de riesgo y tasa), cajas de compensación, tipos de ausentismo (con su regla de liquidación) y códigos CIE-10; todo campo de lista es un catálogo, no texto libre | Debe | A |
+| RF-PER-17 | Ampliar la ficha del trabajador con tipo de documento, nombres y apellidos, fecha de nacimiento, sexo, área, celular y fecha de retiro | Debe | A |
+| RF-PER-18 | Calcular el auxilio de transporte según el salario y la tasa de ARL según la clase de riesgo, con los parámetros y catálogos vigentes | Debería | A |
+| RF-USR-10 | Existe el rol de sistema Contratista SST, que solo accede al módulo SST y a la ficha básica del trabajador; no ve ventas, cartera, finanzas, nómina ni configuración | Debe | A |
+| RF-USR-11 | Permisos separados para ver diagnósticos y para ver valores liquidados de ausentismo. Por defecto, los diagnósticos los ven el Gerente y el Contratista SST, y los valores el Gerente y el Administrador | Debe | A |
+| RF-SST-01 | Registrar ausentismo por trabajador con tipo (enfermedad general, accidente de trabajo, enfermedad laboral, licencia de maternidad o paternidad, luto, calamidad, permiso remunerado, licencia no remunerada, ausencia injustificada), fechas de inicio y fin, número de incapacidad o certificado, si es prórroga, código CIE-10 y observaciones | Debe | C |
+| RF-SST-02 | Validar que la fecha de fin no sea anterior a la de inicio, que el CIE-10 sea obligatorio en las incapacidades y que no haya ausentismos traslapados para el mismo trabajador | Debe | C |
+| RF-SST-03 | Calcular los días, el mes y el año, y guardar como foto del momento los datos del trabajador (cargo, EPS, ARL y salario) | Debe | C |
+| RF-SST-04 | Liquidar la incapacidad por enfermedad general por tramos (días 1 y 2 a cargo del empleador, 3 a 90 de la EPS, 91 a 180 de la EPS, desde el 181 de la AFP) con los porcentajes de los parámetros, sin que el valor diario baje de SMMLV/30 y respetando los días acumulados previos en las prórrogas | Debe | C |
+| RF-SST-05 | Liquidar las incapacidades de origen laboral (a cargo de la ARL desde el día siguiente al evento; el día del evento se paga como laborado) y las licencias según su regla: maternidad y paternidad a cargo de la EPS; luto, calamidad y permisos remunerados a cargo del empleador; licencia no remunerada y ausencia injustificada con descuento | Debe | C |
+| RF-SST-06 | Cuando un ausentismo cruza de mes, distribuir sus días y valores en cada período | Debe | C |
+| RF-SST-07 | Permitir como base de liquidación el IBC del mes anterior al inicio (o el promedio si el salario es variable) en lugar del salario base dividido entre 30, según se configure | Debería | C |
+| RF-SST-08 | Corregir manualmente una liquidación con motivo obligatorio, conservando en la auditoría el valor calculado y el corregido | Debe | C |
+| RF-SST-09 | Seguir el recobro de cada incapacidad a la EPS, ARL o AFP que la reconoce (pendiente, radicada, pagada o rechazada), con valor y fecha; el sistema no transmite nada a esas entidades | Debería | C |
+| RF-SST-10 | Resumen mensual del año con número de registros, días totales y por tipo, valores por pagador, descuentos, trabajadores activos y porcentaje de ausentismo | Debe | C |
+| RF-SST-11 | Entregar a la nómina las novedades de ausentismo del período (documento, tipo, días y valores) en un Excel, y proponerlas como novedad de incapacidad al registrar el pago, que el usuario confirma | Debería | C |
+| RF-SST-12 | Administrar el catálogo de elementos de protección personal (EPP) con su vida útil en días | Debe | B |
+| RF-SST-13 | Registrar la entrega de EPP a un trabajador: fecha, elemento, cantidad, talla o referencia, motivo, quién entrega, si firmó el recibido y el acta firmada adjunta | Debe | B |
+| RF-SST-14 | Calcular la próxima reposición de cada EPP con su vida útil y alertar en el panel y por correo los que están por reponer o vencidos | Debe | B |
+| RF-SST-15 | Plan de trabajo anual (ciclo PHVA) con actividad, estándar o componente de la Resolución 0312, meta o indicador, responsable y su correo, fechas, recursos, presupuesto, estado, porcentaje de avance y evidencia adjunta | Debe | B |
+| RF-SST-16 | Mostrar el cronograma mensual del plan a partir de las fechas y alertar en el panel y por correo al responsable las actividades próximas o vencidas | Debe | B |
+| RF-SST-17 | Copiar el plan de un año como borrador del siguiente | Podría | B |
+| RF-SST-18 | Plan de capacitación con tema, objetivo, a quién se dirige, modalidad, horas, fecha programada y de ejecución, facilitador y su correo, estado, evaluación de eficacia y evidencia adjunta | Debe | B |
+| RF-SST-19 | Registrar la asistencia a cada capacitación (trabajador, si firmó y calificación) y calcular los asistentes reales y el porcentaje de cobertura frente a los programados | Debe | B |
+| RF-SST-20 | Alertar al responsable, por correo y en el panel, las capacitaciones próximas o vencidas | Debería | B |
+| RF-SST-21 | Adjuntar certificados de incapacidad, actas de entrega de EPP, listados de asistencia y evidencias de actividades; se descargan solo con sesión válida y permiso sobre el registro | Debe | B |
+| RF-SST-22 | Reportes en pantalla, PDF y Excel: ausentismo (resumen y detalle), EPP entregados y por reponer, plan de trabajo con su avance y capacitaciones con su cobertura | Debe | D |
+| RF-SST-23 | Cargar desde Excel los trabajadores, ausentismos, entregas de EPP y asistencias históricas, con prueba previa y confirmación como en RF-MIG-02 y RF-MIG-03 | Debería | D |
+
+**Requerimientos no funcionales**
+
+| ID | Requerimiento | Criterio de verificación |
+|---|---|---|
+| RNF-LEG-03 | Los diagnósticos y demás datos de salud se tratan como datos sensibles (Ley 1581 de 2012): se registra la autorización del trabajador, solo los ven los roles con permiso y cada consulta o exportación de diagnósticos queda en auditoría | Autorización registrada por trabajador; consulta de un diagnóstico visible en la auditoría |
+| RNF-SEG-08 | Un rol sin permiso sobre los diagnósticos o los valores de ausentismo no los obtiene por ningún medio: pantalla, servicio, reportes, Excel, PDF ni avisos por correo | Prueba con Administrador (sin diagnósticos), Contratista SST (sin valores) y Consulta (sin ninguno) |
+
+**Decisiones del desarrollador sobre el alcance:**
+- La liquidación de ausentismo es una **liquidación de apoyo**: calcula quién paga cada día y cuánto, y entrega el resultado a la nómina que la empresa lleva fuera del sistema. **No se incluyen** la liquidación de la nómina, la PILA, las prestaciones ni la nómina electrónica, y el sistema no transmite información a EPS, ARL ni AFP.
+- Los valores legales del año y las normas los entrega la empresa en su libro; son **parámetros editables, no constantes en el código**, y deben ser validados por el asesor laboral de la empresa antes de usarse. El desarrollador no certifica cumplimiento normativo.
+- La base de liquidación del prototipo es el salario base dividido entre 30; el libro indica que el sistema final debe usar el IBC (RF-SST-07), por eso se deja configurable y se confirma con el asesor.
+- RF-PER-04 y RF-PER-05 (Etapa 3) se construyen en la Fase A porque el módulo los necesita; no cambian.
+- **No se incluyen** elementos que el libro no trae: exámenes médicos ocupacionales, investigación de accidentes e incidentes, matriz de identificación de peligros, reporte de accidentes a la ARL, indicadores de accidentalidad y la autoevaluación de estándares mínimos con puntaje. Se cotizan aparte si la empresa los necesita.
+- Los responsables de actividades y capacitaciones pueden ser personas sin usuario en el sistema: reciben solo los avisos por correo, nunca con diagnósticos ni valores.
+- Los registros no se borran: se anulan o se cierran y quedan en el historial.
+
+**Puntos por confirmar derivados de este cambio:**
+
+| Punto | Requerimientos afectados |
+|---|---|
+| Cotización: si este cambio se cobra como adicional al presupuesto de $10.000.000 | CC-03 completo |
+| Validación del asesor laboral de las reglas de liquidación, los porcentajes y los valores de 2026 del libro | RF-CFG-13, RF-SST-04 a RF-SST-06 |
+| Si la base de liquidación es el IBC del mes anterior o el salario base dividido entre 30, y si el IBC se digita o sale del último pago de nómina | RF-SST-07 |
+| Texto de autorización para el tratamiento de datos de salud de los trabajadores (concepto de la abogada) | RNF-LEG-03 |
+| Quién registra las incapacidades (propuesta: el Administrador) y si el contratista de SST solo consulta o también registra ausentismo | RF-USR-10, RF-USR-11 |
+| Si el valor a cargo del empleador debe proponerse como novedad en la nómina o solo entregarse en Excel | RF-SST-11 |
+| Cuántos códigos CIE-10 se cargan: el listado oficial completo o los más usados | RF-CFG-14 |
+| Clases de riesgo y tasas de ARL que aplican a los trabajadores de Balder | RF-CFG-14, RF-PER-18 |
+| Cantidad de trabajadores a cubrir (el libro prevé unos 200) y si hay registros reales para cargar | RF-SST-23 |
+| Tiempo que la empresa debe conservar estos registros, según su asesor de SST | RF-SST-21 |
