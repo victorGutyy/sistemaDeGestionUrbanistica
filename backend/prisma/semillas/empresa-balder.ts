@@ -105,6 +105,30 @@ export const PARAMETRO_LEGAL_2026 = {
   notas: 'Valores del libro del cliente (28/10/2026). Pendiente de validación por el asesor laboral.',
 };
 
+// Elementos de protección personal con su vida útil en días (CC-03 fase B, RF-SST-12). Es el catálogo de referencia del
+// libro del cliente: la vida útil debe ajustarse según la ficha técnica del fabricante y la matriz de EPP de la empresa, y el
+// contratista SST o el gerente lo editan en la aplicación.
+export const ELEMENTOS_EPP = [
+  { nombre: 'Casco de seguridad dieléctrico', vidaUtilDias: 1095 },
+  { nombre: 'Gafas de seguridad lente claro', vidaUtilDias: 180 },
+  { nombre: 'Careta de soldador', vidaUtilDias: 730 },
+  { nombre: 'Protector auditivo tipo inserción (tapones)', vidaUtilDias: 30 },
+  { nombre: 'Protector auditivo tipo copa', vidaUtilDias: 365 },
+  { nombre: 'Respirador media cara', vidaUtilDias: 365 },
+  { nombre: 'Filtros/cartuchos para respirador', vidaUtilDias: 90 },
+  { nombre: 'Mascarilla N95', vidaUtilDias: 7 },
+  { nombre: 'Guantes de nitrilo', vidaUtilDias: 30 },
+  { nombre: 'Guantes de carnaza', vidaUtilDias: 60 },
+  { nombre: 'Guantes dieléctricos', vidaUtilDias: 365 },
+  { nombre: 'Botas de seguridad punta de acero', vidaUtilDias: 365 },
+  { nombre: 'Botas de caucho', vidaUtilDias: 180 },
+  { nombre: 'Chaleco reflectivo', vidaUtilDias: 365 },
+  { nombre: 'Overol / ropa de trabajo', vidaUtilDias: 180 },
+  { nombre: 'Arnés de cuerpo completo', vidaUtilDias: 1825 },
+  { nombre: 'Eslinga con absorbedor de choque', vidaUtilDias: 1825 },
+  { nombre: 'Delantal / peto de PVC', vidaUtilDias: 365 },
+];
+
 export const COMISIONES = [
   { tipo: 'ASESOR_INMOBILIARIO' as const, valor: '1000000' },
   { tipo: 'REFERIDO' as const, valor: '500000' },

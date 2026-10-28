@@ -190,52 +190,59 @@ model RolUsuario {
 // Cuenta de acceso a la app. No hay registro público: las crea el gerente
 // desde la sección de Usuarios.
 model Usuario {
-  id                          String                 @id @default(uuid())
+  id                          String                   @id @default(uuid())
   nombre                      String
-  email                       String                 @unique
+  email                       String                   @unique
   passwordHash                String
   rolId                       String
-  rol                         RolUsuario             @relation(fields: [rolId], references: [id])
-  estado                      EstadoUsuario          @default(ACTIVO)
+  rol                         RolUsuario               @relation(fields: [rolId], references: [id])
+  estado                      EstadoUsuario            @default(ACTIVO)
   // Bloqueo temporal por intentos fallidos de ingreso.
-  intentosFallidos            Int                    @default(0)
+  intentosFallidos            Int                      @default(0)
   bloqueadoHasta              DateTime?
   ultimoIngreso               DateTime?
   // Las sesiones (tokens) emitidas antes de esta fecha dejan de valer: se usa al restablecer la contraseña.
   sesionesValidasDesde        DateTime?
   // Alcance por proyecto: true = ve todos los proyectos. Si es false, solo ve
   // los de proyectosPermitidos (solo se permite en roles limitablePorProyecto).
-  todosLosProyectos           Boolean                @default(true)
+  todosLosProyectos           Boolean                  @default(true)
   proyectosPermitidos         UsuarioProyecto[]
   historialLotes              LoteHistorial[]
-  abonosRegistrados           Abono[]                @relation("AbonosRegistrados")
-  abonosAnulados              Abono[]                @relation("AbonosAnulados")
-  movimientosRegistrados      MovimientoFinanciero[] @relation("MovimientosRegistrados")
-  movimientosAnulados         MovimientoFinanciero[] @relation("MovimientosAnulados")
-  cierresCreados              CierreCaja[]           @relation("CierresCreados")
-  cierresCerrados             CierreCaja[]           @relation("CierresCerrados")
-  cierresResueltos            CierreCaja[]           @relation("CierresResueltos")
+  abonosRegistrados           Abono[]                  @relation("AbonosRegistrados")
+  abonosAnulados              Abono[]                  @relation("AbonosAnulados")
+  movimientosRegistrados      MovimientoFinanciero[]   @relation("MovimientosRegistrados")
+  movimientosAnulados         MovimientoFinanciero[]   @relation("MovimientosAnulados")
+  cierresCreados              CierreCaja[]             @relation("CierresCreados")
+  cierresCerrados             CierreCaja[]             @relation("CierresCerrados")
+  cierresResueltos            CierreCaja[]             @relation("CierresResueltos")
   historialCierres            CierreCajaHistorial[]
   registrosAuditoria          RegistroAuditoria[]
   importaciones               Importacion[]
-  clientesAutorizados         Cliente[]              @relation("AutorizacionesRegistradas")
-  equiposDadosDeBaja          Equipo[]               @relation("EquiposDadosDeBaja")
-  comisionesPagadas           Comision[]             @relation("ComisionesPagadas")
-  comisionesAnuladas          Comision[]             @relation("ComisionesAnuladas")
+  clientesAutorizados         Cliente[]                @relation("AutorizacionesRegistradas")
+  equiposDadosDeBaja          Equipo[]                 @relation("EquiposDadosDeBaja")
+  comisionesPagadas           Comision[]               @relation("ComisionesPagadas")
+  comisionesAnuladas          Comision[]               @relation("ComisionesAnuladas")
   notificaciones              Notificacion[]
-  abonosVerificados           Abono[]                @relation("AbonosVerificados")
+  abonosVerificados           Abono[]                  @relation("AbonosVerificados")
   recuperacionesPassword      RecuperacionPassword[]
   separacionesRegistradas     Separacion[]
   documentosSubidos           DocumentoVenta[]
   desistimientosRegistrados   Desistimiento[]
-  trabajadoresAutorizados     Trabajador[]           @relation("AutorizacionesSaludRegistradas")
-  parametrosLegalesValidados  ParametroLegal[]       @relation("ParametrosLegalesValidados")
-  afiliacionesRegistradas     AfiliacionTrabajador[] @relation("AfiliacionesRegistradas")
-  documentosTrabajadorSubidos DocumentoTrabajador[]  @relation("DocumentosTrabajadorSubidos")
-  ventasRegistradas           Venta[]                @relation("VentasRegistradas")
-  ventasResueltas             Venta[]                @relation("VentasResueltas")
-  createdAt                   DateTime               @default(now())
-  updatedAt                   DateTime               @updatedAt
+  trabajadoresAutorizados     Trabajador[]             @relation("AutorizacionesSaludRegistradas")
+  parametrosLegalesValidados  ParametroLegal[]         @relation("ParametrosLegalesValidados")
+  afiliacionesRegistradas     AfiliacionTrabajador[]   @relation("AfiliacionesRegistradas")
+  documentosTrabajadorSubidos DocumentoTrabajador[]    @relation("DocumentosTrabajadorSubidos")
+  entregasEppRegistradas      EntregaEpp[]             @relation("EntregasEppRegistradas")
+  entregasEppAnuladas         EntregaEpp[]             @relation("EntregasEppAnuladas")
+  actividadesPlanCreadas      ActividadPlan[]          @relation("ActividadesPlanCreadas")
+  capacitacionesCreadas       Capacitacion[]           @relation("CapacitacionesCreadas")
+  asistenciasRegistradas      AsistenciaCapacitacion[] @relation("AsistenciasRegistradas")
+  asistenciasAnuladas         AsistenciaCapacitacion[] @relation("AsistenciasAnuladas")
+  documentosSstSubidos        DocumentoSst[]           @relation("DocumentosSstSubidos")
+  ventasRegistradas           Venta[]                  @relation("VentasRegistradas")
+  ventasResueltas             Venta[]                  @relation("VentasResueltas")
+  createdAt                   DateTime                 @default(now())
+  updatedAt                   DateTime                 @updatedAt
 
   @@index([rolId])
 }
@@ -753,18 +760,18 @@ model RegistroAuditoria {
 // CC-03 (RF-PER-17): la ficha se amplía con columnas opcionales. `nombre` se conserva completo (nómina y PDF lo usan);
 // `nombres` y `apellidos` son la versión separada que pide la seguridad social.
 model Trabajador {
-  id                               String                 @id @default(uuid())
+  id                               String                   @id @default(uuid())
   nombre                           String
-  documento                        String                 @unique
-  tipoDocumento                    TipoDocumento          @default(CC)
+  documento                        String                   @unique
+  tipoDocumento                    TipoDocumento            @default(CC)
   nombres                          String?
   apellidos                        String?
   fechaNacimiento                  DateTime?
   sexo                             SexoTrabajador?
   area                             String?
   cargo                            String
-  tipoContrato                     TipoContrato           @default(OBRA_LABOR)
-  salarioBase                      Decimal                @db.Decimal(14, 2)
+  tipoContrato                     TipoContrato             @default(OBRA_LABOR)
+  salarioBase                      Decimal                  @db.Decimal(14, 2)
   fechaIngreso                     DateTime
   // El retiro no borra al trabajador: queda la fecha y el motivo (RF-PER-17).
   fechaRetiro                      DateTime?
@@ -772,18 +779,20 @@ model Trabajador {
   telefono                         String?
   celular                          String?
   email                            String?
-  estado                           EstadoTrabajador       @default(ACTIVO)
+  estado                           EstadoTrabajador         @default(ACTIVO)
   // Autorización de tratamiento de datos de salud (Ley 1581 de 2012, RNF-LEG-03): si la dio, cuándo y quién la registró.
   // Mismo patrón que Cliente.autorizaDatos.
-  autorizaDatosSalud               Boolean                @default(false)
+  autorizaDatosSalud               Boolean                  @default(false)
   fechaAutorizacionSalud           DateTime?
   autorizacionSaludRegistradaPorId String?
-  autorizacionSaludRegistradaPor   Usuario?               @relation("AutorizacionesSaludRegistradas", fields: [autorizacionSaludRegistradaPorId], references: [id])
+  autorizacionSaludRegistradaPor   Usuario?                 @relation("AutorizacionesSaludRegistradas", fields: [autorizacionSaludRegistradaPorId], references: [id])
   pagos                            PagoNomina[]
   afiliaciones                     AfiliacionTrabajador[]
   documentos                       DocumentoTrabajador[]
-  createdAt                        DateTime               @default(now())
-  updatedAt                        DateTime               @updatedAt
+  entregasEpp                      EntregaEpp[]
+  asistencias                      AsistenciaCapacitacion[]
+  createdAt                        DateTime                 @default(now())
+  updatedAt                        DateTime                 @updatedAt
 }
 
 enum SexoTrabajador {
@@ -910,6 +919,236 @@ model DocumentoTrabajador {
   @@index([trabajadorId])
 }
 
+// ---------------------------------------------------------------------------------------------
+// Gestión SST (CC-03, fase B): elementos de protección personal, plan de trabajo anual y capacitaciones.
+// ---------------------------------------------------------------------------------------------
+
+// Por qué se entrega un elemento de protección (RF-SST-13). Los valores salen de las listas del libro del cliente.
+enum MotivoEntregaEpp {
+  DOTACION_INICIAL
+  REPOSICION_VIDA_UTIL
+  REPOSICION_DANO
+  PERDIDA
+  CAMBIO_CARGO
+}
+
+// Ciclo PHVA del plan de trabajo.
+enum CicloPhva {
+  PLANEAR
+  HACER
+  VERIFICAR
+  ACTUAR
+}
+
+// Estado de una actividad del plan o de una capacitación. CANCELADA y EJECUTADA ya no generan alertas.
+enum EstadoActividadSst {
+  PROGRAMADA
+  EN_EJECUCION
+  EJECUTADA
+  REPROGRAMADA
+  CANCELADA
+}
+
+enum ModalidadCapacitacion {
+  PRESENCIAL
+  VIRTUAL
+  MIXTA
+}
+
+enum EjecutorCapacitacion {
+  INTERNO
+  ARL
+  EXTERNO
+  SENA
+}
+
+enum TipoAvisoSst {
+  EPP
+  ACTIVIDAD_PLAN
+  CAPACITACION
+}
+
+// Catálogo de elementos de protección personal con su vida útil en días (RF-SST-12). Se desactivan, no se borran.
+model ElementoEpp {
+  id           String       @id @default(uuid())
+  nombre       String       @unique
+  vidaUtilDias Int
+  activo       Boolean      @default(true)
+  entregas     EntregaEpp[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+// Entrega de un elemento a un trabajador (RF-SST-13). Nunca se edita ni se borra (lo impide la base de datos): un error
+// se corrige anulándola con motivo. La vida útil y la próxima reposición quedan como foto del día de la entrega, así que
+// cambiar el catálogo después no altera las entregas ya hechas (RF-SST-14).
+model EntregaEpp {
+  id                String           @id @default(uuid())
+  trabajadorId      String
+  trabajador        Trabajador       @relation(fields: [trabajadorId], references: [id])
+  elementoId        String
+  elemento          ElementoEpp      @relation(fields: [elementoId], references: [id])
+  fecha             DateTime
+  cantidad          Int
+  // Talla, marca o referencia.
+  tallaReferencia   String?
+  motivo            MotivoEntregaEpp
+  // Quién entregó (texto libre: puede no ser un usuario del sistema) y quién lo registró.
+  entregadoPor      String
+  registradaPorId   String
+  registradaPor     Usuario          @relation("EntregasEppRegistradas", fields: [registradaPorId], references: [id])
+  firmoRecibido     Boolean          @default(false)
+  vidaUtilDias      Int
+  proximaReposicion DateTime
+  anulada           Boolean          @default(false)
+  anuladaEn         DateTime?
+  anuladaPorId      String?
+  anuladaPor        Usuario?         @relation("EntregasEppAnuladas", fields: [anuladaPorId], references: [id])
+  motivoAnulacion   String?
+  // Cuándo se avisó por correo que estaba por reponer y que se venció: un aviso por cada estado, sin repetir.
+  avisoPorReponerEn DateTime?
+  avisoVencidaEn    DateTime?
+  documentos        DocumentoSst[]
+  createdAt         DateTime         @default(now())
+
+  @@index([trabajadorId, elementoId, fecha])
+  @@index([proximaReposicion])
+}
+
+// Actividad del plan de trabajo anual del SG-SST (RF-SST-15). Es planeación: se edita, con auditoría. Las fechas deben caer
+// dentro del año del plan. El cronograma mensual (RF-SST-16) se calcula con las fechas.
+model ActividadPlan {
+  id                String             @id @default(uuid())
+  anio              Int
+  ciclo             CicloPhva
+  // Estándar o componente de la Resolución 0312 al que aporta.
+  estandar          String
+  actividad         String
+  meta              String
+  responsable       String
+  correoResponsable String
+  fechaInicio       DateTime
+  fechaFin          DateTime
+  recursos          String?
+  presupuesto       Decimal?           @db.Decimal(14, 2)
+  estado            EstadoActividadSst @default(PROGRAMADA)
+  porcentajeAvance  Int                @default(0)
+  // Un aviso al responsable cuando queda próxima y otro cuando se vence; si cambian las fechas se vuelven a habilitar.
+  avisoProximaEn    DateTime?
+  avisoVencidaEn    DateTime?
+  creadaPorId       String
+  creadaPor         Usuario            @relation("ActividadesPlanCreadas", fields: [creadaPorId], references: [id])
+  documentos        DocumentoSst[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  avisoSsts         AvisoSst[]
+
+  @@index([anio, fechaInicio])
+}
+
+// Capacitación del plan de capacitación (RF-SST-18).
+model Capacitacion {
+  id                    String                   @id @default(uuid())
+  tema                  String
+  objetivo              String
+  dirigidoA             String
+  modalidad             ModalidadCapacitacion
+  horas                 Decimal                  @db.Decimal(5, 2)
+  fechaProgramada       DateTime
+  // Obligatoria cuando la capacitación está ejecutada.
+  fechaEjecucion        DateTime?
+  // Quien dicta o coordina, y su correo para los recordatorios.
+  responsable           String
+  correoResponsable     String
+  ejecutor              EjecutorCapacitacion
+  asistentesProgramados Int
+  estado                EstadoActividadSst       @default(PROGRAMADA)
+  // Evaluación de eficacia de 1 a 5.
+  evaluacionEficacia    Decimal?                 @db.Decimal(3, 2)
+  avisoProximaEn        DateTime?
+  avisoVencidaEn        DateTime?
+  creadaPorId           String
+  creadaPor             Usuario                  @relation("CapacitacionesCreadas", fields: [creadaPorId], references: [id])
+  asistencias           AsistenciaCapacitacion[]
+  documentos            DocumentoSst[]
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  avisoSsts             AvisoSst[]
+
+  @@index([fechaProgramada])
+}
+
+// Asistencia de un trabajador a una capacitación (RF-SST-19). Los asistentes reales son los registros no anulados.
+// Quitar a alguien por error lo anula con motivo (no se borra); solo puede haber una asistencia vigente por trabajador
+// y capacitación (índice parcial escrito a mano en la migración).
+model AsistenciaCapacitacion {
+  id              String       @id @default(uuid())
+  capacitacionId  String
+  capacitacion    Capacitacion @relation(fields: [capacitacionId], references: [id])
+  trabajadorId    String
+  trabajador      Trabajador   @relation(fields: [trabajadorId], references: [id])
+  firmo           Boolean      @default(false)
+  // Nota de la evaluación, de 0 a 5.
+  calificacion    Decimal?     @db.Decimal(3, 2)
+  anulada         Boolean      @default(false)
+  anuladaEn       DateTime?
+  anuladaPorId    String?
+  anuladaPor      Usuario?     @relation("AsistenciasAnuladas", fields: [anuladaPorId], references: [id])
+  motivoAnulacion String?
+  registradaPorId String
+  registradaPor   Usuario      @relation("AsistenciasRegistradas", fields: [registradaPorId], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([capacitacionId])
+  @@index([trabajadorId])
+}
+
+// Adjunto de un registro SST (RF-SST-21): el acta de entrega de un EPP, la evidencia de una actividad o el listado de
+// asistencia y las evidencias de una capacitación. Pertenece a exactamente uno de los tres (lo exige la base de datos).
+// Se conserva siempre y solo se descarga con sesión y permiso (RNF-SEG-05).
+model DocumentoSst {
+  id              String         @id @default(uuid())
+  entregaEppId    String?
+  entregaEpp      EntregaEpp?    @relation(fields: [entregaEppId], references: [id])
+  actividadPlanId String?
+  actividadPlan   ActividadPlan? @relation(fields: [actividadPlanId], references: [id])
+  capacitacionId  String?
+  capacitacion    Capacitacion?  @relation(fields: [capacitacionId], references: [id])
+  nombreOriginal  String
+  ruta            String
+  tipoMime        String
+  tamano          Int
+  descripcion     String?
+  subidoPorId     String
+  subidoPor       Usuario        @relation("DocumentosSstSubidos", fields: [subidoPorId], references: [id])
+  createdAt       DateTime       @default(now())
+
+  @@index([entregaEppId])
+  @@index([actividadPlanId])
+  @@index([capacitacionId])
+}
+
+// Historial de los avisos por correo del módulo SST (RF-SST-14, 16 y 20): un registro por intento, con su resultado. Solo
+// se inserta (la base impide editar o borrar). Los de tipo EPP son un resumen: cantidad dice cuántas entregas incluía.
+model AvisoSst {
+  id              String             @id @default(uuid())
+  createdAt       DateTime           @default(now())
+  tipo            TipoAvisoSst
+  estado          EstadoNotificacion
+  destinatario    String?
+  asunto          String?
+  detalle         String?
+  actividadPlanId String?
+  actividadPlan   ActividadPlan?     @relation(fields: [actividadPlanId], references: [id], onDelete: Restrict)
+  capacitacionId  String?
+  capacitacion    Capacitacion?      @relation(fields: [capacitacionId], references: [id], onDelete: Restrict)
+  cantidad        Int?
+
+  @@index([createdAt])
+  @@index([tipo, createdAt])
+}
+
 // Pago de nómina de un Trabajador por un período. salarioBase y
 // valorPagado quedan como una foto de ese momento (igual que Cuota.valor
 // en Ventas): si el salario del trabajador cambia después, los pagos ya
@@ -990,6 +1229,10 @@ model ConfiguracionEmpresa {
   intentosMaximosLogin        Int      @default(5)
   minutosBloqueoLogin         Int      @default(15)
   minutosInactividad          Int      @default(30)
+  // Seguridad y salud en el trabajo (CC-03, fase B): con cuántos días de anticipación se alerta una reposición de EPP, una
+  // actividad del plan o una capacitación, y a qué correo va el resumen de EPP por reponer (vacío = solo se ve en el panel).
+  diasAlertaSst               Int      @default(15)
+  correoAvisosSst             String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

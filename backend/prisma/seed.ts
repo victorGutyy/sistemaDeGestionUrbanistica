@@ -27,6 +27,7 @@ import {
   CLASES_RIESGO_ARL,
   COMISIONES,
   CUENTAS,
+  ELEMENTOS_EPP,
   EMPRESA,
   ENTIDADES_SS,
   PARAMETRO_LEGAL_2026,
@@ -83,6 +84,11 @@ async function sembrarConfiguracion() {
     });
   }
 
+  // Sin update: si el contratista ya ajustó la vida útil de un elemento, no se pisa.
+  for (const elemento of ELEMENTOS_EPP) {
+    await prisma.elementoEpp.upsert({ where: { nombre: elemento.nombre }, update: {}, create: elemento });
+  }
+
   // Sin update: si el gerente ya ajustó o validó los valores de 2026, no se pisan.
   await prisma.parametroLegal.upsert({
     where: { anio: PARAMETRO_LEGAL_2026.anio },
@@ -109,7 +115,7 @@ async function sembrarConfiguracion() {
     skipDuplicates: true,
   });
 
-  console.log('Configuración inicial lista (empresa, parámetros, cuentas, categorías de gasto e ingreso, tipos de equipo, entidades de seguridad social, clases de riesgo ARL, parámetros legales, medios de pago, comisiones).');
+  console.log('Configuración inicial lista (empresa, parámetros, cuentas, categorías de gasto e ingreso, tipos de equipo, entidades de seguridad social, clases de riesgo ARL, parámetros legales, elementos de protección personal, medios de pago, comisiones).');
 }
 
 async function sembrarRoles() {
