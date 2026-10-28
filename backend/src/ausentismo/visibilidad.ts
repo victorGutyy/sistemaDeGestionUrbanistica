@@ -61,3 +61,17 @@ export function presentarAusentismo(registro: Objeto, vista: VistaAusentismo): O
   }
   return resultado;
 }
+
+// Una fila de la lista de recobros: lo que se espera cobrar y lo reconocido son valores, y las observaciones pueden decir
+// cuánto pagó o rechazó la entidad.
+export function presentarRecobro(fila: Objeto, vista: VistaAusentismo): Objeto {
+  return vista.verValores ? { ...fila } : sin(fila, ['valorEsperado', 'valorReconocido', 'observaciones']);
+}
+
+// El resumen mensual: los días y los registros los ven todos los que usan el módulo; los valores, quien puede ver valores.
+export function presentarResumen<T extends { meses: readonly object[]; total: object }>(resumen: T, vista: VistaAusentismo): T {
+  if (vista.verValores) {
+    return resumen;
+  }
+  return { ...resumen, meses: resumen.meses.map((mes) => sin(mes as Objeto, ['valores'])), total: sin(resumen.total as Objeto, ['valores']) };
+}

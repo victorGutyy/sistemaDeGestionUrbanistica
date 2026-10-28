@@ -1,12 +1,25 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseEnumPipe, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CurrentUsuario } from '../auth/current-usuario.decorator.js';
 import { PERMISOS } from '../auth/permisos.js';
 import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
+import { EntidadRecobro } from '../generated/prisma/enums.js';
 import { AusentismoService } from './ausentismo.service.js';
-import { ActualizarAusentismoDto, AnularAusentismoDto, CorregirLiquidacionDto, ListarAusentismosQueryDto, RegistrarAusentismoDto } from './dto/ausentismo.dto.js';
+import {
+  ActualizarAusentismoDto,
+  ActualizarRecobroDto,
+  AnularAusentismoDto,
+  CorregirLiquidacionDto,
+  ListarAusentismosQueryDto,
+  ListarRecobrosQueryDto,
+  NovedadesAusentismoQueryDto,
+  RegistrarAusentismoDto,
+  ResumenAusentismoQueryDto,
+} from './dto/ausentismo.dto.js';
+import { InformesAusentismoService } from './informes-ausentismo.service.js';
+import { RecobrosAusentismoService } from './recobros-ausentismo.service.js';
 
 const TAMANO_MAXIMO_DOCUMENTO = 10 * 1024 * 1024;
 
@@ -17,12 +30,46 @@ const TAMANO_MAXIMO_DOCUMENTO = 10 * 1024 * 1024;
 @SoloAlcanceTotal()
 @Controller('sst/ausentismo')
 export class AusentismoController {
-  constructor(private readonly ausentismo: AusentismoService) {}
+  constructor(
+    private readonly ausentismo: AusentismoService,
+    private readonly recobros: RecobrosAusentismoService,
+    private readonly informes: InformesAusentismoService,
+  ) {}
 
   @Permiso(PERMISOS.SST_VER)
   @Get()
   listar(@Query() filtro: ListarAusentismosQueryDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
     return this.ausentismo.listar(filtro, usuario);
+  }
+
+  // Las rutas fijas (resumen, recobros, novedades) van antes de las de un ausentismo por identificador (":id").
+
+  @Permiso(PERMISOS.SST_VER)
+  @Get('resumen')
+  resumen(@Query() filtro: ResumenAusentismoQueryDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.informes.resumenMensual(filtro.anio, usuario);
+  }
+
+  // El seguimiento del recobro es dinero: ven el estado todos los que usan el módulo y los valores, quien puede verlos.
+  @Permiso(PERMISOS.SST_VER)
+  @Get('recobros')
+  listarRecobros(@Query() filtro: ListarRecobrosQueryDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.recobros.listar(filtro, usuario);
+  }
+
+  // Lo que se le entrega a la nómina trae valores: exige poder verlos. Nunca lleva diagnósticos.
+  @Permiso(PERMISOS.SST_VER, PERMISOS.SST_VALORES_VER)
+  @Get('novedades')
+  novedades(@Query() filtro: NovedadesAusentismoQueryDto) {
+    return this.informes.novedades(filtro.anio, filtro.mes);
+  }
+
+  @Permiso(PERMISOS.SST_VER, PERMISOS.SST_VALORES_VER)
+  @Get('novedades/excel')
+  async novedadesExcel(@Query() filtro: NovedadesAusentismoQueryDto, @CurrentUsuario() usuario: UsuarioAutenticado, @Res() res: Response) {
+    const { buffer, contentType, nombreArchivo } = await this.informes.novedadesExcel(filtro.anio, filtro.mes, usuario);
+    res.set({ 'Content-Type': contentType, 'Content-Disposition': `attachment; filename="${nombreArchivo}"` });
+    res.send(buffer);
   }
 
   @Permiso(PERMISOS.SST_GESTIONAR)
@@ -47,6 +94,18 @@ export class AusentismoController {
   @Post(':id/anular')
   anular(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AnularAusentismoDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
     return this.ausentismo.anular(id, dto, usuario);
+  }
+
+  // Cambiar el recobro es mover plata: exige poder gestionar y poder ver valores.
+  @Permiso(PERMISOS.SST_GESTIONAR, PERMISOS.SST_VALORES_VER)
+  @Patch(':id/recobros/:entidad')
+  actualizarRecobro(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('entidad', new ParseEnumPipe(EntidadRecobro)) entidad: EntidadRecobro,
+    @Body() dto: ActualizarRecobroDto,
+    @CurrentUsuario() usuario: UsuarioAutenticado,
+  ) {
+    return this.recobros.actualizar(id, entidad, dto, usuario);
   }
 
   @Permiso(PERMISOS.SST_GESTIONAR, PERMISOS.SST_VALORES_VER)

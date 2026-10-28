@@ -126,6 +126,8 @@ export const ACCIONES_AUDITORIA = {
   AUSENTISMO_EDITAR: 'Editó un ausentismo',
   AUSENTISMO_ANULAR: 'Anuló un ausentismo',
   AUSENTISMO_CORREGIR: 'Corrigió la liquidación de un ausentismo',
+  AUSENTISMO_RECOBRO_ACTUALIZAR: 'Actualizó el recobro de una incapacidad',
+  AUSENTISMO_NOVEDADES_EXPORTAR: 'Descargó las novedades de ausentismo para la nómina',
   AUSENTISMO_DIAGNOSTICO_CONSULTAR: 'Consultó un dato de salud de un ausentismo (diagnóstico o certificado)',
 } as const;
 

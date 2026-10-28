@@ -8,7 +8,7 @@ import { AusentismoController } from './ausentismo.controller.js';
 const permisoDe = (metodo: keyof AusentismoController) => Reflect.getMetadata(PERMISOS_KEY, AusentismoController.prototype[metodo]) as string[] | undefined;
 
 describe('AusentismoController: permisos declarados (RF-USR-11, RNF-SEG-08)', () => {
-  it.each(['listar', 'buscar'] as const)('%s pide solo sst.ver', (metodo) => {
+  it.each(['listar', 'buscar', 'resumen', 'listarRecobros'] as const)('%s pide solo sst.ver', (metodo) => {
     expect(permisoDe(metodo)).toEqual([PERMISOS.SST_VER]);
   });
 
@@ -16,8 +16,12 @@ describe('AusentismoController: permisos declarados (RF-USR-11, RNF-SEG-08)', ()
     expect(permisoDe(metodo)).toEqual([PERMISOS.SST_GESTIONAR]);
   });
 
-  it('corregir la liquidación pide gestionar y poder ver los valores', () => {
-    expect(permisoDe('corregirLiquidacion')).toEqual([PERMISOS.SST_GESTIONAR, PERMISOS.SST_VALORES_VER]);
+  it.each(['corregirLiquidacion', 'actualizarRecobro'] as const)('%s (mueve valores) pide gestionar y poder ver los valores', (metodo) => {
+    expect(permisoDe(metodo)).toEqual([PERMISOS.SST_GESTIONAR, PERMISOS.SST_VALORES_VER]);
+  });
+
+  it.each(['novedades', 'novedadesExcel'] as const)('%s (lo que se entrega a la nómina trae valores) pide sst.ver y poder ver los valores', (metodo) => {
+    expect(permisoDe(metodo)).toEqual([PERMISOS.SST_VER, PERMISOS.SST_VALORES_VER]);
   });
 
   it.each(['listarDocumentos', 'descargarDocumento'] as const)('%s (el certificado trae el diagnóstico) pide poder ver diagnósticos', (metodo) => {
@@ -26,7 +30,7 @@ describe('AusentismoController: permisos declarados (RF-USR-11, RNF-SEG-08)', ()
 
   it('toda ruta del controlador declara un permiso', () => {
     const metodos = Object.getOwnPropertyNames(AusentismoController.prototype).filter((nombre) => nombre !== 'constructor');
-    expect(metodos).toHaveLength(9);
+    expect(metodos).toHaveLength(14);
     for (const metodo of metodos) {
       expect(permisoDe(metodo as keyof AusentismoController), metodo).toBeDefined();
     }

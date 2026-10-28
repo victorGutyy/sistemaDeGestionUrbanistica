@@ -8,6 +8,7 @@
 import 'dotenv/config';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import ExcelJS from 'exceljs';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -274,6 +275,110 @@ describe('Ausentismo por rol, con los guardas reales (e2e)', () => {
     });
   });
 
+  describe('recobro, resumen y novedades para la nómina (RF-SST-09 a 11)', () => {
+    // Respuesta binaria (el Excel) como Buffer.
+    const binario = (clave: string, ruta: string) =>
+      como(clave)
+        .get(ruta)
+        .buffer(true)
+        .parse((res, devolver) => {
+          const partes: Buffer[] = [];
+          res.on('data', (parte: Buffer) => partes.push(parte));
+          res.on('end', () => devolver(null, Buffer.concat(partes)));
+        });
+
+    it('el administrador ve el recobro con lo esperado; el contratista solo el estado; Consulta nada', async () => {
+      const admin = (await como('ADMINISTRADOR').get('/sst/ausentismo/recobros?estado=PENDIENTE').expect(200)).body as { ausentismo: { id: string }; valorEsperado?: string }[];
+      const fila = admin.find((r) => r.ausentismo.id === primero);
+      expect(fila).toMatchObject({ entidad: 'EPS', estado: 'PENDIENTE' });
+      expect(Number(fila?.valorEsperado)).toBeGreaterThan(0);
+      const contratista = await como('CONTRATISTA').get('/sst/ausentismo/recobros?estado=PENDIENTE').expect(200);
+      expect(contratista.text).toContain(primero);
+      expect(contratista.text).not.toMatch(/valorEsperado|valorReconocido|observaciones/);
+      await como('CONSULTA').get('/sst/ausentismo/recobros').expect(403);
+      await como('CONSULTA_LIMITADA').get('/sst/ausentismo/recobros').expect(403);
+      await como('GERENTE').get('/sst/ausentismo/recobros?estado=NO_EXISTE').expect(400);
+    });
+
+    it('solo quien gestiona y ve valores cambia el recobro; cada estado exige sus datos', async () => {
+      const ruta = `/sst/ausentismo/${primero}/recobros/EPS`;
+      await como('CONTRATISTA').patch(ruta).send({ estado: 'RADICADA', fechaRadicacion: '2026-04-01' }).expect(403);
+      await como('CONSULTA').patch(ruta).send({ estado: 'RADICADA', fechaRadicacion: '2026-04-01' }).expect(403);
+      await como('ADMINISTRADOR').patch(ruta).send({ estado: 'RADICADA' }).expect(400);
+      await como('ADMINISTRADOR').patch(ruta).send({ estado: 'RECHAZADA', fechaRadicacion: '2026-04-01' }).expect(400);
+      await como('ADMINISTRADOR').patch(ruta).send({ estado: 'PAGADA', fechaRadicacion: '2026-04-10', fechaPago: '2026-04-01', valorReconocido: '1' }).expect(400);
+      const radicada = await como('ADMINISTRADOR').patch(ruta).send({ estado: 'RADICADA', fechaRadicacion: '2026-04-01' }).expect(200);
+      expect(radicada.body).toMatchObject({ estado: 'RADICADA', entidad: 'EPS' });
+      const pagada = await como('GERENTE').patch(ruta).send({ estado: 'PAGADA', fechaRadicacion: '2026-04-01', fechaPago: '2026-04-20', valorReconocido: '210000' }).expect(200);
+      expect(pagada.body).toMatchObject({ estado: 'PAGADA', valorReconocido: '210000' });
+      const guardado = await prisma.recobroAusentismo.findFirstOrThrow({ where: { ausentismoId: primero, entidad: 'EPS' } });
+      expect(guardado.estado).toBe('PAGADA');
+      expect(guardado.actualizadoPorId).not.toBeNull();
+    });
+
+    it('no hay recobro a una entidad que no paga días, ni a una entidad que no existe', async () => {
+      await como('ADMINISTRADOR').patch(`/sst/ausentismo/${primero}/recobros/AFP`).send({ estado: 'RADICADA', fechaRadicacion: '2026-04-01' }).expect(400);
+      await como('ADMINISTRADOR').patch(`/sst/ausentismo/${primero}/recobros/OTRA`).send({ estado: 'RADICADA', fechaRadicacion: '2026-04-01' }).expect(400);
+    });
+
+    it('el resumen mensual lo ven todos los que usan el módulo; los valores solo quien puede verlos', async () => {
+      const gerente = (await como('GERENTE').get('/sst/ausentismo/resumen?anio=2026').expect(200)).body;
+      expect(gerente.meses).toHaveLength(12);
+      expect(gerente.meses[2]).toMatchObject({ mes: 3, registros: 2, dias: 11 }); // la incapacidad de 5 días y su prórroga de 6
+      expect(gerente.meses[2].diasPorPagador).toMatchObject({ empleador: 2, eps: 9 });
+      expect(Number(gerente.meses[2].valores.eps)).toBeGreaterThan(0);
+      expect(gerente.meses[4]).toMatchObject({ mes: 5, registros: 1, dias: 3 }); // el luto
+      expect(typeof gerente.meses[2].porcentajeAusentismo).toBe('string');
+      const contratista = await como('CONTRATISTA').get('/sst/ausentismo/resumen?anio=2026').expect(200);
+      expect(contratista.body.meses[2]).toMatchObject({ registros: 2, dias: 11 });
+      expect(contratista.text).not.toMatch(/"valores"/);
+      for (const clave of ['GERENTE', 'ADMINISTRADOR', 'CONTRATISTA']) {
+        const { text } = await como(clave).get('/sst/ausentismo/resumen?anio=2026').expect(200);
+        expect(text, clave).not.toMatch(/M54\.5|Lumbago|Cirugía|diagnostico|observaciones/);
+      }
+      await como('CONSULTA').get('/sst/ausentismo/resumen').expect(403);
+      await como('CONSULTA_LIMITADA').get('/sst/ausentismo/resumen').expect(403);
+      await como('GERENTE').get('/sst/ausentismo/resumen?anio=1900').expect(400);
+    });
+
+    it('las novedades para la nómina traen valores: el contratista y Consulta no entran', async () => {
+      for (const ruta of ['/sst/ausentismo/novedades?anio=2026&mes=3', '/sst/ausentismo/novedades/excel?anio=2026&mes=3']) {
+        await como('CONTRATISTA').get(ruta).expect(403);
+        await como('CONSULTA').get(ruta).expect(403);
+        await como('CONSULTA_LIMITADA').get(ruta).expect(403);
+      }
+      await como('ADMINISTRADOR').get('/sst/ausentismo/novedades?anio=2026&mes=13').expect(400);
+      await como('ADMINISTRADOR').get('/sst/ausentismo/novedades').expect(400);
+    });
+
+    it('las novedades del mes traen el documento, los días y los valores, sin diagnóstico', async () => {
+      const { body, text } = await como('ADMINISTRADOR').get('/sst/ausentismo/novedades?anio=2026&mes=3').expect(200);
+      const filas = body.secciones[0].filas as { trabajador: string; numeroDocumento: string | null; dias: number; diasEps: number; valorEps: string; observacion: string | null }[];
+      expect(filas).toHaveLength(2);
+      expect(filas.map((f) => f.dias)).toEqual([5, 6]);
+      expect(filas[0]).toMatchObject({ trabajador: 'Persona Inventada', numeroDocumento: 'INC-E2E-1', diasEps: 3 });
+      expect(filas[1].observacion).toBe('Prórroga');
+      expect(body.secciones[0].totales).toMatchObject({ dias: 11 });
+      expect(text).not.toMatch(/M54\.5|Lumbago|Cirugía|diagnostico|salarioFoto/);
+    });
+
+    it('el Excel de novedades es un libro real con los números como números y deja rastro en la auditoría', async () => {
+      const respuesta = await binario('ADMINISTRADOR', '/sst/ausentismo/novedades/excel?anio=2026&mes=3').expect(200);
+      expect(respuesta.headers['content-type']).toContain('spreadsheetml.sheet');
+      expect(respuesta.headers['content-disposition']).toContain('novedades-ausentismo-2026-03.xlsx');
+      const libro = new ExcelJS.Workbook();
+      await libro.xlsx.load(respuesta.body as Buffer as unknown as ArrayBuffer);
+      const hoja = libro.getWorksheet('Novedades')!;
+      expect(hoja).toBeDefined();
+      expect(hoja.getRow(5).getCell(2).value).toBe('Persona Inventada');
+      expect(hoja.getRow(5).getCell(7).value).toBe(5);
+      expect(typeof hoja.getRow(5).getCell(15).value).toBe('number');
+      // Nada de salud en ninguna celda de ninguna hoja.
+      expect(JSON.stringify(libro.worksheets.map((h) => h.getSheetValues()))).not.toMatch(/M54|Lumbago|Cirugía|diagn[oó]stico/i);
+      expect(await prisma.registroAuditoria.count({ where: { usuarioEmail: CORREO('ADMINISTRADOR'), accion: 'AUSENTISMO_NOVEDADES_EXPORTAR' } })).toBe(1);
+    });
+  });
+
   describe('cambios', () => {
     it('se completa el número y las observaciones; las fechas no se cambian', async () => {
       const { body } = await como('CONTRATISTA').patch(`/sst/ausentismo/${prorroga}`).send({ numeroDocumento: 'INC-E2E-2B', observaciones: 'Control en 8 días' }).expect(200);
@@ -325,7 +430,7 @@ describe('Ausentismo por rol, con los guardas reales (e2e)', () => {
   it('cada acción sobre el ausentismo quedó en la auditoría con quién la hizo', async () => {
     const acciones = await prisma.registroAuditoria.findMany({ where: { usuarioEmail: { startsWith: 'e2e-aus-' }, entidad: 'AUSENTISMO' }, select: { accion: true } });
     const nombres = new Set(acciones.map((a) => a.accion));
-    for (const accion of ['AUSENTISMO_REGISTRAR', 'AUSENTISMO_EDITAR', 'AUSENTISMO_ANULAR', 'AUSENTISMO_CORREGIR', 'AUSENTISMO_DIAGNOSTICO_CONSULTAR']) {
+    for (const accion of ['AUSENTISMO_REGISTRAR', 'AUSENTISMO_EDITAR', 'AUSENTISMO_ANULAR', 'AUSENTISMO_CORREGIR', 'AUSENTISMO_DIAGNOSTICO_CONSULTAR', 'AUSENTISMO_RECOBRO_ACTUALIZAR', 'AUSENTISMO_NOVEDADES_EXPORTAR']) {
       expect(nombres.has(accion), accion).toBe(true);
     }
     // Ningún registro de auditoría del ausentismo contiene el diagnóstico ni las observaciones.

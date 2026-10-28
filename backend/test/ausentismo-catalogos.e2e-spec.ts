@@ -13,7 +13,7 @@ import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
 const ID_AJENO = '00000000-0000-4000-8000-000000000000';
-const CORREO = (clave: string) => `e2e-aus-${clave.toLowerCase()}@ejemplo.test`;
+const CORREO = (clave: string) => `e2e-auscat-${clave.toLowerCase()}@ejemplo.test`;
 
 describe('Catálogos del ausentismo por rol, con los guardas reales (e2e)', () => {
   let app: INestApplication;
@@ -21,7 +21,7 @@ describe('Catálogos del ausentismo por rol, con los guardas reales (e2e)', () =
   const tokens: Record<string, string> = {};
 
   async function limpiar() {
-    await prisma.usuario.deleteMany({ where: { email: { startsWith: 'e2e-aus-' } } });
+    await prisma.usuario.deleteMany({ where: { email: { startsWith: 'e2e-auscat-' } } });
   }
 
   beforeAll(async () => {

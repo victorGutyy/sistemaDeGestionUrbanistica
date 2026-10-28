@@ -97,3 +97,26 @@ describe('presentarAusentismo (RNF-SEG-08)', () => {
     expect(resultado).toEqual({ id: 'a-2' });
   });
 });
+
+describe('presentarRecobro y presentarResumen', () => {
+  const RECOBRO = { id: 'r-1', entidad: 'EPS', estado: 'PAGADA', valorEsperado: '200010', valorReconocido: '210000', observaciones: 'Pagó 210.000', fechaPago: '2026-04-20' };
+
+  it('el recobro sin valores deja solo el estado y las fechas', async () => {
+    const { presentarRecobro } = await import('./visibilidad.js');
+    const sinValores = presentarRecobro(RECOBRO, vistaDe({ permisos: permisosDe(CLAVE_CONTRATISTA_SST) }));
+    expect(sinValores).toEqual({ id: 'r-1', entidad: 'EPS', estado: 'PAGADA', fechaPago: '2026-04-20' });
+    expect(presentarRecobro(RECOBRO, vistaDe({ permisos: permisosDe('ADMINISTRADOR') }))).toEqual(RECOBRO);
+  });
+
+  it('el resumen sin valores conserva los días y quita los valores de cada mes y del total', async () => {
+    const { presentarResumen } = await import('./visibilidad.js');
+    const resumen = {
+      anio: 2026,
+      meses: [{ mes: 3, dias: 5, valores: { eps: '200010' } }],
+      total: { dias: 5, valores: { eps: '200010' } },
+    };
+    const sinValores = presentarResumen(resumen, vistaDe({ permisos: permisosDe(CLAVE_CONTRATISTA_SST) }));
+    expect(sinValores).toEqual({ anio: 2026, meses: [{ mes: 3, dias: 5 }], total: { dias: 5 } });
+    expect(presentarResumen(resumen, vistaDe({ permisos: permisosDe(CLAVE_GERENTE) }))).toEqual(resumen);
+  });
+});

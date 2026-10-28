@@ -1,4 +1,5 @@
 import { Type } from 'class-transformer';
+import { EntidadRecobro, EstadoRecobro } from '../../generated/prisma/enums.js';
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength, ValidateIf, ValidateNested } from 'class-validator';
 
 const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -174,4 +175,70 @@ export class CorregirLiquidacionDto {
   @ValidateNested({ each: true })
   @Type(() => PeriodoCorregidoDto)
   periodos!: PeriodoCorregidoDto[];
+}
+
+// Seguimiento del recobro a la EPS, la ARL o el fondo de pensiones (RF-SST-09). Cada estado exige sus datos: se validan en
+// el servicio y en la base de datos. El sistema solo lleva el seguimiento; no transmite nada a esas entidades.
+export class ActualizarRecobroDto {
+  @IsEnum(EstadoRecobro)
+  estado!: EstadoRecobro;
+
+  @IsOptional()
+  @Matches(PESOS, { message: 'valorReconocido debe ser un monto en pesos, sin signo, con máximo 2 decimales' })
+  valorReconocido?: string;
+
+  @IsOptional()
+  @Matches(FORMATO_FECHA, { message: 'fechaRadicacion debe tener el formato YYYY-MM-DD' })
+  fechaRadicacion?: string;
+
+  @IsOptional()
+  @Matches(FORMATO_FECHA, { message: 'fechaPago debe tener el formato YYYY-MM-DD' })
+  fechaPago?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  observaciones?: string;
+}
+
+export class ListarRecobrosQueryDto {
+  @IsOptional()
+  @IsEnum(EstadoRecobro)
+  estado?: EstadoRecobro;
+
+  @IsOptional()
+  @IsEnum(EntidadRecobro)
+  entidad?: EntidadRecobro;
+
+  // Año de inicio del ausentismo.
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  anio?: number;
+}
+
+export class ResumenAusentismoQueryDto {
+  // Sin indicar, el año en curso.
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  anio?: number;
+}
+
+export class NovedadesAusentismoQueryDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  anio!: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  mes!: number;
 }

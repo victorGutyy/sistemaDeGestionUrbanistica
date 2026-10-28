@@ -30,8 +30,11 @@ export interface SeccionReporte {
 
 export type ClaveReporte = 'recaudo' | 'cartera-edades' | 'egresos' | 'inventario-lotes' | 'flujo-caja' | 'comisiones' | 'informe-proyecto' | 'maquinaria-equipos';
 
+// Los reportes del catálogo y los que arman otros módulos con este mismo modelo (novedades de ausentismo para la nómina).
+export type ClaveReporteGenerado = ClaveReporte | 'ausentismo-novedades';
+
 export interface ReporteGenerado {
-  clave: ClaveReporte;
+  clave: ClaveReporteGenerado;
   titulo: string;
   descripcion: string;
   // Lo que se pidió, en palabras (p. ej. "Proyecto: La Floresta"), para que el papel diga de qué es.
