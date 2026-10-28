@@ -7,6 +7,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SeguridadSocialService } from '../src/seguridad-social/seguridad-social.service.js';
 import type { UsuarioAutenticado } from '../src/auth/usuario-autenticado.js';
+import type { StorageService } from '../src/storage/storage.service.js';
+import { AfiliacionesTrabajadorService } from '../src/trabajadores/afiliaciones-trabajador.service.js';
+import { DocumentosTrabajadorService } from '../src/trabajadores/documentos-trabajador.service.js';
+import { TrabajadoresService } from '../src/trabajadores/trabajadores.service.js';
 
 const REVERTIR = new Error('revertir');
 
@@ -179,6 +183,99 @@ describe('Seguridad social contra Postgres real (RF-CFG-13, RF-CFG-14, RF-PER-04
     await enTransaccionRevertida(async (tx) => {
       const trabajador = await trabajadorDePrueba(tx);
       await expect(tx.$executeRaw`UPDATE "Trabajador" SET "autorizaDatosSalud" = true WHERE "id" = ${trabajador.id}`).rejects.toThrow(/autorizacion_salud_completa/);
+    });
+  });
+
+  it('recorrido completo con los servicios reales: crear, afiliar, cambiar de EPS, ARL con clase, certificado, alertas, autorización y retiro', async () => {
+    await enTransaccionRevertida(async (tx) => {
+      const proxy = new Proxy(tx, { get: (objetivo, clave) => (clave === '$transaction' ? (accion: (t: Tx) => unknown) => accion(objetivo) : Reflect.get(objetivo, clave)) }) as unknown as PrismaService;
+      const archivos = new Map<string, Buffer>();
+      const almacenamiento = {
+        guardar: (carpeta: string, nombre: string, buffer: Buffer) => {
+          const rutaRelativa = `${carpeta}/${nombre}`;
+          archivos.set(rutaRelativa, buffer);
+          return Promise.resolve({ rutaRelativa });
+        },
+        leer: (ruta: string) => Promise.resolve(archivos.get(ruta) ?? Buffer.alloc(0)),
+      } as unknown as StorageService;
+      const trabajadores = new TrabajadoresService(proxy);
+      const afiliaciones = new AfiliacionesTrabajadorService(proxy);
+      const documentos = new DocumentosTrabajadorService(proxy, almacenamiento);
+      const gerente = { ...usuario, permisos: ['nomina.ver', 'nomina.gestionar', 'sst.ver', 'sst.gestionar'] };
+
+      const creado = await trabajadores.crear(
+        { nombres: 'Persona', apellidos: 'Inventada E2E', documento: `E2E-${randomUUID().slice(0, 8)}`, cargo: 'Oficial', salarioBase: '1500000', fechaIngreso: '2026-01-01', tipoContrato: 'OBRA_LABOR' },
+        usuario,
+      );
+      expect(creado).toMatchObject({ nombre: 'Persona Inventada E2E', tipoDocumento: 'CC', tipoContrato: 'OBRA_LABOR' });
+
+      const eps = await tx.entidadSS.findMany({ where: { tipo: 'EPS' }, take: 2, orderBy: { nombre: 'asc' } });
+      const arl = await tx.entidadSS.findFirstOrThrow({ where: { tipo: 'ARL' } });
+      const claseTres = await tx.claseRiesgoArl.findUniqueOrThrow({ where: { clase: 3 } });
+      const claseCinco = await tx.claseRiesgoArl.findUniqueOrThrow({ where: { clase: 5 } });
+
+      // Recién creado: le faltan las cinco afiliaciones, el certificado y la autorización.
+      const inicial = (await trabajadores.alertasSst()).trabajadores.find((t) => t.trabajadorId === creado.id);
+      expect(inicial?.afiliacionesFaltantes.sort()).toEqual(['AFP', 'ARL', 'CAJA', 'CESANTIAS', 'EPS']);
+      expect(inicial).toMatchObject({ sinCertificadoAfiliacion: true, sinAutorizacionSalud: true });
+
+      // EPS, y luego cambio de EPS: la anterior queda cerrada el día anterior.
+      await afiliaciones.registrar(creado.id, { tipo: 'EPS', entidadId: eps[0].id, fechaInicio: '2026-02-01' }, gerente);
+      await afiliaciones.registrar(creado.id, { tipo: 'EPS', entidadId: eps[1].id, fechaInicio: '2026-07-01' }, gerente);
+      const historial = (await afiliaciones.listar(creado.id)).filter((a) => a.tipo === 'EPS');
+      expect(historial).toHaveLength(2);
+      expect(historial.find((a) => a.fechaFin)?.fechaFin?.getTime()).toBe(new Date(2026, 5, 30).getTime());
+      expect(historial.filter((a) => !a.fechaFin)).toHaveLength(1);
+
+      // ARL con clase de riesgo, y luego la misma ARL con otra clase.
+      await afiliaciones.registrar(creado.id, { tipo: 'ARL', entidadId: arl.id, claseRiesgoId: claseTres.id, fechaInicio: '2026-02-01' }, gerente);
+      await afiliaciones.registrar(creado.id, { tipo: 'ARL', entidadId: arl.id, claseRiesgoId: claseCinco.id, fechaInicio: '2026-08-01' }, gerente);
+
+      // Documento: el certificado de afiliación quita su alerta; la autorización quita la suya.
+      const pdf = Buffer.from('%PDF-1.4\ncertificado inventado');
+      await documentos.subir(creado.id, { buffer: pdf, originalname: 'certificado.pdf' } as Express.Multer.File, 'CERTIFICADO_AFILIACION', undefined, gerente);
+      await trabajadores.registrarAutorizacionSalud(creado.id, { autoriza: true }, gerente);
+
+      const despues = (await trabajadores.alertasSst()).trabajadores.find((t) => t.trabajadorId === creado.id);
+      expect(despues?.afiliacionesFaltantes.sort()).toEqual(['AFP', 'CAJA', 'CESANTIAS']);
+      expect(despues).toMatchObject({ sinCertificadoAfiliacion: false, sinAutorizacionSalud: false });
+
+      // La ficha SST no trae salario; la tasa ARL sale de la clase vigente (la 5).
+      const ficha = await trabajadores.fichaSst(creado.id, { ...usuario, permisos: ['sst.ver', 'sst.gestionar'] });
+      expect(ficha).not.toHaveProperty('salarioBase');
+      expect(ficha).not.toHaveProperty('pagos');
+      expect(ficha.legales.tasaArl?.clase).toBe(5);
+      expect(ficha.documentos).toHaveLength(1);
+      expect(ficha.autorizaDatosSalud).toBe(true);
+
+      // El detalle con nómina sí trae salario, y el contratista no ve el contrato aunque exista.
+      await documentos.subir(creado.id, { buffer: pdf, originalname: 'contrato.pdf' } as Express.Multer.File, 'CONTRATO', undefined, gerente);
+      const contratista = { ...usuario, permisos: ['sst.ver', 'sst.gestionar', 'sst.diagnosticos_ver'] };
+      expect((await documentos.listar(creado.id, contratista)).map((d) => d.tipo)).toEqual(['CERTIFICADO_AFILIACION']);
+      expect((await documentos.listar(creado.id, gerente)).map((d) => d.tipo).sort()).toEqual(['CERTIFICADO_AFILIACION', 'CONTRATO']);
+      const certificado = (await documentos.listar(creado.id, contratista))[0];
+      expect((await documentos.leer(creado.id, certificado.id, contratista)).buffer.equals(pdf)).toBe(true);
+      const contrato = (await documentos.listar(creado.id, gerente)).find((d) => d.tipo === 'CONTRATO');
+      await expect(documentos.leer(creado.id, contrato!.id, contratista)).rejects.toThrow(/No existe el documento/);
+      expect((await trabajadores.buscarPorId(creado.id, gerente)).salarioBase.toString()).toBe('1500000');
+
+      // Retiro: queda inactivo con fecha y motivo, y deja de generar alertas.
+      await trabajadores.retirar(creado.id, { fechaRetiro: '2026-09-30', motivo: 'Terminó la obra' }, gerente);
+      expect((await trabajadores.alertasSst()).trabajadores.some((t) => t.trabajadorId === creado.id)).toBe(false);
+
+      // Todo quedó en la auditoría, en orden.
+      const acciones = (await tx.registroAuditoria.findMany({ where: { entidadId: creado.id }, orderBy: { createdAt: 'asc' } })).map((r) => r.accion);
+      expect(acciones).toEqual([
+        'TRABAJADOR_CREAR',
+        'TRABAJADOR_AFILIACION_REGISTRAR',
+        'TRABAJADOR_AFILIACION_REGISTRAR',
+        'TRABAJADOR_AFILIACION_REGISTRAR',
+        'TRABAJADOR_AFILIACION_REGISTRAR',
+        'TRABAJADOR_DOCUMENTO_SUBIR',
+        'TRABAJADOR_AUTORIZACION_SALUD',
+        'TRABAJADOR_DOCUMENTO_SUBIR',
+        'TRABAJADOR_RETIRAR',
+      ]);
     });
   });
 
