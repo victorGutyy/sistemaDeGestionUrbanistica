@@ -1,0 +1,25 @@
+# Lo que NO entra a la imagen: secretos, datos, compilados viejos y herramientas de desarrollo.
+# Importante: el .env real jamás debe quedar dentro de una imagen.
+.env
+.env.*
+!.env.example
+
+node_modules
+dist
+dist-scripts
+*.tsbuildinfo
+
+# Datos y archivos de trabajo (pueden traer información de clientes)
+uploads
+respaldos
+.demo
+test
+coverage
+
+# Código generado: se regenera dentro de la imagen
+src/generated
+
+# Cosas del editor y de Git
+.git
+.gitignore
+*.md
