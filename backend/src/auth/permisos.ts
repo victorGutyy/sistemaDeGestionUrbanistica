@@ -44,6 +44,11 @@ export const PERMISOS = {
   REPORTES_VER: 'reportes.ver', // consultar y exportar los reportes (cada uno respeta el alcance por proyecto)
   NOTIFICACIONES_VER: 'notificaciones.ver', // consultar el historial de avisos a clientes
   NOTIFICACIONES_ENVIAR: 'notificaciones.enviar', // reenviar un recibo por correo y abrir el mensaje de WhatsApp
+  // CC-03: seguridad y salud en el trabajo. Los dos últimos son datos delicados y por eso van aparte (RF-USR-11).
+  SST_VER: 'sst.ver', // ver el módulo SST y la ficha básica del trabajador (sin salario ni pagos)
+  SST_GESTIONAR: 'sst.gestionar', // registrar y editar la información de SST
+  SST_DIAGNOSTICOS_VER: 'sst.diagnosticos_ver', // ver los diagnósticos de incapacidades (dato de salud, Ley 1581)
+  SST_VALORES_VER: 'sst.valores_ver', // ver los valores liquidados del ausentismo
 } as const;
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -63,6 +68,7 @@ export interface DefinicionRolSistema {
 }
 
 export const CLAVE_GERENTE = 'GERENTE';
+export const CLAVE_CONTRATISTA_SST = 'CONTRATISTA_SST';
 
 // Roles que trae el sistema. Su lista de permisos se sincroniza desde aquí al
 // arrancar la app (RolesService.onModuleInit): si mañana se agrega un permiso
@@ -94,8 +100,18 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
         permiso !== PERMISOS.EXPORTACION_COMPLETA &&
         permiso !== PERMISOS.EQUIPOS_BAJA &&
         permiso !== PERMISOS.COMISIONES_ANULAR &&
-        permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO,
+        permiso !== PERMISOS.PROYECTOS_CAMBIAR_ESTADO &&
+        // Los diagnósticos son datos de salud: el administrador no los ve por defecto (RF-USR-11). El gerente puede
+        // dárselos creando un rol propio o editando el suyo.
+        permiso !== PERMISOS.SST_DIAGNOSTICOS_VER,
     ),
+    limitablePorProyecto: false,
+  },
+  {
+    clave: CLAVE_CONTRATISTA_SST,
+    nombre: 'Contratista SST',
+    descripcion: 'Persona externa de seguridad y salud en el trabajo: ve y gestiona solo el módulo SST, incluidos los diagnósticos. No ve valores liquidados, salarios, dinero ni proyectos.',
+    permisos: [PERMISOS.SST_VER, PERMISOS.SST_GESTIONAR, PERMISOS.SST_DIAGNOSTICOS_VER],
     limitablePorProyecto: false,
   },
   {

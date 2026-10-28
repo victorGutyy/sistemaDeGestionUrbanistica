@@ -41,6 +41,10 @@ export const PERMISOS = {
   REPORTES_VER: 'reportes.ver',
   NOTIFICACIONES_VER: 'notificaciones.ver',
   NOTIFICACIONES_ENVIAR: 'notificaciones.enviar',
+  SST_VER: 'sst.ver',
+  SST_GESTIONAR: 'sst.gestionar',
+  SST_DIAGNOSTICOS_VER: 'sst.diagnosticos_ver',
+  SST_VALORES_VER: 'sst.valores_ver',
 } as const
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS]

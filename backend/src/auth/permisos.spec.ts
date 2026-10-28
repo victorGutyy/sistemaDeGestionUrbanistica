@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLAVE_GERENTE, esPermisoValido, PERMISOS, ROLES_SISTEMA, TODOS_LOS_PERMISOS } from './permisos.js';
+import { CLAVE_CONTRATISTA_SST, CLAVE_GERENTE, esPermisoValido, PERMISOS, ROLES_SISTEMA, TODOS_LOS_PERMISOS } from './permisos.js';
 
 describe('catálogo de permisos y roles del sistema', () => {
   const rol = (clave: string) => {
@@ -70,6 +70,43 @@ describe('catálogo de permisos y roles del sistema', () => {
 
   it('solo el gerente registra desistimientos', () => {
     expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.VENTAS_DESISTIR)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
+  });
+
+  describe('seguridad y salud en el trabajo (CC-03, RF-USR-10 y RF-USR-11)', () => {
+    const quienTiene = (permiso: string) => ROLES_SISTEMA.filter((r) => (r.permisos as string[]).includes(permiso)).map((r) => r.clave).sort();
+
+    it('los diagnósticos los ven solo el gerente y el contratista SST: el administrador no', () => {
+      expect(quienTiene(PERMISOS.SST_DIAGNOSTICOS_VER)).toEqual([CLAVE_CONTRATISTA_SST, CLAVE_GERENTE].sort());
+      expect(rol('ADMINISTRADOR').permisos).not.toContain(PERMISOS.SST_DIAGNOSTICOS_VER);
+    });
+
+    it('los valores liquidados los ven el gerente y el administrador: el contratista SST no', () => {
+      expect(quienTiene(PERMISOS.SST_VALORES_VER)).toEqual(['ADMINISTRADOR', CLAVE_GERENTE].sort());
+      expect(rol(CLAVE_CONTRATISTA_SST).permisos).not.toContain(PERMISOS.SST_VALORES_VER);
+    });
+
+    it('el administrador ve y gestiona el módulo SST (salvo los diagnósticos)', () => {
+      expect(rol('ADMINISTRADOR').permisos).toContain(PERMISOS.SST_VER);
+      expect(rol('ADMINISTRADOR').permisos).toContain(PERMISOS.SST_GESTIONAR);
+    });
+
+    it('consulta no recibe ningún permiso de SST', () => {
+      expect(rol('CONSULTA').permisos.some((p) => p.startsWith('sst.'))).toBe(false);
+    });
+
+    it('el contratista SST solo tiene permisos de SST: nada de dinero, nómina, proyectos ni configuración', () => {
+      const { permisos, limitablePorProyecto } = rol(CLAVE_CONTRATISTA_SST);
+      expect(permisos.length).toBeGreaterThan(0);
+      expect(permisos.every((p) => p.startsWith('sst.'))).toBe(true);
+      expect(permisos).toContain(PERMISOS.SST_VER);
+      expect(permisos).toContain(PERMISOS.SST_GESTIONAR);
+      expect(limitablePorProyecto).toBe(false);
+    });
+
+    it('el contratista SST es un rol del sistema con clave estable', () => {
+      expect(CLAVE_CONTRATISTA_SST).toBe('CONTRATISTA_SST');
+      expect(ROLES_SISTEMA.filter((r) => r.clave === CLAVE_CONTRATISTA_SST)).toHaveLength(1);
+    });
   });
 
   it('solo el gerente puede gestionar usuarios', () => {
