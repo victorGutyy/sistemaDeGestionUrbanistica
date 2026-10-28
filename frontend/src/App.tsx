@@ -17,7 +17,13 @@ import { CierreDetallePage } from './pages/CierreDetallePage'
 import { ConfiguracionPage } from './pages/ConfiguracionPage'
 import { ConfiguracionSeguridadSocialPage } from './pages/ConfiguracionSeguridadSocialPage'
 import { EditarTrabajadorPage } from './pages/EditarTrabajadorPage'
+import { SstLayout } from './components/sst/SstLayout'
+import { SstAvisosPage } from './pages/SstAvisosPage'
+import { SstCapacitacionPage } from './pages/SstCapacitacionPage'
+import { SstCapacitacionesPage } from './pages/SstCapacitacionesPage'
+import { SstEppPage } from './pages/SstEppPage'
 import { SstPage } from './pages/SstPage'
+import { SstPlanPage } from './pages/SstPlanPage'
 import { SstTrabajadorPage } from './pages/SstTrabajadorPage'
 import { ContabilidadPage } from './pages/ContabilidadPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -118,8 +124,15 @@ function App() {
               </Route>
 
               <Route element={<ProtectedRoute permiso={PERMISOS.SST_VER} />}>
-                <Route path="/sst" element={<SstPage />} />
-                <Route path="/sst/trabajadores/:id" element={<SstTrabajadorPage />} />
+                <Route path="/sst" element={<SstLayout />}>
+                  <Route index element={<SstPage />} />
+                  <Route path="epp" element={<SstEppPage />} />
+                  <Route path="plan" element={<SstPlanPage />} />
+                  <Route path="capacitaciones" element={<SstCapacitacionesPage />} />
+                  <Route path="capacitaciones/:id" element={<SstCapacitacionPage />} />
+                  <Route path="avisos" element={<SstAvisosPage />} />
+                  <Route path="trabajadores/:id" element={<SstTrabajadorPage />} />
+                </Route>
               </Route>
 
               <Route element={<ProtectedRoute permiso={PERMISOS.AUDITORIA_VER} />}>

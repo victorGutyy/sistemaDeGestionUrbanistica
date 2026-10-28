@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Insignia } from '../components/formulario'
-import { useAuth } from '../contexts/AuthContext'
 import { listarTrabajadoresSst, obtenerAlertasSst, type AlertasSst, type TrabajadorSst } from '../lib/api'
-import { PERMISOS } from '../lib/permisos'
 import { ETIQUETA_CORTA_TIPO_ENTIDAD, TIPOS_ENTIDAD } from '../lib/seguridadSocial'
 
 function Tarjeta({ titulo, valor, alerta }: { titulo: string; valor: number; alerta?: boolean }) {
@@ -18,7 +16,6 @@ function Tarjeta({ titulo, valor, alerta }: { titulo: string; valor: number; ale
 
 // Página de inicio del módulo de seguridad y salud en el trabajo (CC-03): qué le falta a cada trabajador y acceso a su ficha.
 export function SstPage() {
-  const { tiene } = useAuth()
   const [trabajadores, setTrabajadores] = useState<TrabajadorSst[]>([])
   const [alertas, setAlertas] = useState<AlertasSst | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -45,19 +42,9 @@ export function SstPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">Seguridad y salud en el trabajo</h1>
-          <p className="text-sm text-slate-500">Afiliaciones a la seguridad social, soportes y autorizaciones de los trabajadores.</p>
-        </div>
-        {tiene(PERMISOS.CONFIGURACION_EDITAR) && (
-          <Link to="/configuracion/seguridad-social" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Parámetros y entidades
-          </Link>
-        )}
-      </div>
+      <p className="text-sm text-slate-500">Afiliaciones a la seguridad social, soportes y autorizaciones de los trabajadores.</p>
 
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error &&<div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {alertas && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">

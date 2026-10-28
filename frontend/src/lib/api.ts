@@ -1615,6 +1615,396 @@ export function abrirDocumentoTrabajador(trabajadorId: string, documentoId: stri
   return abrirArchivo(`/trabajadores/${trabajadorId}/documentos/${documentoId}`)
 }
 
+// ---------- Gestión SST (CC-03, fase B): EPP, plan de trabajo, capacitaciones y avisos ----------
+
+// Adjunto de un registro SST (acta de entrega, evidencia de una actividad, listado de asistencia).
+export interface DocumentoSst {
+  id: string
+  nombreOriginal: string
+  tipoMime: string
+  tamano: number
+  descripcion: string | null
+  createdAt: string
+  subidoPor?: { nombre: string }
+}
+
+// Los adjuntos de los tres registros se manejan igual: solo cambia el tramo de la ruta.
+export type RutaDocumentosSst = 'epp/entregas' | 'plan' | 'capacitaciones'
+
+export function listarDocumentosSst(ruta: RutaDocumentosSst, id: string) {
+  return solicitar<DocumentoSst[]>(`/sst/${ruta}/${id}/documentos`)
+}
+
+export function subirDocumentoSst(ruta: RutaDocumentosSst, id: string, archivo: File, descripcion?: string) {
+  const formData = new FormData()
+  formData.append('documento', archivo)
+  if (descripcion) formData.append('descripcion', descripcion)
+  return solicitar<DocumentoSst>(`/sst/${ruta}/${id}/documentos`, { method: 'POST', body: formData })
+}
+
+// Se abre con descarga autenticada: un enlace directo no llevaría el token de sesión.
+export function abrirDocumentoSst(ruta: RutaDocumentosSst, id: string, documentoId: string) {
+  return abrirArchivo(`/sst/${ruta}/${id}/documentos/${documentoId}`)
+}
+
+// ----- Resumen para el panel y avisos -----
+
+export interface ResumenSst {
+  epp: { vencidos: number; porReponer: number }
+  plan: { anio: number; vencidas: number; proximas: number; avancePromedio: number; cumplimiento: number }
+  capacitaciones: { anio: number; vencidas: number; proximas: number; coberturaEjecutadas: number | null }
+  diasAlerta: number
+  totalAlertas: number
+}
+
+export function obtenerResumenSst() {
+  return solicitar<ResumenSst>('/sst/resumen')
+}
+
+export type TipoAvisoSst = 'EPP' | 'ACTIVIDAD_PLAN' | 'CAPACITACION'
+export type EstadoAvisoSst = 'ENVIADA' | 'FALLIDA' | 'OMITIDA'
+
+export interface AvisoSst {
+  id: string
+  createdAt: string
+  tipo: TipoAvisoSst
+  estado: EstadoAvisoSst
+  destinatario: string | null
+  asunto: string | null
+  detalle: string | null
+  cantidad: number | null
+  actividadPlan: { id: string; actividad: string } | null
+  capacitacion: { id: string; tema: string } | null
+}
+
+export function listarAvisosSst(filtro: { tipo?: TipoAvisoSst; estado?: EstadoAvisoSst } = {}) {
+  const params = new URLSearchParams()
+  if (filtro.tipo) params.set('tipo', filtro.tipo)
+  if (filtro.estado) params.set('estado', filtro.estado)
+  const texto = params.toString()
+  return solicitar<AvisoSst[]>(`/sst/avisos${texto ? `?${texto}` : ''}`)
+}
+
+export interface ConteoAvisosSst {
+  enviados: number
+  fallidos: number
+  omitidos: number
+}
+
+export interface ResultadoAvisosSst {
+  actividades: ConteoAvisosSst
+  capacitaciones: ConteoAvisosSst
+  epp: ConteoAvisosSst
+}
+
+// Corre ahora el mismo proceso de las 8:10: cada aviso respeta sus reglas para no repetirse.
+export function ejecutarAvisosSst() {
+  return solicitar<ResultadoAvisosSst>('/sst/avisos/ejecutar', { method: 'POST' })
+}
+
+// ----- Elementos de protección personal -----
+
+export type MotivoEntregaEpp = 'DOTACION_INICIAL' | 'REPOSICION_VIDA_UTIL' | 'REPOSICION_DANO' | 'PERDIDA' | 'CAMBIO_CARGO'
+export type EstadoReposicion = 'VIGENTE' | 'POR_REPONER' | 'VENCIDO'
+
+export interface ElementoEpp {
+  id: string
+  nombre: string
+  vidaUtilDias: number
+  activo: boolean
+}
+
+export function listarElementosEpp(incluirInactivos = false) {
+  return solicitar<ElementoEpp[]>(`/sst/epp/elementos${incluirInactivos ? '?incluirInactivos=true' : ''}`)
+}
+
+export function crearElementoEpp(nombre: string, vidaUtilDias: number) {
+  return solicitar<ElementoEpp>('/sst/epp/elementos', { method: 'POST', body: JSON.stringify({ nombre, vidaUtilDias }) })
+}
+
+// Cambiar la vida útil no altera las entregas ya hechas.
+export function actualizarElementoEpp(id: string, payload: { nombre?: string; vidaUtilDias?: number; activo?: boolean }) {
+  return solicitar<ElementoEpp>(`/sst/epp/elementos/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export interface EntregaEpp {
+  id: string
+  fecha: string
+  cantidad: number
+  tallaReferencia: string | null
+  motivo: MotivoEntregaEpp
+  entregadoPor: string
+  firmoRecibido: boolean
+  vidaUtilDias: number
+  proximaReposicion: string
+  anulada: boolean
+  anuladaEn: string | null
+  motivoAnulacion: string | null
+  trabajador: { id: string; nombre: string; documento: string }
+  elemento: { id: string; nombre: string }
+  // Solo viene en la lista.
+  _count?: { documentos: number }
+}
+
+export interface EntregaEppDetalle extends EntregaEpp {
+  registradaPor: { nombre: string }
+  anuladaPor: { nombre: string } | null
+  documentos: DocumentoSst[]
+}
+
+export interface FiltroEntregasEpp {
+  trabajadorId?: string
+  elementoId?: string
+  desde?: string
+  hasta?: string
+  incluirAnuladas?: boolean
+}
+
+export function listarEntregasEpp(filtro: FiltroEntregasEpp = {}) {
+  const params = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(filtro)) {
+    if (valor === undefined || valor === '' || valor === false) continue
+    params.set(clave, String(valor))
+  }
+  const texto = params.toString()
+  return solicitar<EntregaEpp[]>(`/sst/epp/entregas${texto ? `?${texto}` : ''}`)
+}
+
+export interface RegistrarEntregaEppPayload {
+  trabajadorId: string
+  elementoId: string
+  fecha: string
+  cantidad: number
+  tallaReferencia?: string
+  motivo: MotivoEntregaEpp
+  entregadoPor?: string
+  firmoRecibido?: boolean
+}
+
+export function registrarEntregaEpp(payload: RegistrarEntregaEppPayload) {
+  return solicitar<EntregaEpp>('/sst/epp/entregas', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function obtenerEntregaEpp(id: string) {
+  return solicitar<EntregaEppDetalle>(`/sst/epp/entregas/${id}`)
+}
+
+// Una entrega no se edita ni se borra: un error se corrige anulándola con motivo.
+export function anularEntregaEpp(id: string, motivo: string) {
+  return solicitar<EntregaEpp>(`/sst/epp/entregas/${id}/anular`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
+export function marcarFirmaEntregaEpp(id: string) {
+  return solicitar<EntregaEpp>(`/sst/epp/entregas/${id}/firma`, { method: 'POST' })
+}
+
+export interface Reposicion {
+  entregaId: string
+  trabajador: { id: string; nombre: string; documento: string }
+  elemento: { id: string; nombre: string }
+  ultimaEntrega: string
+  proximaReposicion: string
+  // 0 = hoy; negativo = ya pasó.
+  diasRestantes: number
+  estado: EstadoReposicion
+}
+
+export interface RespuestaReposiciones {
+  diasAlerta: number
+  resumen: { vencidos: number; porReponer: number; vigentes: number }
+  reposiciones: Reposicion[]
+}
+
+// Sin estado, solo lo que pide atención (por reponer y vencidas); "TODOS" trae también las vigentes.
+export function obtenerReposiciones(filtro: { estado?: EstadoReposicion | 'TODOS'; trabajadorId?: string } = {}) {
+  const params = new URLSearchParams()
+  if (filtro.estado) params.set('estado', filtro.estado)
+  if (filtro.trabajadorId) params.set('trabajadorId', filtro.trabajadorId)
+  const texto = params.toString()
+  return solicitar<RespuestaReposiciones>(`/sst/epp/reposiciones${texto ? `?${texto}` : ''}`)
+}
+
+// ----- Plan de trabajo anual y capacitaciones -----
+
+export type CicloPhva = 'PLANEAR' | 'HACER' | 'VERIFICAR' | 'ACTUAR'
+export type EstadoActividadSst = 'PROGRAMADA' | 'EN_EJECUCION' | 'EJECUTADA' | 'REPROGRAMADA' | 'CANCELADA'
+export type EstadoAlertaSst = 'AL_DIA' | 'PROXIMA' | 'VENCIDA' | 'SIN_ALERTA'
+
+export interface ActividadPlan {
+  id: string
+  anio: number
+  ciclo: CicloPhva
+  estandar: string
+  actividad: string
+  meta: string
+  responsable: string
+  correoResponsable: string
+  fechaInicio: string
+  fechaFin: string
+  recursos: string | null
+  // Pesos como texto decimal.
+  presupuesto: string | null
+  estado: EstadoActividadSst
+  porcentajeAvance: number
+  // Cronograma mensual: doce marcas, de enero a diciembre.
+  meses: boolean[]
+  alerta: EstadoAlertaSst
+  diasRestantes: number | null
+  _count?: { documentos: number }
+}
+
+export interface ResumenPlan {
+  total: number
+  porEstado: Record<EstadoActividadSst, number>
+  avancePromedio: number
+  cumplimiento: number
+}
+
+export interface RespuestaPlan {
+  anio: number
+  diasAlerta: number
+  resumen: ResumenPlan
+  actividades: ActividadPlan[]
+}
+
+export function obtenerPlanTrabajo(filtro: { anio?: number; estado?: EstadoActividadSst } = {}) {
+  const params = new URLSearchParams()
+  if (filtro.anio) params.set('anio', String(filtro.anio))
+  if (filtro.estado) params.set('estado', filtro.estado)
+  const texto = params.toString()
+  return solicitar<RespuestaPlan>(`/sst/plan${texto ? `?${texto}` : ''}`)
+}
+
+export interface DatosActividadPlan {
+  ciclo: CicloPhva
+  estandar: string
+  actividad: string
+  meta: string
+  responsable: string
+  correoResponsable: string
+  fechaInicio: string
+  fechaFin: string
+  recursos?: string
+  presupuesto?: string
+  estado?: EstadoActividadSst
+  porcentajeAvance?: number
+}
+
+export function crearActividadPlan(anio: number, datos: DatosActividadPlan) {
+  return solicitar<ActividadPlan>('/sst/plan', { method: 'POST', body: JSON.stringify({ anio, ...datos }) })
+}
+
+// Solo se cambia lo que se envía; en recursos y presupuesto un texto vacío borra el dato. El año no se cambia.
+export function actualizarActividadPlan(id: string, datos: Partial<DatosActividadPlan>) {
+  return solicitar<ActividadPlan>(`/sst/plan/${id}`, { method: 'PATCH', body: JSON.stringify(datos) })
+}
+
+export function copiarPlanTrabajo(anioOrigen: number, anioDestino: number) {
+  return solicitar<{ anioOrigen: number; anioDestino: number; copiadas: number; canceladasOmitidas: number }>('/sst/plan/copiar', {
+    method: 'POST',
+    body: JSON.stringify({ anioOrigen, anioDestino }),
+  })
+}
+
+export type ModalidadCapacitacion = 'PRESENCIAL' | 'VIRTUAL' | 'MIXTA'
+export type EjecutorCapacitacion = 'INTERNO' | 'ARL' | 'EXTERNO' | 'SENA'
+
+export interface Capacitacion {
+  id: string
+  tema: string
+  objetivo: string
+  dirigidoA: string
+  modalidad: ModalidadCapacitacion
+  horas: string
+  fechaProgramada: string
+  fechaEjecucion: string | null
+  responsable: string
+  correoResponsable: string
+  ejecutor: EjecutorCapacitacion
+  asistentesProgramados: number
+  estado: EstadoActividadSst
+  // Evaluación de eficacia de 1 a 5 (decimal como texto).
+  evaluacionEficacia: string | null
+  asistentesReales: number
+  // Porcentaje con un decimal; null si no había asistentes programados.
+  cobertura: number | null
+  alerta: EstadoAlertaSst
+  diasRestantes: number | null
+  // Solo viene en la lista: cuántos adjuntos tiene.
+  documentos?: number
+}
+
+export interface RespuestaCapacitaciones {
+  anio: number
+  diasAlerta: number
+  resumen: { total: number; ejecutadas: number; coberturaEjecutadas: number | null }
+  capacitaciones: Capacitacion[]
+}
+
+export function listarCapacitaciones(filtro: { anio?: number; estado?: EstadoActividadSst } = {}) {
+  const params = new URLSearchParams()
+  if (filtro.anio) params.set('anio', String(filtro.anio))
+  if (filtro.estado) params.set('estado', filtro.estado)
+  const texto = params.toString()
+  return solicitar<RespuestaCapacitaciones>(`/sst/capacitaciones${texto ? `?${texto}` : ''}`)
+}
+
+export interface AsistenciaCapacitacion {
+  id: string
+  firmo: boolean
+  // Nota de 0 a 5 (decimal como texto).
+  calificacion: string | null
+  trabajador: { id: string; nombre: string; documento: string; cargo: string }
+}
+
+export interface CapacitacionDetalle extends Omit<Capacitacion, 'documentos'> {
+  asistencias: AsistenciaCapacitacion[]
+  asistenciasAnuladas: number
+  documentos: DocumentoSst[]
+}
+
+export function obtenerCapacitacion(id: string) {
+  return solicitar<CapacitacionDetalle>(`/sst/capacitaciones/${id}`)
+}
+
+export interface DatosCapacitacion {
+  tema: string
+  objetivo: string
+  dirigidoA: string
+  modalidad: ModalidadCapacitacion
+  horas: number
+  fechaProgramada: string
+  fechaEjecucion?: string
+  responsable: string
+  correoResponsable: string
+  ejecutor: EjecutorCapacitacion
+  asistentesProgramados: number
+  estado?: EstadoActividadSst
+  evaluacionEficacia?: number
+}
+
+export function crearCapacitacion(datos: DatosCapacitacion) {
+  return solicitar<Capacitacion>('/sst/capacitaciones', { method: 'POST', body: JSON.stringify(datos) })
+}
+
+export function actualizarCapacitacion(id: string, datos: Partial<DatosCapacitacion>) {
+  return solicitar<Capacitacion>(`/sst/capacitaciones/${id}`, { method: 'PATCH', body: JSON.stringify(datos) })
+}
+
+// Registra varios asistentes de una vez; los que ya estaban registrados se omiten.
+export function registrarAsistentes(id: string, asistentes: { trabajadorId: string; firmo?: boolean; calificacion?: number }[]) {
+  return solicitar<{ registrados: number; omitidos: number }>(`/sst/capacitaciones/${id}/asistencias`, { method: 'POST', body: JSON.stringify({ asistentes }) })
+}
+
+export function actualizarAsistencia(id: string, asistenciaId: string, datos: { firmo?: boolean; calificacion?: number | null }) {
+  return solicitar<AsistenciaCapacitacion>(`/sst/capacitaciones/${id}/asistencias/${asistenciaId}`, { method: 'PATCH', body: JSON.stringify(datos) })
+}
+
+// Una asistencia registrada por error no se borra: se anula con motivo y deja de contar.
+export function anularAsistencia(id: string, asistenciaId: string, motivo: string) {
+  return solicitar<AsistenciaCapacitacion>(`/sst/capacitaciones/${id}/asistencias/${asistenciaId}/anular`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
 export function listarTrabajadores() {
   return solicitar<Trabajador[]>('/trabajadores')
 }
@@ -2031,6 +2421,9 @@ export interface EmpresaConfig {
   intentosMaximosLogin: number
   minutosBloqueoLogin: number
   minutosInactividad: number
+  // Seguridad y salud en el trabajo: con cuántos días de anticipación se alerta, y a dónde llega el resumen de EPP por reponer.
+  diasAlertaSst: number
+  correoAvisosSst: string | null
 }
 
 export type TipoCuenta = 'AHORROS' | 'CORRIENTE' | 'BILLETERA_DIGITAL'
@@ -2126,6 +2519,9 @@ export interface ActualizarParametrosPayload {
   intentosMaximosLogin: number
   minutosBloqueoLogin: number
   minutosInactividad: number
+  diasAlertaSst?: number
+  // Vacío o null = el resumen de EPP no se envía por correo (solo se ve en el panel).
+  correoAvisosSst?: string | null
 }
 
 export function actualizarParametros(payload: ActualizarParametrosPayload) {

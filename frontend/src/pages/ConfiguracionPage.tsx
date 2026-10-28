@@ -295,6 +295,8 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
   const [intentosLogin, setIntentosLogin] = useState(String(empresa.intentosMaximosLogin))
   const [minutosBloqueo, setMinutosBloqueo] = useState(String(empresa.minutosBloqueoLogin))
   const [minutosInactividad, setMinutosInactividad] = useState(String(empresa.minutosInactividad))
+  const [diasAlertaSst, setDiasAlertaSst] = useState(String(empresa.diasAlertaSst))
+  const [correoAvisosSst, setCorreoAvisosSst] = useState(empresa.correoAvisosSst ?? '')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -321,6 +323,8 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
         intentosMaximosLogin: aNumero(intentosLogin),
         minutosBloqueoLogin: aNumero(minutosBloqueo),
         minutosInactividad: aNumero(minutosInactividad),
+        diasAlertaSst: aNumero(diasAlertaSst),
+        correoAvisosSst: correoAvisosSst.trim() === '' ? null : correoAvisosSst.trim(),
       })
       onGuardada(guardada)
       setOk('Parámetros guardados. Se aplican desde ahora en cartera, mora y recordatorios.')
@@ -383,6 +387,19 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="diasAlertaVerificacion" etiqueta="Días de espera para la alerta" ayuda="Desde cuántos días sin verificar un pago se resalta en rojo en el panel (0 = siempre).">
             <input id="diasAlertaVerificacion" required inputMode="numeric" value={diasAlertaVerificacion} onChange={(e) => setDiasAlertaVerificacion(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+        </div>
+
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-800">Seguridad y salud en el trabajo</p>
+          <p className="text-xs text-slate-500">Alertas de reposición de EPP, de actividades del plan y de capacitaciones. Los avisos salen solos cada mañana (8:10 a. m., hora de Colombia).</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo id="diasAlertaSst" etiqueta="Días de anticipación de las alertas" ayuda="Con cuántos días antes se marca “próxima” una reposición, una actividad o una capacitación (de 1 a 90).">
+            <input id="diasAlertaSst" required inputMode="numeric" value={diasAlertaSst} onChange={(e) => setDiasAlertaSst(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+          <Campo id="correoAvisosSst" etiqueta="Correo de avisos SST (opcional)" ayuda="A dónde llega el resumen de EPP por reponer. Vacío = solo se ve en el panel. Los avisos de actividades y capacitaciones van al correo de cada responsable.">
+            <input id="correoAvisosSst" type="email" value={correoAvisosSst} onChange={(e) => setCorreoAvisosSst(e.target.value)} className={CLASE_INPUT} />
           </Campo>
         </div>
 

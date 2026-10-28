@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
-import { ejecutarRecordatorios, exportarDashboard, listarProyectos, obtenerAlertasSst, obtenerDashboard, type AlertasSst, type ConteoAvisos, type Proyecto, type ResumenDashboard } from '../lib/api'
+import { ejecutarRecordatorios, exportarDashboard, listarProyectos, obtenerAlertasSst, obtenerDashboard, obtenerResumenSst, type AlertasSst, type ConteoAvisos, type Proyecto, type ResumenDashboard, type ResumenSst } from '../lib/api'
 import { ETIQUETA_ESTADO_LOTE } from '../lib/estadoLote'
 import { formatearCOP } from '../lib/formato'
 import { textoDeEspera } from '../lib/verificacion'
@@ -20,6 +20,8 @@ export function DashboardPage() {
   const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null)
   // Alertas de seguridad social (CC-03): solo para quien usa el módulo SST. Si falla, el panel sigue sin la tarjeta.
   const [alertasSst, setAlertasSst] = useState<AlertasSst | null>(null)
+  // Lo que pide atención en la gestión SST (EPP, plan de trabajo y capacitaciones).
+  const [resumenSst, setResumenSst] = useState<ResumenSst | null>(null)
   const veSst = tiene(PERMISOS.SST_VER)
 
   useEffect(() => {
@@ -27,6 +29,9 @@ export function DashboardPage() {
     obtenerAlertasSst()
       .then(setAlertasSst)
       .catch(() => setAlertasSst(null))
+    obtenerResumenSst()
+      .then(setResumenSst)
+      .catch(() => setResumenSst(null))
   }, [veSst])
 
   async function handleExportar(formato: 'pdf' | 'excel') {
@@ -209,8 +214,23 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {(resumen.comisionesPendientes || resumen.cierresPorAprobar !== undefined || resumen.consignacionesPorVerificar !== undefined || alertasSst) && <h2 className="mt-6 text-sm font-semibold text-slate-900">Pendientes</h2>}
+          {(resumen.comisionesPendientes || resumen.cierresPorAprobar !== undefined || resumen.consignacionesPorVerificar !== undefined || alertasSst || resumenSst) && <h2 className="mt-6 text-sm font-semibold text-slate-900">Pendientes</h2>}
           <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {resumenSst && (
+            <Link
+              to={resumenSst.epp.vencidos + resumenSst.epp.porReponer > 0 ? '/sst/epp' : resumenSst.plan.vencidas + resumenSst.plan.proximas > 0 ? '/sst/plan' : '/sst/capacitaciones'}
+              className={`block rounded-lg border p-4 ${resumenSst.totalAlertas > 0 ? 'border-amber-200 bg-amber-50 hover:bg-amber-100' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+            >
+              <p className={`text-xs ${resumenSst.totalAlertas > 0 ? 'text-amber-800' : 'text-slate-500'}`}>Gestión SST por atender</p>
+              <p className={`mt-1 text-lg font-semibold ${resumenSst.totalAlertas > 0 ? 'text-amber-900' : 'text-slate-900'}`}>{resumenSst.totalAlertas}</p>
+              {resumenSst.totalAlertas > 0 && (
+                <p className="text-xs text-slate-600">
+                  EPP: {resumenSst.epp.vencidos} vencidos y {resumenSst.epp.porReponer} por reponer · Plan: {resumenSst.plan.vencidas} vencidas y {resumenSst.plan.proximas} próximas · Capacitaciones: {resumenSst.capacitaciones.vencidas} sin ejecutar y{' '}
+                  {resumenSst.capacitaciones.proximas} próximas
+                </p>
+              )}
+            </Link>
+          )}
           {alertasSst && (
             <Link
               to="/sst"

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Seccion } from '../components/formulario'
+import { SeccionEppTrabajador } from '../components/sst/SeccionEppTrabajador'
 import { DatosPersonales } from '../components/trabajador/DatosPersonales'
 import { ResumenLegal } from '../components/trabajador/ResumenLegal'
 import { SeccionAfiliaciones } from '../components/trabajador/SeccionAfiliaciones'
@@ -56,6 +57,8 @@ export function SstTrabajadorPage() {
       <ResumenLegal legales={ficha.legales} />
 
       <SeccionAfiliaciones trabajadorId={ficha.id} fechaIngreso={ficha.fechaIngreso} afiliaciones={ficha.afiliaciones} puedeGestionar={tiene(PERMISOS.NOMINA_GESTIONAR)} onCambio={cargar} />
+
+      <SeccionEppTrabajador trabajadorId={ficha.id} puedeGestionar={tiene(PERMISOS.SST_GESTIONAR)} />
 
       <SeccionAutorizacionSalud trabajador={ficha} puedeGestionar={tiene(PERMISOS.SST_GESTIONAR)} onCambio={cargar} />
 
