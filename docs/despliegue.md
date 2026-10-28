@@ -551,6 +551,44 @@ Con doce intentos seguidos y datos falsos, los primeros 10 responden `401` y los
 
 Después de la prueba, tu conexión queda limitada durante un minuto; espera y vuelve a ingresar con normalidad.
 
+## Medición de rendimiento en el servidor
+
+Los requisitos RNF-REN-01 a RNF-REN-04 se midieron antes en un portátil de desarrollo (`docs/rendimiento.md`). Esta medición se repite **en el servidor real**, con el mismo volumen que pide el documento de requerimientos (10 proyectos, 1.000 lotes, 400 clientes, 800 ventas y unos 5.000 abonos) y los mismos datos inventados de siempre, para que los resultados sean comparables.
+
+**Cómo funciona.** El guion `deploy/produccion/medir-rendimiento.sh` lanza un contenedor desechable que:
+
+1. Crea una base **aparte** (`<base>_volumen`) y la llena con los datos inventados, con los servicios reales del sistema.
+2. Arranca una API **aparte** sobre esa base, solo dentro del contenedor (con el límite de intentos por IP apagado, porque la prueba de concurrencia abre 10 y 30 sesiones desde la misma IP).
+3. La mide desde adentro del servidor, así que el resultado es del servidor y no de la conexión a internet.
+
+**No toca la base de producción ni los adjuntos reales.** La API real sigue atendiendo, pero la medición le quita CPU mientras dura: hazla cuando nadie use el sistema. Corre en segundo plano y **sigue aunque se corte tu conexión**.
+
+En el servidor, como `deploy`:
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/medir-rendimiento.sh
+```
+
+Para ver cómo va (tarda de 10 a 25 minutos; la parte más larga es cargar los datos):
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/medir-rendimiento.sh ver
+```
+
+Cuando el estado diga **TERMINADA**, el final del registro trae las tablas de resultados (no tienen datos reales: son datos inventados, y se pueden pegar completas para revisarlas). El detalle queda en `/opt/balder/medicion/volumen/medicion.json`. Al terminar, deja el servidor limpio:
+
+```bash
+bash /opt/balder/fuente/deploy/produccion/medir-rendimiento.sh limpiar
+```
+
+**Tiempo desde internet.** La medición de arriba no incluye el viaje por internet. Para ver cuánto suma, desde tu computador (PowerShell, con `curl.exe`):
+
+```bash
+1..10 | ForEach-Object { curl.exe -s -o NUL -w "%{time_total} s`n" https://sistema.balderingenieria.com/api/salud }
+```
+
+Esa cifra es el tiempo mínimo de cualquier petición (el viaje de ida y vuelta más el servidor web). A los tiempos medidos adentro se les suma esa cifra.
+
 ## Fase 5. Primer arranque con datos reales (por escribir)
 
 **Primer arranque con datos reales:** cargar los datos con el importador, probar el correo y repetir la medición de rendimiento en este servidor (RNF-REN-01 a 04). Pendiente de endurecimiento: una política de seguridad de contenido (CSP) probada con las descargas de PDF. El límite de peticiones por IP en el inicio de sesión y la recuperación de contraseña ya está hecho (ver abajo).
