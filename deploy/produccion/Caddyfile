@@ -1,0 +1,27 @@
+# Puerta de entrada de producción. {$DOMINIO} sale de la variable de entorno DOMINIO (ver .env).
+#   /api/*   -> la API de NestJS (red interna de Docker; la API no queda expuesta al exterior)
+#   el resto -> las pantallas de React (con "try_files" para que /ventas, /clientes... funcionen al recargar)
+# Caddy consigue y renueva solo el certificado HTTPS (Let's Encrypt) y redirige de HTTP a HTTPS.
+{$DOMINIO} {
+	encode zstd gzip
+
+	header {
+		# El navegador recordará durante un año que este sitio solo se abre por HTTPS.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	handle_path /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

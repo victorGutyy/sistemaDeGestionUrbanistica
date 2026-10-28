@@ -7,3 +7,6 @@
 *.xls
 *.xlsm
 *.csv
+
+# Paquete de código que se copia al servidor (se arma con git archive; ver docs/despliegue.md).
+/balder-fuente.tar.gz

@@ -1,0 +1,12 @@
+# Contexto de la imagen del servidor web (la raíz del proyecto): solo se necesita frontend/ y deploy/produccion/.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.git
+backend
+docs
+datos-reales
+frontend/.env.demo
+frontend/.env.volumen

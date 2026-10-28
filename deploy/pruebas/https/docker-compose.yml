@@ -1,0 +1,22 @@
+# PRUEBA de HTTPS: levanta solo el servidor web (Caddy) con una página de "servidor listo".
+# Sirve para comprobar, antes de montar el sistema, que:
+#   - el nombre sistema.balderingenieria.com llega a este servidor,
+#   - los puertos 80 y 443 están abiertos,
+#   - Caddy consigue y renueva solo el certificado HTTPS gratuito (Let's Encrypt).
+# Es desechable: al terminar la prueba se apaga con "docker compose down".
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./index.html:/srv/index.html:ro
+      - caddy_data:/data        # aquí guarda los certificados
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

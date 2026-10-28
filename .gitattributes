@@ -1,0 +1,10 @@
+# Los guiones de shell y la configuración de despliegue se ejecutan en Linux: si Git de Windows les cambiara los
+# finales de línea a CRLF, dejarían de funcionar (un "\r" invisible al final de un valor o de una orden).
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+.dockerignore text eol=lf
+*.dockerignore text eol=lf
+*.yml text eol=lf
+Caddyfile text eol=lf
+deploy/** text eol=lf

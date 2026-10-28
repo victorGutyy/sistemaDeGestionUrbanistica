@@ -1,0 +1,91 @@
+# Sistema de gestión de urbanismo en producción: 4 contenedores que hablan por una red interna de Docker.
+#
+#   proxy  -> Caddy + las pantallas. ÚNICO contenedor con puertos hacia afuera (80 y 443).
+#   api    -> la API de NestJS. No publica ningún puerto: solo el proxy la alcanza.
+#   db     -> PostgreSQL. No publica ningún puerto (así Docker no puede saltarse el cortafuegos del servidor).
+#   migrar -> se enciende una vez, aplica las migraciones de la base y se apaga. La API no arranca sin que termine bien.
+#
+# Los valores secretos NO están aquí: salen del archivo .env del servidor (nunca se sube a Git).
+# Se usa siempre con:   docker compose --env-file /opt/balder/.env up -d --build
+name: balder
+
+x-base-de-datos: &url-base-de-datos
+  DATABASE_URL: postgresql://${POSTGRES_USER:?Falta POSTGRES_USER en el .env}:${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en el .env}@db:5432/${POSTGRES_DB:?Falta POSTGRES_DB en el .env}
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrar:
+    build:
+      context: ../../backend
+      target: migrar
+    image: balder-migrar
+    environment:
+      <<: *url-base-de-datos
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../../backend
+      target: api
+    image: balder-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrar:
+        condition: service_completed_successfully
+    environment:
+      <<: *url-base-de-datos
+      NODE_ENV: production
+      PORT: "3000"
+      JWT_SECRET: ${JWT_SECRET:?Falta JWT_SECRET en el .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      FRONTEND_URL: https://${DOMINIO:?Falta DOMINIO en el .env}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      - uploads:/app/uploads   # comprobantes y documentos firmados que suben los usuarios
+
+  proxy:
+    build:
+      context: ../..
+      dockerfile: deploy/produccion/proxy.Dockerfile
+    image: balder-proxy
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      DOMINIO: ${DOMINIO}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data       # certificados HTTPS
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

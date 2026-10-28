@@ -1,0 +1,13 @@
+sistema.balderingenieria.com {
+	root * /srv
+	file_server
+	encode zstd gzip
+
+	header {
+		# En la prueba el HSTS dura solo 5 minutos; en producción será de un año.
+		Strict-Transport-Security "max-age=300"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
