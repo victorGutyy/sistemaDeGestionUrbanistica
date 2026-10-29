@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { TablaReporte } from '../components/TablaReporte'
+import { VistaReporte } from '../components/VistaReporte'
 import {
   exportarReporte,
   generarReporte,
@@ -231,24 +231,7 @@ export function ReportesPage() {
             </form>
           )}
 
-          {reporte && (
-            <div className="mt-6">
-              <h2 className="text-base font-semibold text-slate-900">{reporte.titulo}</h2>
-              <p className="text-xs text-slate-500">{reporte.descripcion}</p>
-              {reporte.filtros.length > 0 && (
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {reporte.filtros.map((filtro) => (
-                    <li key={filtro.etiqueta} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-700">
-                      <span className="font-medium">{filtro.etiqueta}:</span> {filtro.valor}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {reporte.secciones.map((seccion) => (
-                <TablaReporte key={seccion.titulo} seccion={seccion} />
-              ))}
-            </div>
-          )}
+          {reporte && <VistaReporte reporte={reporte} />}
         </>
       )}
     </div>

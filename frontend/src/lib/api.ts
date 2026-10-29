@@ -2754,7 +2754,7 @@ export interface CatalogoReportes {
 
 export type FiltrosReporte = Partial<Record<ClaveFiltroReporte, string>>
 
-function queryDeReporte(filtros: FiltrosReporte, extra: Record<string, string> = {}) {
+function queryDeReporte(filtros: Partial<Record<string, string>>, extra: Record<string, string> = {}) {
   const params = new URLSearchParams(extra)
   for (const [clave, valor] of Object.entries(filtros)) {
     if (valor) params.set(clave, valor)
@@ -2774,6 +2774,53 @@ export function generarReporte(clave: string, filtros: FiltrosReporte) {
 export function exportarReporte(clave: string, filtros: FiltrosReporte, formato: 'pdf' | 'excel') {
   const rango = filtros.desde || filtros.hasta ? `-${filtros.desde ?? 'inicio'}-a-${filtros.hasta ?? 'hoy'}` : ''
   return descargarArchivo(`/reportes/${clave}/exportar${queryDeReporte(filtros, { formato })}`, `${clave}${rango}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`)
+}
+
+// ---------- Reportes de seguridad y salud en el trabajo (CC-03, fase D, RF-SST-22) ----------
+
+export type TipoFiltroReporteSst = 'anio' | 'mes' | 'fecha' | 'trabajador' | 'tipoAusentismo' | 'estadoRegistro' | 'estadoActividad'
+export type ClaveFiltroReporteSst = 'anio' | 'mes' | 'desde' | 'hasta' | 'trabajadorId' | 'tipoId' | 'estado'
+
+export interface FiltroReporteSstDefinido {
+  clave: ClaveFiltroReporteSst
+  etiqueta: string
+  tipo: TipoFiltroReporteSst
+}
+
+export interface DefinicionReporteSst {
+  clave: string
+  titulo: string
+  descripcion: string
+  filtros: FiltroReporteSstDefinido[]
+}
+
+export interface CatalogoReportesSst {
+  reportes: DefinicionReporteSst[]
+  opciones: {
+    trabajadores: { id: string; nombre: string; documento: string }[]
+    tiposAusentismo: { id: string; nombre: string }[]
+    estadosRegistro: OpcionReporte[]
+    estadosActividad: OpcionReporte[]
+  }
+}
+
+export type FiltrosReporteSst = Partial<Record<ClaveFiltroReporteSst, string>>
+
+export function obtenerCatalogoReportesSst() {
+  return solicitar<CatalogoReportesSst>('/sst/reportes')
+}
+
+export function generarReporteSst(clave: string, filtros: FiltrosReporteSst) {
+  return solicitar<ReporteGenerado>(`/sst/reportes/${clave}${queryDeReporte(filtros)}`)
+}
+
+// El nombre del archivo es el mismo que arma el servidor: la clave del reporte y lo que lo acota ("sst-plan-2026.pdf").
+export function exportarReporteSst(clave: string, filtros: FiltrosReporteSst, formato: 'pdf' | 'excel') {
+  const partes = [clave]
+  if (filtros.anio) partes.push(filtros.anio)
+  if (filtros.mes) partes.push(filtros.mes.padStart(2, '0'))
+  if (filtros.desde || filtros.hasta) partes.push(`${filtros.desde ?? 'inicio'}-a-${filtros.hasta ?? 'hoy'}`)
+  return descargarArchivo(`/sst/reportes/${clave}/exportar${queryDeReporte(filtros, { formato })}`, `${partes.join('-')}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`)
 }
 
 // ---------- Ausentismo (CC-03, fase C): incapacidades y licencias con la liquidación de apoyo ----------

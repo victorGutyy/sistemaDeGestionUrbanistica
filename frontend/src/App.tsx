@@ -30,6 +30,7 @@ import { SstCapacitacionesPage } from './pages/SstCapacitacionesPage'
 import { SstEppPage } from './pages/SstEppPage'
 import { SstPage } from './pages/SstPage'
 import { SstPlanPage } from './pages/SstPlanPage'
+import { SstReportesPage } from './pages/SstReportesPage'
 import { SstTrabajadorPage } from './pages/SstTrabajadorPage'
 import { ContabilidadPage } from './pages/ContabilidadPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -145,6 +146,7 @@ function App() {
                     </Route>
                     <Route path=":id" element={<SstAusentismoDetallePage />} />
                   </Route>
+                  <Route path="reportes" element={<SstReportesPage />} />
                   <Route path="avisos" element={<SstAvisosPage />} />
                   <Route path="trabajadores/:id" element={<SstTrabajadorPage />} />
                 </Route>

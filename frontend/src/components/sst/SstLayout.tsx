@@ -13,7 +13,7 @@ interface Pestana {
 }
 
 // Marco del módulo de seguridad y salud en el trabajo: el título y las pestañas (Trabajadores, EPP, Plan de trabajo,
-// Capacitaciones, Ausentismo y Avisos). Cada pestaña muestra cuántas alertas tiene, con el mismo cálculo del panel.
+// Capacitaciones, Ausentismo, Reportes y Avisos). Cada pestaña muestra cuántas alertas tiene, con el mismo cálculo del panel.
 export function SstLayout() {
   const { tiene } = useAuth()
   const [resumen, setResumen] = useState<ResumenSst | null>(null)
@@ -32,6 +32,7 @@ export function SstLayout() {
     { to: '/sst/plan', etiqueta: 'Plan de trabajo', alertas: resumen ? resumen.plan.vencidas + resumen.plan.proximas : 0 },
     { to: '/sst/capacitaciones', etiqueta: 'Capacitaciones', alertas: resumen ? resumen.capacitaciones.vencidas + resumen.capacitaciones.proximas : 0 },
     { to: '/sst/ausentismo', etiqueta: 'Ausentismo', alertas: resumen ? resumen.recobros.pendientes : 0 },
+    { to: '/sst/reportes', etiqueta: 'Reportes' },
     { to: '/sst/avisos', etiqueta: 'Avisos', fin: true },
   ]
 
