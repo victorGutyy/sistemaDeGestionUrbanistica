@@ -31,7 +31,7 @@ export function textoDeCelda(columna: ColumnaReporte, valor: ValorCelda): string
   return String(valor);
 }
 
-const esNumerica = (columna: ColumnaReporte) => columna.tipo === 'pesos' || columna.tipo === 'entero';
+const esNumerica = (columna: ColumnaReporte) => columna.tipo === 'pesos' || columna.tipo === 'entero' || columna.alineacion === 'derecha';
 
 // Reporte en PDF (RF-REP-10): encabezado con el logo y la empresa, los filtros aplicados y cada sección como tabla, con
 // el encabezado de la tabla repetido en cada hoja y la numeración de páginas. Horizontal si alguna tabla es ancha.

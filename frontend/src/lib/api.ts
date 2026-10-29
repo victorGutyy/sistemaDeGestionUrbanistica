@@ -2689,6 +2689,7 @@ export interface ColumnaReporte {
   encabezado: string
   tipo: TipoColumnaReporte
   peso?: number
+  alineacion?: 'derecha'
 }
 
 // texto: tal cual · pesos: pesos enteros como texto · fecha: "aaaa-mm-dd" · entero: número.

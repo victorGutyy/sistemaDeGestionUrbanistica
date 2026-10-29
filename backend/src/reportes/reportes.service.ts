@@ -4,7 +4,6 @@ import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { diaLocal, formatearDiaDDMMAAAA, hoyISO } from '../cierres-caja/periodo.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { ETIQUETA_MEDIO_PAGO } from '../common/medio-pago.js';
-import { detectarTipoDocumento } from '../common/tipo-archivo.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoMovimiento, EstadoVenta, TipoMovimiento, TipoProyecto } from '../generated/prisma/enums.js';
@@ -24,6 +23,7 @@ import { construirRecaudo } from './constructores/recaudo.js';
 import type { ConsultaReporteDto, ExportarReporteDto } from './dto/consulta-reporte.dto.js';
 import { generarExcelReporte, nombreDeArchivo } from './generar-excel.js';
 import { generarPdfReporte } from './generar-pdf.js';
+import { leerLogoParaPdf } from './logo-pdf.js';
 import type { ClaveReporte, ReporteGenerado, SeccionReporte } from './modelo.js';
 
 const CONTENT_TYPE = {
@@ -119,17 +119,7 @@ export class ReportesService {
       return { buffer, contentType: CONTENT_TYPE.excel, nombreArchivo: nombreDeArchivo(reporte, 'xlsx', filtros.desde, filtros.hasta) };
     }
 
-    // El logo se lee del almacenamiento; pdfkit solo dibuja PNG y JPG (un WebP se omite sin impedir el PDF).
-    let logo: Buffer | undefined;
-    if (empresa.logoRuta) {
-      try {
-        const buffer = await this.storage.leer(empresa.logoRuta);
-        const tipo = detectarTipoDocumento(buffer);
-        logo = tipo === 'png' || tipo === 'jpg' ? buffer : undefined;
-      } catch {
-        logo = undefined;
-      }
-    }
+    const logo = await leerLogoParaPdf(this.storage, empresa.logoRuta);
     const buffer = await generarPdfReporte(reporte, { empresa, logo });
     return { buffer, contentType: CONTENT_TYPE.pdf, nombreArchivo: nombreDeArchivo(reporte, 'pdf', filtros.desde, filtros.hasta) };
   }

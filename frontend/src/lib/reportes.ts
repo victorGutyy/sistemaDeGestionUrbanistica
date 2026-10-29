@@ -16,4 +16,4 @@ export function textoDeCelda(columna: ColumnaReporte, valor: string | number | n
   return String(valor)
 }
 
-export const esColumnaNumerica = (columna: ColumnaReporte) => columna.tipo === 'pesos' || columna.tipo === 'entero'
+export const esColumnaNumerica = (columna: ColumnaReporte) => columna.tipo === 'pesos' || columna.tipo === 'entero' || columna.alineacion === 'derecha'

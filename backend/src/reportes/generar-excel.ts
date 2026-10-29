@@ -76,7 +76,7 @@ function dibujarSeccion(hoja: ExcelJS.Worksheet, seccion: SeccionReporte): void 
   seccion.columnas.forEach((columna, indice) => {
     const formato = formatoDeColumna(columna);
     if (formato) hoja.getColumn(indice + 1).numFmt = formato;
-    if (columna.tipo === 'pesos' || columna.tipo === 'entero') hoja.getColumn(indice + 1).alignment = { horizontal: 'right' };
+    if (columna.tipo === 'pesos' || columna.tipo === 'entero' || columna.alineacion === 'derecha') hoja.getColumn(indice + 1).alignment = { horizontal: 'right' };
     hoja.getColumn(indice + 1).width = Math.max(12, Math.round(14 * (columna.peso ?? 1)));
   });
   // Los encabezados y el título no deben heredar la alineación ni el formato numérico de la columna.

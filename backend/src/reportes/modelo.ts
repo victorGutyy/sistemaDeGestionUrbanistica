@@ -11,6 +11,9 @@ export interface ColumnaReporte {
   tipo: TipoColumna;
   // Ancho relativo en el PDF y la pantalla (por defecto 1; el dinero y las fechas ocupan poco, los textos largos más).
   peso?: number;
+  // Los números y el dinero van a la derecha. Un texto que es una cifra ("66,7 %") también puede ir a la derecha, para que no se
+  // lea pegado al número de al lado.
+  alineacion?: 'derecha';
 }
 
 // texto: tal cual · pesos: pesos enteros como texto ("1500000", sin perder precisión) · fecha: "aaaa-mm-dd" · entero: número.
@@ -30,8 +33,9 @@ export interface SeccionReporte {
 
 export type ClaveReporte = 'recaudo' | 'cartera-edades' | 'egresos' | 'inventario-lotes' | 'flujo-caja' | 'comisiones' | 'informe-proyecto' | 'maquinaria-equipos';
 
-// Los reportes del catálogo y los que arman otros módulos con este mismo modelo (novedades de ausentismo para la nómina).
-export type ClaveReporteGenerado = ClaveReporte | 'ausentismo-novedades';
+// Los reportes del catálogo y los que arman otros módulos con este mismo modelo (novedades de ausentismo para la nómina y los
+// reportes de seguridad y salud en el trabajo).
+export type ClaveReporteGenerado = ClaveReporte | 'ausentismo-novedades' | 'sst-ausentismo-resumen' | 'sst-ausentismo-detalle' | 'sst-epp' | 'sst-plan' | 'sst-capacitaciones';
 
 export interface ReporteGenerado {
   clave: ClaveReporteGenerado;

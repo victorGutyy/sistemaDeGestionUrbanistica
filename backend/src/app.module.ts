@@ -28,6 +28,7 @@ import { ReportesModule } from './reportes/reportes.module.js';
 import { RolesModule } from './roles/roles.module.js';
 import { SaludModule } from './salud/salud.module.js';
 import { AusentismoModule } from './ausentismo/ausentismo.module.js';
+import { ReportesSstModule } from './reportes-sst/reportes-sst.module.js';
 import { SeguridadSocialModule } from './seguridad-social/seguridad-social.module.js';
 import { SstModule } from './sst/sst.module.js';
 import { TrabajadoresModule } from './trabajadores/trabajadores.module.js';
@@ -64,6 +65,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     SeguridadSocialModule,
     SstModule,
     AusentismoModule,
+    ReportesSstModule,
     NominaModule,
     DashboardModule,
     RecordatoriosModule,

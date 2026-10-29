@@ -74,6 +74,31 @@ describe('generarExcelReporte', () => {
     expect(hoja.getRow(8).font?.bold).toBe(true);
   });
 
+  it('una columna de texto con alineación a la derecha (un porcentaje) va a la derecha, como los números', async () => {
+    const informe: ReporteGenerado = {
+      ...reporte(),
+      secciones: [
+        {
+          titulo: 'Avance',
+          columnas: [
+            { clave: 'tarea', encabezado: 'Tarea', tipo: 'texto' },
+            { clave: 'avance', encabezado: 'Avance', tipo: 'texto', alineacion: 'derecha' },
+          ],
+          filas: [{ tarea: 'Una tarea', avance: '66,7 %' }],
+        },
+      ],
+    };
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load((await generarExcelReporte(informe, EMPRESA)) as unknown as ArrayBuffer);
+    const hoja = libro.worksheets[1];
+    expect(hoja.getColumn(2).alignment?.horizontal).toBe('right');
+    expect(hoja.getColumn(1).alignment?.horizontal).not.toBe('right');
+    // El valor sigue siendo el texto, no un número.
+    const valores: unknown[] = [];
+    hoja.eachRow((fila) => valores.push(fila.getCell(2).value));
+    expect(valores).toContain('66,7 %');
+  });
+
   it('avisa en la hoja cuando el detalle se recortó', async () => {
     const recortado = reporte();
     recortado.secciones[0].filasTotales = 9000;

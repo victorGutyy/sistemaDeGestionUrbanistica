@@ -129,6 +129,7 @@ export const ACCIONES_AUDITORIA = {
   AUSENTISMO_RECOBRO_ACTUALIZAR: 'Actualizó el recobro de una incapacidad',
   AUSENTISMO_NOVEDADES_EXPORTAR: 'Descargó las novedades de ausentismo para la nómina',
   AUSENTISMO_DIAGNOSTICO_CONSULTAR: 'Consultó un dato de salud de un ausentismo (diagnóstico o certificado)',
+  SST_REPORTE_EXPORTAR: 'Descargó un reporte de seguridad y salud en el trabajo',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;
