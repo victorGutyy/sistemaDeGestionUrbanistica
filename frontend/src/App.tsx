@@ -18,6 +18,12 @@ import { ConfiguracionPage } from './pages/ConfiguracionPage'
 import { ConfiguracionSeguridadSocialPage } from './pages/ConfiguracionSeguridadSocialPage'
 import { EditarTrabajadorPage } from './pages/EditarTrabajadorPage'
 import { SstLayout } from './components/sst/SstLayout'
+import { ListaAusentismos } from './components/ausentismo/ListaAusentismos'
+import { ListaRecobros } from './components/ausentismo/ListaRecobros'
+import { NovedadesAusentismo } from './components/ausentismo/NovedadesAusentismo'
+import { ResumenAusentismo } from './components/ausentismo/ResumenAusentismo'
+import { SstAusentismoDetallePage } from './pages/SstAusentismoDetallePage'
+import { SstAusentismoLayout } from './pages/SstAusentismoLayout'
 import { SstAvisosPage } from './pages/SstAvisosPage'
 import { SstCapacitacionPage } from './pages/SstCapacitacionPage'
 import { SstCapacitacionesPage } from './pages/SstCapacitacionesPage'
@@ -130,6 +136,15 @@ function App() {
                   <Route path="plan" element={<SstPlanPage />} />
                   <Route path="capacitaciones" element={<SstCapacitacionesPage />} />
                   <Route path="capacitaciones/:id" element={<SstCapacitacionPage />} />
+                  <Route path="ausentismo" element={<SstAusentismoLayout />}>
+                    <Route index element={<ListaAusentismos />} />
+                    <Route path="resumen" element={<ResumenAusentismo />} />
+                    <Route path="recobros" element={<ListaRecobros />} />
+                    <Route element={<ProtectedRoute permiso={PERMISOS.SST_VALORES_VER} />}>
+                      <Route path="novedades" element={<NovedadesAusentismo />} />
+                    </Route>
+                    <Route path=":id" element={<SstAusentismoDetallePage />} />
+                  </Route>
                   <Route path="avisos" element={<SstAvisosPage />} />
                   <Route path="trabajadores/:id" element={<SstTrabajadorPage />} />
                 </Route>

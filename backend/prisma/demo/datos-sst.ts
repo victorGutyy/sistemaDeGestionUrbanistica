@@ -184,4 +184,26 @@ export async function cargarSst(ctx: Contexto, { gerente, admin, emailContratist
     admin,
   );
   log('3 capacitaciones (una ejecutada con 4 asistentes, una próxima y una vencida)');
+
+  // ---- Ausentismo: incapacidades y licencias con su liquidación y su recobro ----
+  const tipo = async (codigo: string) => (await ctx.prisma.tipoAusentismo.findUniqueOrThrow({ where: { codigo } })).id;
+  const cie = async (codigo: string) => (await ctx.prisma.diagnosticoCie10.findUniqueOrThrow({ where: { codigo } })).id;
+  const general = await ctx.ausentismo.registrar(
+    { trabajadorId: trabajadores[1].id, tipoId: await tipo('ENFERMEDAD_GENERAL'), fechaInicio: hace(42), fechaFin: hace(38), numeroDocumento: 'INC-DEMO-001', diagnosticoId: await cie('M54.5'), observaciones: 'Reposo en casa por dolor lumbar (demostración)' },
+    admin,
+  );
+  await ctx.ausentismo.registrar(
+    { trabajadorId: trabajadores[1].id, tipoId: await tipo('ENFERMEDAD_GENERAL'), fechaInicio: hace(37), fechaFin: hace(32), numeroDocumento: 'INC-DEMO-002', esProrroga: true, prorrogaDeId: general.id as string, diagnosticoId: await cie('M54.5') },
+    admin,
+  );
+  const accidente = await ctx.ausentismo.registrar(
+    { trabajadorId: trabajadores[2].id, tipoId: await tipo('ACCIDENTE_TRABAJO'), fechaInicio: hace(20), fechaFin: hace(16), numeroDocumento: 'AT-DEMO-001', diagnosticoId: await cie('S61.0'), observaciones: 'Herida en un dedo con una herramienta (demostración)' },
+    admin,
+  );
+  await ctx.ausentismo.registrar({ trabajadorId: trabajadores[3].id, tipoId: await tipo('LUTO'), fechaInicio: hace(12), fechaFin: hace(10) }, admin);
+  await ctx.ausentismo.registrar({ trabajadorId: trabajadores[4].id, tipoId: await tipo('LICENCIA_NO_REMUNERADA'), fechaInicio: hace(6), fechaFin: hace(5), observaciones: 'Trámite personal (demostración)' }, admin);
+  // Un recobro radicado y otro ya pagado, para ver los tres estados.
+  await ctx.recobros.actualizar(general.id as string, 'EPS', { estado: 'RADICADA', fechaRadicacion: hace(25) }, admin);
+  await ctx.recobros.actualizar(accidente.id as string, 'ARL', { estado: 'PAGADA', fechaRadicacion: hace(14), fechaPago: hace(4), valorReconocido: '230000' }, admin);
+  log('5 ausentismos (enfermedad general con prórroga, accidente de trabajo, luto y licencia no remunerada) y recobros en tres estados');
 }

@@ -13,7 +13,7 @@ interface Pestana {
 }
 
 // Marco del módulo de seguridad y salud en el trabajo: el título y las pestañas (Trabajadores, EPP, Plan de trabajo,
-// Capacitaciones y Avisos). Cada pestaña muestra cuántas alertas tiene, con el mismo cálculo del panel.
+// Capacitaciones, Ausentismo y Avisos). Cada pestaña muestra cuántas alertas tiene, con el mismo cálculo del panel.
 export function SstLayout() {
   const { tiene } = useAuth()
   const [resumen, setResumen] = useState<ResumenSst | null>(null)
@@ -31,6 +31,7 @@ export function SstLayout() {
     { to: '/sst/epp', etiqueta: 'EPP', alertas: resumen ? resumen.epp.vencidos + resumen.epp.porReponer : 0 },
     { to: '/sst/plan', etiqueta: 'Plan de trabajo', alertas: resumen ? resumen.plan.vencidas + resumen.plan.proximas : 0 },
     { to: '/sst/capacitaciones', etiqueta: 'Capacitaciones', alertas: resumen ? resumen.capacitaciones.vencidas + resumen.capacitaciones.proximas : 0 },
+    { to: '/sst/ausentismo', etiqueta: 'Ausentismo' },
     { to: '/sst/avisos', etiqueta: 'Avisos', fin: true },
   ]
 
@@ -39,7 +40,7 @@ export function SstLayout() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Seguridad y salud en el trabajo</h1>
-          <p className="text-sm text-slate-500">Afiliaciones, elementos de protección, plan de trabajo y capacitaciones.</p>
+          <p className="text-sm text-slate-500">Afiliaciones, elementos de protección, plan de trabajo, capacitaciones y ausentismo.</p>
         </div>
         {tiene(PERMISOS.CONFIGURACION_EDITAR) && (
           <Link to="/configuracion/seguridad-social" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

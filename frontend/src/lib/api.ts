@@ -1628,8 +1628,8 @@ export interface DocumentoSst {
   subidoPor?: { nombre: string }
 }
 
-// Los adjuntos de los tres registros se manejan igual: solo cambia el tramo de la ruta.
-export type RutaDocumentosSst = 'epp/entregas' | 'plan' | 'capacitaciones'
+// Los adjuntos de los cuatro registros se manejan igual: solo cambia el tramo de la ruta.
+export type RutaDocumentosSst = 'epp/entregas' | 'plan' | 'capacitaciones' | 'ausentismo'
 
 export function listarDocumentosSst(ruta: RutaDocumentosSst, id: string) {
   return solicitar<DocumentoSst[]>(`/sst/${ruta}/${id}/documentos`)
@@ -2771,4 +2771,316 @@ export function generarReporte(clave: string, filtros: FiltrosReporte) {
 export function exportarReporte(clave: string, filtros: FiltrosReporte, formato: 'pdf' | 'excel') {
   const rango = filtros.desde || filtros.hasta ? `-${filtros.desde ?? 'inicio'}-a-${filtros.hasta ?? 'hoy'}` : ''
   return descargarArchivo(`/reportes/${clave}/exportar${queryDeReporte(filtros, { formato })}`, `${clave}${rango}.${formato === 'pdf' ? 'pdf' : 'xlsx'}`)
+}
+
+// ---------- Ausentismo (CC-03, fase C): incapacidades y licencias con la liquidación de apoyo ----------
+
+export type ReglaAusentismo = 'INCAPACIDAD_GENERAL' | 'ORIGEN_LABORAL' | 'PAGA_EPS' | 'PAGA_EMPLEADOR' | 'DESCUENTO'
+export type EstadoRecobro = 'PENDIENTE' | 'RADICADA' | 'PAGADA' | 'RECHAZADA'
+export type EntidadRecobro = 'EPS' | 'ARL' | 'AFP'
+
+export interface TipoAusentismo {
+  id: string
+  codigo: string
+  nombre: string
+  regla: ReglaAusentismo
+  // Solo en las reglas que lo llevan (decimal como texto); las incapacidades usan el parámetro legal del año.
+  porcentaje: string | null
+  requiereDiagnostico: boolean
+  diaEventoComoLaborado: boolean
+  activo: boolean
+  orden: number
+}
+
+export function listarTiposAusentismo(incluirInactivos = false) {
+  return solicitar<TipoAusentismo[]>(`/sst/ausentismo/tipos${incluirInactivos ? '?incluirInactivos=true' : ''}`)
+}
+
+export interface DatosTipoAusentismo {
+  codigo: string
+  nombre: string
+  regla: ReglaAusentismo
+  porcentaje?: number
+  requiereDiagnostico?: boolean
+  diaEventoComoLaborado?: boolean
+}
+
+export function crearTipoAusentismo(payload: DatosTipoAusentismo) {
+  return solicitar<TipoAusentismo>('/sst/ausentismo/tipos', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function actualizarTipoAusentismo(id: string, payload: Partial<Pick<DatosTipoAusentismo, 'nombre' | 'porcentaje' | 'requiereDiagnostico' | 'diaEventoComoLaborado'>> & { activo?: boolean; orden?: number }) {
+  return solicitar<TipoAusentismo>(`/sst/ausentismo/tipos/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export interface DiagnosticoCie10 {
+  id: string
+  codigo: string
+  descripcion: string
+  activo: boolean
+}
+
+export function listarDiagnosticosCie10(filtro: { q?: string; incluirInactivos?: boolean; limite?: number } = {}) {
+  const params = new URLSearchParams()
+  if (filtro.q?.trim()) params.set('q', filtro.q.trim())
+  if (filtro.incluirInactivos) params.set('incluirInactivos', 'true')
+  if (filtro.limite) params.set('limite', String(filtro.limite))
+  const texto = params.toString()
+  return solicitar<DiagnosticoCie10[]>(`/sst/ausentismo/diagnosticos${texto ? `?${texto}` : ''}`)
+}
+
+export function crearDiagnosticoCie10(codigo: string, descripcion: string) {
+  return solicitar<DiagnosticoCie10>('/sst/ausentismo/diagnosticos', { method: 'POST', body: JSON.stringify({ codigo, descripcion }) })
+}
+
+export function actualizarDiagnosticoCie10(id: string, payload: { descripcion?: string; activo?: boolean }) {
+  return solicitar<DiagnosticoCie10>(`/sst/ausentismo/diagnosticos/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+// Los días de cada pagador los ve todo el que usa el módulo; los valores (texto decimal en pesos enteros) solo el que tiene
+// sst.valores_ver: sin ese permiso el servidor no los manda y las propiedades llegan sin definir.
+export interface PeriodoAusentismo {
+  id?: string
+  anio: number
+  mes: number
+  dias: number
+  diasEmpleador: number
+  diasEps: number
+  diasArl: number
+  diasAfp: number
+  diasLaborados: number
+  diasDescuento: number
+  valorEmpleador?: string
+  valorEps?: string
+  valorArl?: string
+  valorAfp?: string
+  valorDescuento?: string
+}
+
+export interface TotalesAusentismo {
+  dias: number
+  diasEmpleador: number
+  diasEps: number
+  diasArl: number
+  diasAfp: number
+  diasLaborados: number
+  diasDescuento: number
+  valorEmpleador?: string
+  valorEps?: string
+  valorArl?: string
+  valorAfp?: string
+  valorDescuento?: string
+}
+
+export interface RecobroAusentismo {
+  id: string
+  entidad: EntidadRecobro
+  estado: EstadoRecobro
+  // Solo con sst.valores_ver.
+  valorReconocido?: string | null
+  valorEsperado?: string
+  fechaRadicacion?: string | null
+  fechaPago?: string | null
+  observaciones?: string | null
+}
+
+export interface AusentismoFila {
+  id: string
+  trabajadorId: string
+  tipoId: string
+  fechaInicio: string
+  fechaFin: string
+  dias: number
+  anio: number
+  mes: number
+  numeroDocumento: string | null
+  esProrroga: boolean
+  prorrogaDeId: string | null
+  diasPrevios: number
+  cargoFoto: string
+  corregida: boolean
+  anulada: boolean
+  anuladaEn: string | null
+  createdAt: string
+  trabajador: { id: string; nombre: string; documento: string; cargo: string }
+  tipo: { id: string; codigo: string; nombre: string; regla: ReglaAusentismo }
+  recobros: RecobroAusentismo[]
+  totales: TotalesAusentismo
+}
+
+export interface FiltroAusentismos {
+  anio?: number
+  mes?: number
+  trabajadorId?: string
+  tipoId?: string
+  estado?: 'VIGENTES' | 'ANULADOS' | 'TODOS'
+}
+
+export function listarAusentismos(filtro: FiltroAusentismos = {}) {
+  const params = new URLSearchParams()
+  if (filtro.anio) params.set('anio', String(filtro.anio))
+  if (filtro.mes) params.set('mes', String(filtro.mes))
+  if (filtro.trabajadorId) params.set('trabajadorId', filtro.trabajadorId)
+  if (filtro.tipoId) params.set('tipoId', filtro.tipoId)
+  if (filtro.estado) params.set('estado', filtro.estado)
+  const texto = params.toString()
+  return solicitar<AusentismoFila[]>(`/sst/ausentismo${texto ? `?${texto}` : ''}`)
+}
+
+export interface ParametrosUsadosAusentismo {
+  anio: number
+  parametrosValidados: boolean
+  regla: ReglaAusentismo
+  porcentajeTipo: string | null
+  diasPrevios: number
+  smmlv: string
+  diasBaseMes: number
+  porcentajeTramo1: string
+  porcentajeTramo2: string
+  porcentajeLaboral: string
+  diasEmpleador: number
+  diasTramo1Hasta: number
+  diasTramo2Hasta: number
+}
+
+export interface AusentismoDetalle extends Omit<AusentismoFila, 'recobros'> {
+  trabajador: { id: string; nombre: string; documento: string; cargo: string; estado: string }
+  tipo: TipoAusentismo
+  prorrogaDe: { id: string; fechaInicio: string; fechaFin: string; dias: number } | null
+  epsFoto: string | null
+  arlFoto: string | null
+  afpFoto: string | null
+  registradaPor: { nombre: string }
+  anuladaPor: { nombre: string } | null
+  corregidaPor: { nombre: string } | null
+  corregidaEn: string | null
+  motivoAnulacion: string | null
+  periodos: PeriodoAusentismo[]
+  recobros: RecobroAusentismo[]
+  // Solo con sst.diagnosticos_ver (dato de salud, Ley 1581): sin ese permiso el servidor no los manda.
+  diagnosticoId?: string | null
+  diagnostico?: DiagnosticoCie10 | null
+  observaciones?: string | null
+  _count?: { documentos?: number }
+  // Solo con sst.valores_ver.
+  salarioFoto?: string
+  baseDiaria?: string
+  pisoDiario?: string
+  parametrosLiquidacion?: ParametrosUsadosAusentismo
+  motivoCorreccion?: string | null
+}
+
+export function obtenerAusentismo(id: string) {
+  return solicitar<AusentismoDetalle>(`/sst/ausentismo/${id}`)
+}
+
+export interface RegistrarAusentismoPayload {
+  trabajadorId: string
+  tipoId: string
+  fechaInicio: string
+  fechaFin: string
+  numeroDocumento?: string
+  esProrroga?: boolean
+  prorrogaDeId?: string
+  diasPrevios?: number
+  diagnosticoId?: string
+  observaciones?: string
+}
+
+export function registrarAusentismo(payload: RegistrarAusentismoPayload) {
+  return solicitar<AusentismoDetalle>('/sst/ausentismo', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function actualizarAusentismo(id: string, payload: { numeroDocumento?: string; diagnosticoId?: string | null; observaciones?: string }) {
+  return solicitar<AusentismoDetalle>(`/sst/ausentismo/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+export function anularAusentismo(id: string, motivo: string) {
+  return solicitar<AusentismoDetalle>(`/sst/ausentismo/${id}/anular`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
+export interface PeriodoCorregidoPayload {
+  anio: number
+  mes: number
+  diasEmpleador: number
+  diasEps: number
+  diasArl: number
+  diasAfp: number
+  diasLaborados: number
+  diasDescuento: number
+  valorEmpleador: string
+  valorEps: string
+  valorArl: string
+  valorAfp: string
+  valorDescuento: string
+}
+
+export function corregirLiquidacionAusentismo(id: string, motivo: string, periodos: PeriodoCorregidoPayload[]) {
+  return solicitar<AusentismoDetalle>(`/sst/ausentismo/${id}/correccion`, { method: 'POST', body: JSON.stringify({ motivo, periodos }) })
+}
+
+// ----- Recobro a la EPS, la ARL o el fondo de pensiones -----
+
+export interface FilaRecobro extends RecobroAusentismo {
+  ausentismo: {
+    id: string
+    fechaInicio: string
+    fechaFin: string
+    dias: number
+    numeroDocumento: string | null
+    trabajador: { id: string; nombre: string; documento: string }
+    tipo: { id: string; nombre: string }
+  }
+}
+
+export function listarRecobros(filtro: { estado?: EstadoRecobro; entidad?: EntidadRecobro; anio?: number } = {}) {
+  const params = new URLSearchParams()
+  if (filtro.estado) params.set('estado', filtro.estado)
+  if (filtro.entidad) params.set('entidad', filtro.entidad)
+  if (filtro.anio) params.set('anio', String(filtro.anio))
+  const texto = params.toString()
+  return solicitar<FilaRecobro[]>(`/sst/ausentismo/recobros${texto ? `?${texto}` : ''}`)
+}
+
+export interface ActualizarRecobroPayload {
+  estado: EstadoRecobro
+  valorReconocido?: string
+  fechaRadicacion?: string
+  fechaPago?: string
+  observaciones?: string
+}
+
+export function actualizarRecobro(ausentismoId: string, entidad: EntidadRecobro, payload: ActualizarRecobroPayload) {
+  return solicitar<RecobroAusentismo>(`/sst/ausentismo/${ausentismoId}/recobros/${entidad}`, { method: 'PATCH', body: JSON.stringify(payload) })
+}
+
+// ----- Resumen mensual y novedades para la nómina -----
+
+export interface FilaResumenAusentismo {
+  registros: number
+  dias: number
+  porTipo: { tipoId: string; nombre: string; registros: number; dias: number }[]
+  diasPorPagador: { empleador: number; eps: number; arl: number; afp: number; laborados: number; descuento: number }
+  // Solo con sst.valores_ver.
+  valores?: { empleador: string; eps: string; arl: string; afp: string; descuento: string }
+  trabajadoresActivos: number
+  porcentajeAusentismo: string
+}
+
+export interface ResumenAusentismo {
+  anio: number
+  meses: (FilaResumenAusentismo & { mes: number })[]
+  total: FilaResumenAusentismo
+}
+
+export function obtenerResumenAusentismo(anio: number) {
+  return solicitar<ResumenAusentismo>(`/sst/ausentismo/resumen?anio=${anio}`)
+}
+
+export function obtenerNovedadesAusentismo(anio: number, mes: number) {
+  return solicitar<ReporteGenerado>(`/sst/ausentismo/novedades?anio=${anio}&mes=${mes}`)
+}
+
+export function descargarNovedadesAusentismo(anio: number, mes: number) {
+  return descargarArchivo(`/sst/ausentismo/novedades/excel?anio=${anio}&mes=${mes}`, `novedades-ausentismo-${anio}-${String(mes).padStart(2, '0')}.xlsx`)
 }

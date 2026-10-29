@@ -16,10 +16,12 @@ interface Props {
   // Se llama después de adjuntar, para que la pantalla vuelva a cargar el registro.
   onCambio: () => void
   etiquetaAdjuntar?: string
+  // Para los certificados de incapacidad: quien puede adjuntar pero no ver diagnósticos no ve la lista (traen el diagnóstico).
+  ocultarLista?: string
 }
 
 // Adjuntos de un registro SST (RF-SST-21): se abren con la sesión (no hay enlaces públicos) y no se borran.
-export function AdjuntosSst({ ruta, registroId, documentos, puedeAdjuntar, onCambio, etiquetaAdjuntar = 'Adjuntar documento' }: Props) {
+export function AdjuntosSst({ ruta, registroId, documentos, puedeAdjuntar, onCambio, etiquetaAdjuntar = 'Adjuntar documento', ocultarLista }: Props) {
   const entrada = useRef<HTMLInputElement>(null)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [descripcion, setDescripcion] = useState('')
@@ -63,7 +65,8 @@ export function AdjuntosSst({ ruta, registroId, documentos, puedeAdjuntar, onCam
   return (
     <div>
       <Aviso error={error} />
-      <ul className="divide-y divide-slate-100">
+      {ocultarLista && <p className="py-2 text-sm text-slate-500">{ocultarLista}</p>}
+      <ul className={`divide-y divide-slate-100 ${ocultarLista ? 'hidden' : ''}`}>
         {documentos.length === 0 && <li className="py-2 text-sm text-slate-400">Todavía no hay documentos adjuntos.</li>}
         {documentos.map((documento) => (
           <li key={documento.id} className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">

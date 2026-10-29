@@ -19,6 +19,8 @@ import type { NominaService } from '../../src/nomina/nomina.service.js';
 import type { PrismaService } from '../../src/prisma/prisma.service.js';
 import type { ProyectosService } from '../../src/proyectos/proyectos.service.js';
 import type { TrabajadoresService } from '../../src/trabajadores/trabajadores.service.js';
+import type { AusentismoService } from '../../src/ausentismo/ausentismo.service.js';
+import type { RecobrosAusentismoService } from '../../src/ausentismo/recobros-ausentismo.service.js';
 import type { AfiliacionesTrabajadorService } from '../../src/trabajadores/afiliaciones-trabajador.service.js';
 import type { CapacitacionesService } from '../../src/sst/capacitaciones.service.js';
 import type { EppService } from '../../src/sst/epp.service.js';
@@ -45,6 +47,8 @@ export interface Contexto {
   epp: EppService;
   planSst: PlanTrabajoService;
   capacitaciones: CapacitacionesService;
+  ausentismo: AusentismoService;
+  recobros: RecobrosAusentismoService;
   nomina: NominaService;
   cierres: CierresCajaService;
   comisiones: ComisionesService;
@@ -94,6 +98,8 @@ export async function abrirContexto(): Promise<Contexto> {
     epp: await obtener<EppService>('../../src/sst/epp.service.js', 'EppService'),
     planSst: await obtener<PlanTrabajoService>('../../src/sst/plan-trabajo.service.js', 'PlanTrabajoService'),
     capacitaciones: await obtener<CapacitacionesService>('../../src/sst/capacitaciones.service.js', 'CapacitacionesService'),
+    ausentismo: await obtener<AusentismoService>('../../src/ausentismo/ausentismo.service.js', 'AusentismoService'),
+    recobros: await obtener<RecobrosAusentismoService>('../../src/ausentismo/recobros-ausentismo.service.js', 'RecobrosAusentismoService'),
     nomina: await obtener<NominaService>('../../src/nomina/nomina.service.js', 'NominaService'),
     cierres: await obtener<CierresCajaService>('../../src/cierres-caja/cierres-caja.service.js', 'CierresCajaService'),
     comisiones: await obtener<ComisionesService>('../../src/comisiones/comisiones.service.js', 'ComisionesService'),

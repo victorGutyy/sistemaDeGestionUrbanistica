@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { SeccionDiagnosticos, SeccionTiposAusentismo } from '../components/ausentismo/CatalogosAusentismo'
 import { Aviso, CLASE_BOTON, CLASE_BOTON_SECUNDARIO, CLASE_INPUT, Campo, Insignia, Seccion } from '../components/formulario'
 import {
   actualizarClaseRiesgoArl,
@@ -481,12 +482,14 @@ export function ConfiguracionSeguridadSocialPage() {
           ← Configuración
         </Link>
         <h1 className="mt-1 text-lg font-semibold text-slate-900">Seguridad social</h1>
-        <p className="text-sm text-slate-500">Parámetros legales, entidades y clases de riesgo. Solo el gerente puede cambiarlos; cada cambio queda en la auditoría.</p>
+        <p className="text-sm text-slate-500">Parámetros legales, entidades, clases de riesgo, tipos de ausentismo y diagnósticos CIE-10. Solo el gerente puede cambiarlos; cada cambio queda en la auditoría.</p>
       </div>
 
       <SeccionParametros parametros={catalogos.parametrosLegales} onCambio={(parametrosLegales) => setCatalogos({ ...catalogos, parametrosLegales })} />
       <SeccionEntidades entidades={catalogos.entidades} onCambio={(entidades) => setCatalogos({ ...catalogos, entidades })} />
       <SeccionClases clases={catalogos.clasesRiesgo} onCambio={(clasesRiesgo) => setCatalogos({ ...catalogos, clasesRiesgo })} />
+      <SeccionTiposAusentismo />
+      <SeccionDiagnosticos />
     </div>
   )
 }
