@@ -43,11 +43,18 @@ export function SstLayout() {
           <h1 className="text-lg font-semibold text-slate-900">Seguridad y salud en el trabajo</h1>
           <p className="text-sm text-slate-500">Afiliaciones, elementos de protección, plan de trabajo, capacitaciones y ausentismo.</p>
         </div>
-        {tiene(PERMISOS.CONFIGURACION_EDITAR) && (
-          <Link to="/configuracion/seguridad-social" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Parámetros y entidades
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {tiene(PERMISOS.IMPORTACION_GESTIONAR) && (
+            <Link to="/importacion/sst" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Cargar desde Excel
+            </Link>
+          )}
+          {tiene(PERMISOS.CONFIGURACION_EDITAR) && (
+            <Link to="/configuracion/seguridad-social" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Parámetros y entidades
+            </Link>
+          )}
+        </div>
       </div>
 
       <nav aria-label="Secciones de seguridad y salud" className="-mx-4 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:px-0">

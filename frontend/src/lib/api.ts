@@ -1212,6 +1212,65 @@ export function descargarConciliacionImportacion(id: string) {
   return descargarArchivo(`/importacion/${id}/conciliacion`, `conciliacion-importacion-${id.slice(0, 8)}.xlsx`)
 }
 
+// ---------- Carga de datos de seguridad y salud en el trabajo desde Excel (CC-03, fase D, RF-SST-23) ----------
+
+export interface ResumenCargaSst {
+  // Filas con datos que se leyeron en cada hoja.
+  filas: { trabajadores: number; ausentismos: number; entregasEpp: number; asistencias: number }
+  trabajadores: { nuevos: number; existentes: number }
+  ausentismos: number
+  entregasEpp: number
+  asistencias: { registradas: number; yaRegistradas: number }
+}
+
+export interface ResultadoValidacionCargaSst {
+  nombreArchivo: string
+  // Identifica el archivo validado: la confirmación debe mandar el mismo archivo con esta huella.
+  huella: string
+  puedeConfirmar: boolean
+  yaImportado: { fecha: string; por: string } | null
+  totalErrores: number
+  totalAvisos: number
+  errores: ProblemaImportacion[]
+  avisos: ProblemaImportacion[]
+  resumen: ResumenCargaSst
+}
+
+export interface ResultadoCargaSst {
+  id: string
+  nombreArchivo: string
+  createdAt: string
+  resumen: ResumenCargaSst
+  avisos: ProblemaImportacion[]
+  totalAvisos: number
+}
+
+export interface CargaSstHistorial {
+  id: string
+  createdAt: string
+  nombreArchivo: string
+  resumen: ResumenCargaSst
+  usuario: { nombre: string }
+}
+
+export function descargarPlantillaCargaSst() {
+  return descargarArchivo('/importacion/sst/plantilla', 'plantilla-carga-sst.xlsx')
+}
+
+// Modo de prueba: el servidor corre la carga completa y la deshace; NO guarda nada.
+export function validarCargaSst(archivo: File) {
+  return solicitar<ResultadoValidacionCargaSst>('/importacion/sst/validar', { method: 'POST', body: formularioImportacion(archivo) })
+}
+
+// Confirmación: se manda el mismo archivo y la huella de la validación; el servidor valida otra vez y lo guarda todo o nada.
+export function confirmarCargaSst(archivo: File, huella: string) {
+  return solicitar<ResultadoCargaSst>('/importacion/sst/confirmar', { method: 'POST', body: formularioImportacion(archivo, huella) })
+}
+
+export function listarCargasSst() {
+  return solicitar<CargaSstHistorial[]>('/importacion/sst')
+}
+
 // ---------- Cierres de caja ----------
 
 export type TipoCierre = 'DIARIO' | 'SEMANAL' | 'QUINCENAL'

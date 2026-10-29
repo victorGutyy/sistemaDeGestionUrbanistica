@@ -11,7 +11,9 @@ import { EquipoDetallePage } from './pages/EquipoDetallePage'
 import { ClienteDetallePage } from './pages/ClienteDetallePage'
 import { ClientesPage } from './pages/ClientesPage'
 import { ComisionesPage } from './pages/ComisionesPage'
+import { ImportacionLayout } from './components/importacion/ImportacionLayout'
 import { ImportacionPage } from './pages/ImportacionPage'
+import { ImportacionSstPage } from './pages/ImportacionSstPage'
 import { CarteraPage } from './pages/CarteraPage'
 import { CierreDetallePage } from './pages/CierreDetallePage'
 import { ConfiguracionPage } from './pages/ConfiguracionPage'
@@ -157,7 +159,10 @@ function App() {
               </Route>
 
               <Route element={<ProtectedRoute permiso={PERMISOS.IMPORTACION_GESTIONAR} />}>
-                <Route path="/importacion" element={<ImportacionPage />} />
+                <Route path="/importacion" element={<ImportacionLayout />}>
+                  <Route index element={<ImportacionPage />} />
+                  <Route path="sst" element={<ImportacionSstPage />} />
+                </Route>
               </Route>
 
               <Route element={<ProtectedRoute permiso={PERMISOS.USUARIOS_GESTIONAR} />}>

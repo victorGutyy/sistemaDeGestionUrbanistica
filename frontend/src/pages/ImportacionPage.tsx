@@ -7,40 +7,13 @@ import {
   validarImportacion,
   type FilaConciliacion,
   type ImportacionHistorial,
-  type ProblemaImportacion,
   type ResultadoImportacion,
   type ResultadoValidacionImportacion,
   type ResumenImportacion,
 } from '../lib/api'
+import { Dato, ListaProblemas, Tarjeta } from '../components/importacion/piezas'
 import { formatearCOP, formatearFecha } from '../lib/formato'
-
-const BOTON_PRIMARIO = 'w-full rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto sm:py-2'
-const BOTON_SECUNDARIO =
-  'w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:w-auto sm:py-2'
-const TAMANO_MAXIMO_MB = 5
-const MAXIMO_PROBLEMAS_VISIBLES = 30
-
-function Tarjeta({ numero, titulo, children }: { numero: number; titulo: string; children: React.ReactNode }) {
-  return (
-    <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs text-white">{numero}</span>
-        {titulo}
-      </h2>
-      <div className="mt-3">{children}</div>
-    </section>
-  )
-}
-
-function Dato({ etiqueta, valor, detalle }: { etiqueta: string; valor: string | number; detalle?: string }) {
-  return (
-    <div className="rounded-md bg-slate-50 px-3 py-2">
-      <p className="text-xs text-slate-500">{etiqueta}</p>
-      <p className="text-base font-semibold text-slate-900">{valor}</p>
-      {detalle && <p className="text-xs text-slate-500">{detalle}</p>}
-    </div>
-  )
-}
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, TAMANO_MAXIMO_MB } from '../lib/importacion'
 
 function Resumen({ resumen }: { resumen: ResumenImportacion }) {
   return (
@@ -54,47 +27,6 @@ function Resumen({ resumen }: { resumen: ResumenImportacion }) {
       <Dato etiqueta="Valor de las ventas" valor={formatearCOP(resumen.valorVentas)} />
       <Dato etiqueta="Abonado" valor={formatearCOP(resumen.totalAbonado)} />
       <Dato etiqueta="Saldo por cobrar" valor={formatearCOP(resumen.totalSaldo)} />
-    </div>
-  )
-}
-
-function ListaProblemas({ titulo, problemas, total, tono }: { titulo: string; problemas: ProblemaImportacion[]; total: number; tono: 'error' | 'aviso' }) {
-  const [verTodo, setVerTodo] = useState(false)
-  if (problemas.length === 0) return null
-
-  const hojas = new Map<string, ProblemaImportacion[]>()
-  for (const problema of problemas) hojas.set(problema.hoja, [...(hojas.get(problema.hoja) ?? []), problema])
-
-  const estilo = tono === 'error' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'
-  const estiloTitulo = tono === 'error' ? 'text-red-800' : 'text-amber-800'
-
-  return (
-    <div className={`mt-4 rounded-md border p-3 ${estilo}`}>
-      <p className={`text-sm font-medium ${estiloTitulo}`}>
-        {titulo} ({total})
-      </p>
-      {[...hojas.entries()].map(([hoja, lista]) => (
-        <div key={hoja} className="mt-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Hoja {hoja}</p>
-          <ul className="mt-1 space-y-1.5">
-            {(verTodo ? lista : lista.slice(0, MAXIMO_PROBLEMAS_VISIBLES)).map((problema, indice) => (
-              <li key={indice} className="rounded bg-white/70 px-2 py-1.5 text-sm text-slate-800">
-                <span className="text-xs font-medium text-slate-500">
-                  {problema.fila ? `Fila ${problema.fila}` : 'General'}
-                  {problema.columna ? ` · ${problema.columna}` : ''}
-                </span>
-                <p className="break-words">{problema.mensaje}</p>
-              </li>
-            ))}
-          </ul>
-          {!verTodo && lista.length > MAXIMO_PROBLEMAS_VISIBLES && (
-            <button type="button" onClick={() => setVerTodo(true)} className="mt-1 text-xs font-medium text-blue-600 hover:underline">
-              Ver los {lista.length - MAXIMO_PROBLEMAS_VISIBLES} restantes de esta hoja
-            </button>
-          )}
-        </div>
-      ))}
-      {total > problemas.length && <p className="mt-2 text-xs text-slate-600">Se muestran los primeros {problemas.length}; corrige estos y vuelve a validar para ver los demás.</p>}
     </div>
   )
 }
@@ -259,9 +191,8 @@ export function ImportacionPage() {
   const ocupado = trabajando !== null
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-lg font-semibold text-slate-900">Importar desde Excel</h1>
-      <p className="text-sm text-slate-500">
+    <div>
+      <p className="mt-3 text-sm text-slate-500">
         Carga proyectos, lotes, clientes, ventas con su plan de cuotas y abonos históricos desde la plantilla. Primero se revisa sin guardar nada; solo se guarda cuando tú lo confirmas.
       </p>
 
