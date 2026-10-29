@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createRequire } from 'node:module';
 import { Navegador } from './navegador.mjs';
 
 const API = 'http://localhost:3001', FRONT = 'http://localhost:5174';
@@ -169,6 +170,23 @@ async function enlaceDe(seleccion, texto) {
   return nav.evaluar(`(() => { const a = [...document.querySelectorAll(${JSON.stringify(seleccion)})].find((x) => x.innerText.includes(${JSON.stringify(texto)})); return a ? a.getAttribute('href') : null; })()`);
 }
 async function conSesion(tk) { await nav.sesion(FRONT, tk); }
+
+// Pone un valor en un campo (texto, fecha, lista o área de texto) y avisa a React.
+async function fijar(selector, valor) {
+  const ok = await nav.evaluar(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return false;
+    const proto = e.tagName === 'SELECT' ? HTMLSelectElement.prototype : e.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(e, ${JSON.stringify(valor)}); e.dispatchEvent(new Event(e.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); return true })()`);
+  if (!ok) console.log('   (!) no encontré el campo:', selector);
+  await pausa(200);
+}
+// Elige en una lista la opción cuyo texto contiene lo dado.
+async function elegirOpcion(selector, texto) {
+  const ok = await nav.evaluar(`(() => { const s = document.querySelector(${JSON.stringify(selector)}); if (!s) return 'sin lista';
+    const o = [...s.options].find((x) => x.text.toLowerCase().includes(${JSON.stringify(texto.toLowerCase())})); if (!o) return 'sin opción';
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, o.value); s.dispatchEvent(new Event('change', { bubbles: true })); return 'ok' })()`);
+  if (ok !== 'ok') console.log('   (!) elegirOpcion', selector, texto, ok);
+  await pausa(300);
+}
 
 const cap = (nombre, fn) => async () => {
   if (filtro.length && !filtro.includes(nombre)) return;
@@ -714,7 +732,7 @@ const capitulos = [
 
     await ir('/sst', 2200);
     await foto('sst-trabajadores', 'Seguridad y salud: trabajadores y sus alertas', { alto: 1000, marcas: [
-      { t: 'Trabajadores', n: 1, sel: 'nav[aria-label] a[href="/sst"]', r: 'Las pestañas del módulo: trabajadores, EPP, plan de trabajo, capacitaciones y avisos.' },
+      { t: 'Trabajadores', n: 1, sel: 'nav[aria-label] a[href="/sst"]', r: 'Las pestañas del módulo: trabajadores, EPP, plan de trabajo, capacitaciones, ausentismo, reportes y avisos.' },
       { t: 'Con alguna alerta', n: 2, caja: true, tag: 'P|SPAN|DIV', r: 'Cuántos trabajadores tienen algo por completar.' },
       { sel: 'input[placeholder="Buscar por nombre o documento"]', n: 3, r: 'Busca a un trabajador por su nombre o su documento.' },
       { t: 'Parámetros y entidades', n: 4, r: 'Solo el gerente: valores legales del año y entidades de seguridad social.' },
@@ -821,6 +839,205 @@ const capitulos = [
     await ir('/sst', 2200);
     await foto('rol-contratista', 'Menú del rol Contratista SST', { conMenu: true, alto: 900 });
     await conSesion(tokenGerente);
+  }),
+
+  // ------------------------------------------------------------ CC-03 fases C y D (manual v1.2)
+  cap('ausentismo', async () => {
+    const lista = await llamar('/sst/ausentismo');
+    const prorroga = lista.find((x) => x.esProrroga);
+    const primera = lista.find((x) => x.tipo?.nombre === 'Enfermedad general' && !x.esProrroga);
+    const juan = lista.find((x) => x.esProrroga).trabajador;
+
+    // --- Registros
+    await ir('/sst/ausentismo', 2400);
+    await foto('sst-ausentismo-lista', 'Ausentismo: incapacidades y licencias registradas', { ancho: 1500, alto: 1050, marcas: [
+      { sel: 'nav[aria-label="Secciones del ausentismo"] a[href="/sst/ausentismo"]', n: 1, r: 'Las secciones del ausentismo: registros, resumen mensual, recobro a entidades y novedades para nómina (esta última solo con permiso para ver valores).' },
+      { sel: 'select[aria-label="Filtrar por mes"]', n: 2, r: 'Filtros por año, mes, tipo, trabajador y estado.' },
+      { t: 'Registrar ausentismo', n: 3, tag: 'BUTTON', r: 'Abre el formulario para registrar una incapacidad o una licencia.' },
+      { t: 'Quién paga', n: 4, tag: 'TH', r: 'Cuántos días paga cada uno: el empleador, la EPS, la ARL o el fondo de pensiones.' },
+      { t: 'Prórroga', n: 5, tag: 'SPAN', r: 'Una incapacidad que continúa otra anterior.' },
+    ] });
+
+    // --- Formulario (no se guarda)
+    await foto('sst-ausentismo-form', 'Formulario para registrar una incapacidad', { alto: 1500, antes: async () => {
+      await ir('/sst/ausentismo', 2000);
+      await nav.clicTexto('Registrar ausentismo', 'button'); await pausa(700);
+      await elegirOpcion('#aus-trabajador', 'Juan Camilo');
+      await elegirOpcion('#aus-tipo', 'Enfermedad general'); await pausa(400);
+      await fijar('#aus-inicio', '2026-10-01'); await fijar('#aus-fin', '2026-10-05');
+      await fijar('#aus-numero', 'INC-0001'); await pausa(300);
+      await fijar('#aus-diagnostico', 'lumbago'); await pausa(1200);
+      await nav.evaluar(`(() => { const b = [...document.querySelectorAll('ul button')].find((x) => /M54/.test(x.innerText)); if (b) b.click(); return !!b })()`); await pausa(500);
+    }, marcas: [
+      { sel: '#aus-trabajador', n: 1, r: 'La persona que se incapacitó. Un trabajador retirado o que aún no había ingresado no se puede elegir.' },
+      { sel: '#aus-tipo', n: 2, r: 'El tipo define quién paga cada día. Debajo dice si exige diagnóstico.' },
+      { sel: '#aus-inicio', n: 3, r: 'Primer día. Las fechas no pueden traslaparse con otro ausentismo del mismo trabajador.' },
+      { t: 'Es una prórroga de una incapacidad anterior', n: 4, tag: 'LABEL', r: 'Márcalo si continúa otra incapacidad: sus días cuentan para los tramos de pago.' },
+      { t: 'Lumbago con ciática', n: 5, caja: true, r: 'Código CIE-10 del diagnóstico, elegido de la lista que se busca por código o por nombre. Es un dato de salud: solo lo ven los roles con permiso.' },
+    ] });
+
+    // --- Detalle y liquidación
+    await foto('sst-ausentismo-detalle', 'Detalle de un ausentismo', { alto: 1500, antes: async () => { await ir('/sst/ausentismo/' + prorroga.id, 2200); }, marcas: [
+      { t: 'Anular', n: 1, tag: 'BUTTON', r: 'Un ausentismo no se borra ni se edita: se anula con su motivo y, si hace falta, se registra de nuevo.' },
+      { t: 'Datos del ausentismo', n: 2, tag: 'H2|H3', r: 'Trabajador, tipo, fechas, número del certificado y, si es prórroga, de cuál viene.' },
+      { t: 'Datos de salud', n: 3, tag: 'H2|H3', r: 'Diagnóstico y observaciones: cada vez que se abren queda un registro en la auditoría.' },
+      { t: 'Liquidación', n: 4, tag: 'H2|H3', r: 'Quién paga cada día, mes por mes.' },
+    ] });
+    await foto('sst-ausentismo-liquidacion', 'Liquidación de un ausentismo por pagador', { alto: 1100, antes: async () => { await ir('/sst/ausentismo/' + prorroga.id, 2200); }, desplazar: 'Liquidación', marcas: [
+      { t: 'Valor diario', n: 1, tag: 'DIV', r: 'El salario del trabajador dividido en los días base del mes.' },
+      { t: 'Parámetros de', n: 2, tag: 'DIV', r: 'Los valores legales del año con que se liquidó. Quedan guardados: si cambian después, este registro no se mueve.' },
+      { t: 'Corregir la liquidación', n: 3, tag: 'BUTTON', r: 'Cuando la EPS o la ARL reconoce algo distinto, el gerente o el administrador lo corrige con un motivo; el cálculo original se conserva.' },
+    ] });
+    await foto('sst-ausentismo-correccion', 'Corrección manual de la liquidación', { alto: 1300, antes: async () => { await ir('/sst/ausentismo/' + prorroga.id, 2200); await nav.clicTexto('Corregir la liquidación', 'button'); await pausa(700); }, desplazar: 'Liquidación', marcas: [
+      { t: 'Motivo de la corrección', n: 1, r: 'Obligatorio: explica por qué se corrige. Queda en la auditoría con el valor anterior y el nuevo.' },
+      { t: 'Guardar la corrección', n: 2, tag: 'BUTTON', r: 'Guarda la corrección; el registro queda marcado como corregido a mano.' },
+    ] });
+
+    // --- Recobro
+    await foto('sst-ausentismo-recobro-form', 'Seguimiento del recobro a una entidad', { alto: 1200, antes: async () => { await ir('/sst/ausentismo/' + primera.id, 2200); await nav.clicTexto('Actualizar', 'button'); await pausa(700); }, desplazar: 'Recobro a las entidades', marcas: [
+      { t: 'Recobro a las entidades', n: 1, tag: 'H2|H3', r: 'Lo que la EPS, la ARL o el fondo de pensiones deben reconocer. El sistema solo lleva el seguimiento: no transmite nada a esas entidades.' },
+      { t: 'Guardar recobro', n: 2, tag: 'BUTTON', r: 'Cada estado exige sus datos: la fecha de radicación al radicar, y la fecha y el valor al registrar el pago.' },
+    ] });
+    await ir('/sst/ausentismo/recobros', 2400);
+    await foto('sst-ausentismo-recobros', 'Recobro a entidades: lista con sus estados', { alto: 900, marcas: [
+      { sel: 'select[aria-label="Filtrar por estado"]', n: 1, r: 'Filtra por estado: pendiente, radicado, pagado o rechazado.' },
+      { t: 'Entidad', n: 2, tag: 'TH', r: 'A quién se le cobra: EPS, ARL o fondo de pensiones.' },
+      { t: 'Esperado', n: 3, tag: 'TH', r: 'Lo que se espera cobrar y lo que la entidad reconoció (solo con permiso para ver valores).' },
+    ] });
+
+    // --- Resumen y novedades
+    await ir('/sst/ausentismo/resumen', 2400);
+    await foto('sst-ausentismo-resumen', 'Resumen mensual del ausentismo', { ancho: 1700, alto: 1100, marcas: [
+      { t: 'Porcentaje de ausentismo', n: 1, caja: true, tag: 'P|SPAN|DIV', r: 'Días de ausentismo sobre los días que se pudo trabajar, con los trabajadores activos.' },
+      { sel: 'button[aria-label="Año anterior"]', n: 2, r: 'Cambia de año.' },
+      { t: 'Empleador / EPS / ARL / AFP (días)', n: 3, tag: 'TH', r: 'Cuántos días de cada mes paga cada uno.' },
+    ] });
+    await ir('/sst/ausentismo/novedades', 2400);
+    await foto('sst-ausentismo-novedades', 'Novedades de ausentismo para la nómina', { ancho: 2400, alto: 1000, marcas: [
+      { sel: 'main select', n: 1, r: 'El mes del que se piden las novedades.' },
+      { t: 'Descargar Excel', n: 2, tag: 'BUTTON', r: 'El Excel con lo que se lleva a la nómina. Es una liquidación de apoyo: la nómina se liquida fuera del sistema.' },
+    ] });
+
+    // --- Nómina: propuesta al registrar un pago
+    await foto('nomina-ausentismo-periodo', 'Registrar un pago: ausentismo del período', { alto: 950, antes: async () => {
+      await ir('/trabajadores/' + juan.id + '/pagos/nuevo', 2000);
+      await fijar('#periodoInicio', '2026-09-15'); await fijar('#periodoFin', '2026-09-30'); await pausa(1800);
+      await nav.clicTexto('Agregar como novedad', 'button'); await pausa(500);
+    }, marcas: [
+      { t: 'Ausentismo en este período', n: 1, tag: 'P', caja: true, r: 'El sistema busca las incapacidades y licencias que caen en el período pagado y propone la novedad de cada una.' },
+      { t: 'Ya agregada', n: 2, tag: 'BUTTON', r: 'Una novedad ya agregada no se puede agregar dos veces.' },
+      { t: 'Novedades (opcional)', n: 3, tag: 'SPAN', r: 'La novedad propuesta queda en la lista; puedes cambiarle el valor o quitarla antes de registrar el pago.' },
+    ] });
+
+    // --- Configuración: tipos y CIE-10
+    await ir('/configuracion/seguridad-social', 2600);
+    await foto('config-ausentismo-tipos', 'Configuración: tipos de ausentismo', { alto: 1300, desplazar: 'Tipos de ausentismo', marcas: [
+      { t: 'Tipos de ausentismo', n: 1, tag: 'H2|H3', r: 'Los tipos y su regla de pago. La regla y la clave no cambian una vez creado el tipo; los porcentajes sí.' },
+      { t: 'Agregar un tipo', n: 2, tag: 'P', r: 'Un tipo nuevo para una licencia que la empresa maneje de otra forma.' },
+    ] });
+    await foto('config-ausentismo-cie10', 'Configuración: diagnósticos CIE-10', { alto: 1000, antes: async () => { await ir('/configuracion/seguridad-social', 2600); await fijar('input[aria-label="Buscar diagnóstico"]', 'lumbago'); await pausa(900); }, desplazar: 'Diagnósticos CIE-10', marcas: [
+      { sel: 'input[aria-label="Buscar diagnóstico"]', n: 1, r: 'Busca por código o por nombre. Los códigos que trae el sistema son una referencia: se pueden agregar los que falten.' },
+    ] });
+
+    // --- Lo que ve cada rol
+    const tCont = await token('Contratista');
+    await conSesion(tCont);
+    await foto('sst-ausentismo-contratista', 'Ausentismo visto por el contratista SST', { ancho: 1500, alto: 1100, antes: async () => { await ir('/sst/ausentismo', 2400); }, marcas: [
+      { t: 'Quién paga', n: 1, tag: 'TH', r: 'El contratista ve los días y quién paga cada uno, pero ninguna columna de dinero: no hay valores ni recobros esperados.' },
+      { t: 'Registrar ausentismo', n: 2, tag: 'BUTTON', r: 'Sí puede registrar y anular ausentismos, y ver sus diagnósticos.' },
+    ] });
+    const tAdmin = await token('Administrador');
+    await conSesion(tAdmin);
+    await foto('sst-ausentismo-administrador', 'Detalle de un ausentismo visto por el administrador', { alto: 1300, antes: async () => { await ir('/sst/ausentismo/' + prorroga.id, 2200); }, marcas: [
+      { t: 'Datos del ausentismo', n: 1, tag: 'H2|H3', r: 'Entre estos datos y la liquidación no aparece la sección Datos de salud: el administrador no ve diagnósticos ni observaciones.' },
+      { t: 'Liquidación', n: 2, tag: 'H2|H3', r: 'El administrador sí ve la liquidación con sus valores y puede corregirla.' },
+    ] });
+    await conSesion(tokenGerente);
+  }),
+
+  cap('reportes-sst', async () => {
+    await ir('/sst/reportes', 2400);
+    await foto('sst-reportes', 'Reportes de seguridad y salud en el trabajo', { ancho: 1500, alto: 1500, antes: async () => {
+      await nav.clicTexto('Ausentismo: detalle por registro', 'button'); await pausa(500);
+      await nav.clicTexto('Ver reporte', 'button'); await pausa(2200);
+    }, marcas: [
+      { sel: 'button[aria-pressed="true"]', n: 1, r: 'Los cinco reportes: ausentismo (resumen y detalle), EPP, plan de trabajo y capacitaciones. El elegido queda resaltado.' },
+      { sel: '#filtro-sst-anio', n: 2, r: 'Los filtros cambian según el reporte: año, mes, fechas, trabajador, tipo o estado.' },
+      { t: 'Ver reporte', n: 3, tag: 'BUTTON', r: 'Muestra el reporte en pantalla.' },
+      { t: 'Descargar PDF', n: 4, tag: 'BUTTON', r: 'Baja el reporte en PDF o en Excel. Cada descarga queda registrada en la auditoría.' },
+      { t: 'Valores liquidados por registro', n: 5, tag: 'H2', r: 'Los valores en pesos van en una tabla aparte, que solo ve quien tiene permiso para ver valores.' },
+    ] });
+    await fotoPdf('sst-reportes-pdf', 'Reporte de ausentismo en PDF', '/sst/reportes/sst-ausentismo-detalle/exportar?formato=pdf&anio=2026', { ancho: 1500, alto: 1000, clip: { x: 4, y: 4, width: 1492, height: 996 } });
+  }),
+
+  cap('importacion-sst', async () => {
+    const ExcelJS = createRequire(RAIZ + 'backend/package.json')('exceljs');
+    const elementos = await llamar('/sst/epp/elementos');
+    const capacitaciones = (await llamar('/sst/capacitaciones?anio=2026')).capacitaciones;
+    const cap0 = capacitaciones[0];
+    const fechaCap = String(cap0.fechaProgramada).slice(0, 10).split('-').reverse().join('/');
+    const ENC = {
+      Trabajadores: ['Documento', 'Nombres', 'Apellidos', 'Cargo', 'Salario base', 'Fecha de ingreso'],
+      Ausentismos: ['Documento del trabajador', 'Tipo de ausentismo', 'Fecha de inicio', 'Fecha de fin', 'N.º de incapacidad', 'Código CIE-10'],
+      'Entregas EPP': ['Documento del trabajador', 'Elemento', 'Fecha de entrega', 'Cantidad', 'Motivo'],
+      Asistencias: ['Documento del trabajador', 'Capacitación', 'Fecha programada', 'Firmó', 'Calificación'],
+    };
+    async function libro(nombre, filas) {
+      const wb = new ExcelJS.Workbook();
+      for (const [hoja, enc] of Object.entries(ENC)) {
+        const ws = wb.addWorksheet(hoja);
+        ws.addRow(enc);
+        for (const f of filas[hoja] ?? []) ws.addRow(f);
+      }
+      const ruta = join(tmpdir(), nombre);
+      await wb.xlsx.writeFile(ruta);
+      return ruta;
+    }
+    const bueno = await libro('carga-buena.xlsx', {
+      Trabajadores: [['2000000001', 'Persona', 'Inventada Uno', 'Oficial de obra', 2100000, '15/01/2026'], ['2000000002', 'Persona', 'Inventada Dos', 'Ayudante', 1800000, '01/02/2026']],
+      Ausentismos: [['2000000001', 'Enfermedad general', '06/07/2026', '10/07/2026', 'INC-CARGA-1', 'M54.5']],
+      'Entregas EPP': [['2000000001', elementos[0].nombre, '05/03/2026', 1, 'Dotación inicial']],
+      Asistencias: [['2000000002', cap0.tema, fechaCap, 'Sí', '4,5']],
+    });
+    const malo = await libro('carga-con-errores.xlsx', {
+      Trabajadores: [['2000000003', 'Persona', 'Inventada Tres', 'Oficial', 'mucho', '15/01/2026'], ['2000000004', 'Persona', 'Inventada Cuatro', 'Ayudante', 1800000, '01/02/2026']],
+      Ausentismos: [['2000000004', 'Vacaciones', '06/07/2026', '10/07/2026', 'INC-X', 'M54.5'], ['2000000004', 'Enfermedad general', '06/07/2026', '10/07/2026', 'INC-Y', null], ['9999999999', 'Enfermedad general', '06/07/2026', '10/07/2026', 'INC-Z', 'M54.5']],
+      'Entregas EPP': [['2000000004', 'Elemento que no existe', '05/03/2026', 1, 'Dotación inicial']],
+    });
+    const subir = async (ruta, nombre) => {
+      const b64 = readFileSync(ruta).toString('base64');
+      return nav.evaluar(`(() => { const bin = atob(${JSON.stringify(b64)}); const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0)); const f = new File([bytes], ${JSON.stringify(nombre)}, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }); const dt = new DataTransfer(); dt.items.add(f); const i = document.querySelector('#archivo-carga-sst'); i.files = dt.files; i.dispatchEvent(new Event('change', { bubbles: true })); return i.files.length })()`);
+    };
+
+    await ir('/importacion/sst', 2400);
+    await foto('importacion-sst', 'Importar desde Excel: pestaña de seguridad y salud', { alto: 1300, marcas: [
+      { sel: 'nav[aria-label="Tipo de carga"] a[href="/importacion/sst"]', n: 1, r: 'La carga de seguridad y salud es una pestaña aparte de la de ventas.' },
+      { t: 'Descargar plantilla', n: 2, tag: 'BUTTON', r: 'La plantilla trae una hoja de instrucciones y una hoja por tipo de dato.' },
+      { sel: '#archivo-carga-sst', n: 3, r: 'El archivo de Excel (.xlsx, máximo 5 MB).' },
+      { t: 'Revisar sin guardar', n: 4, tag: 'BUTTON', r: 'Corre toda la carga y muestra lo que pasaría, sin guardar nada.' },
+    ] });
+    await foto('importacion-sst-errores', 'Revisión de un archivo con errores', { alto: 1560, antes: async () => {
+      await subir(malo, 'carga-con-errores.xlsx'); await pausa(500);
+      await nav.clicTexto('Revisar sin guardar', 'button'); await pausa(3000);
+    }, desplazar: 'El archivo tiene', marcas: [
+      { t: 'El archivo tiene', n: 1, caja: true, tag: 'DIV', r: 'Mientras haya un solo error no se guarda nada, ni siquiera lo que está bien.' },
+      { t: 'Hoja Ausentismos', n: 2, tag: 'P', r: 'Los errores se agrupan por hoja y dicen la fila y la columna, para corregirlos en el Excel.' },
+    ] });
+    await foto('importacion-sst-confirmar', 'Revisión de un archivo sin errores', { alto: 1500, antes: async () => {
+      await ir('/importacion/sst', 1800);
+      await subir(bueno, 'carga-buena.xlsx'); await pausa(500);
+      await nav.clicTexto('Revisar sin guardar', 'button'); await pausa(3000);
+      await nav.clicTexto('Confirmar y guardar', 'button'); await pausa(600);
+    }, desplazar: 'El archivo no tiene errores', marcas: [
+      { t: 'El archivo no tiene errores', n: 1, caja: true, tag: 'DIV', r: 'Lo que se guardaría. Todavía no se ha guardado nada.' },
+      { t: 'Trabajadores nuevos', n: 2, caja: true, tag: 'P', r: 'Cuántos trabajadores, ausentismos, entregas y asistencias traería la carga.' },
+      { t: 'Sí, guardar', n: 3, tag: 'BUTTON', r: 'Confirma la carga: entra todo o no entra nada. Lo que se carga no se puede borrar.' },
+    ] });
+    await nav.clicTexto('Sí, guardar', 'button'); await nav.esperarCarga(3500);
+    await foto('importacion-sst-guardada', 'Carga de seguridad y salud guardada', { alto: 1400, desplazar: 'Carga guardada', marcas: [
+      { t: 'Carga guardada', n: 1, caja: true, tag: 'P|DIV', r: 'La carga quedó guardada con su resumen.' },
+      { t: 'Cargas anteriores', n: 2, tag: 'H2', r: 'El historial de las cargas de seguridad y salud: archivo, fecha, quién y cuántos registros.' },
+    ] });
   }),
 
   cap('operaciones', async () => {

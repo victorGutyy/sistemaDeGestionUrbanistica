@@ -15,7 +15,7 @@ TITULO = "Manual de usuario del Sistema de gestión de urbanismo"
 SUBTITULO = "Guía paso a paso para vender lotes, registrar abonos, cuidar la caja y entender las finanzas"
 AUTOR = "Victor Alfonso Gutierrez Lopez"
 EDICION = "Edición para Balder Ingeniería y Mantenimiento SAS"
-VERSION = "Versión 1.1"
+VERSION = "Versión 1.2"
 FECHA = "Octubre de 2026"
 
 C = []  # contenido
@@ -37,7 +37,7 @@ def apendice(t): C.append(("apendice", t))
 # =====================================================================  PRESENTACIÓN
 C.append(("presentacion", "Presentación"))
 p("Este manual explica, con palabras sencillas y con imágenes del propio sistema, cómo usar cada parte del Sistema de gestión de urbanismo. Está pensado para cualquier persona de la empresa, sin importar su experiencia con computadores: si sabes usar WhatsApp en el celular, puedes aprender a usar este sistema.")
-p("El sistema sirve para una empresa que compra terrenos grandes, los divide en lotes y los vende de contado o con financiación propia. Ayuda a registrar los pagos de los clientes, entregar recibos, cuidar la caja, ver quién está atrasado y rendir cuentas a los socios. También lleva proyectos de remodelación y de maquinaria, y ayuda a cuidar al personal: sus afiliaciones a la seguridad social, los elementos de protección, el plan de trabajo y las capacitaciones de seguridad y salud en el trabajo.")
+p("El sistema sirve para una empresa que compra terrenos grandes, los divide en lotes y los vende de contado o con financiación propia. Ayuda a registrar los pagos de los clientes, entregar recibos, cuidar la caja, ver quién está atrasado y rendir cuentas a los socios. También lleva proyectos de remodelación y de maquinaria, y ayuda a cuidar al personal: sus afiliaciones a la seguridad social, los elementos de protección, el plan de trabajo y las capacitaciones de seguridad y salud en el trabajo, además de las incapacidades y licencias que se les reconocen.")
 h2("Cómo está organizado")
 p("Cada capítulo corresponde a una opción del menú del sistema y sigue el mismo orden: para qué sirve, quién puede usarlo, qué ventajas te da, los pasos explicados con imágenes y algunos consejos. Al final encontrarás un cuadro con lo que puede hacer cada rol, un glosario, las preguntas frecuentes y una guía para resolver problemas.")
 h2("Cómo leer las imágenes")
@@ -45,7 +45,7 @@ ul("Los **círculos rojos con un número** señalan el botón, el campo o la zon
    "Los cuadros de **Consejo** te ayudan a trabajar mejor. Los cuadros de **Importante** te avisan de algo que no se puede deshacer o que conviene hacer con cuidado.",
    "Todas las imágenes usan **datos de demostración inventados** (personas, documentos, teléfonos y valores ficticios). Ningún dato real de la empresa ni de sus clientes aparece en este manual.")
 h2("Esta versión del manual")
-p("Este manual describe el sistema tal como está hoy. La versión 1.1 agrega el capítulo de Seguridad y salud en el trabajo y los cambios que ese módulo trajo a Nómina, Usuarios y roles y Configuración. Cuando se agreguen funciones nuevas, el manual se actualizará y cambiará el número de versión que aparece en la portada.")
+p("Este manual describe el sistema tal como está hoy. La versión 1.1 agregó el capítulo de Seguridad y salud en el trabajo. La versión 1.2 le suma el **ausentismo** (incapacidades y licencias con su liquidación de apoyo), los **reportes de SST** y la **carga de datos de SST desde Excel**, y actualiza Nómina, Importar desde Excel, Configuración, los permisos de cada rol, el glosario y las preguntas frecuentes. Cuando se agreguen funciones nuevas, el manual se actualizará y cambiará el número de versión que aparece en la portada.")
 h2("Qué cambia según tu rol")
 p("No todas las personas ven todas las opciones. El menú se adapta al rol que tiene tu cuenta (Gerente, Administrador, Consulta o Contratista SST). Si en este manual lees una opción que no aparece en tu menú, es porque tu rol no la incluye. En el Apéndice A hay un cuadro completo.")
 
@@ -490,29 +490,37 @@ p("Abre la ficha del trabajador ({fig:trabajador-ficha}). Allí ves sus datos y 
 fig("trabajador-ficha")
 p("En el formulario de la {fig:pago-nomina-nuevo} indica el período que se paga, desde (1) hasta (2), la fecha de pago y el medio de pago. El salario base se toma del trabajador en ese momento. Si hay horas extras, bonos o descuentos, pulsa **+ Agregar novedad** (3). Termina con **Registrar pago** (4).")
 fig("pago-nomina-nuevo")
+h3("Ver el ausentismo del período antes de pagar")
+p("Si la persona que registra el pago puede ver los valores de seguridad y salud (el gerente y el administrador), el formulario muestra debajo del período el panel **Ausentismo en este período** ({fig:nomina-ausentismo-periodo}). El sistema busca las incapacidades y licencias del trabajador que caen entre las fechas pagadas (1) y propone la novedad de cada una: un valor a favor del trabajador por los días que pagan la EPS, la ARL o el fondo de pensiones, y un descuento por los días de licencia no remunerada o de ausencia injustificada. Pulsa **Agregar como novedad** (2) y la propuesta pasa a la lista de novedades del pago (3), donde todavía puedes cambiarle el valor o quitarla. Una novedad que ya agregaste aparece como **Ya agregada**.")
+fig("nomina-ausentismo-periodo")
+importante("La propuesta es una **ayuda de apoyo**: la nómina sigue liquidándose fuera del sistema. Los días que paga el empleador no generan novedad (el sistema lo avisa), y un período de pago no puede pasar de 62 días. Revisa siempre el valor antes de registrar el pago.")
 
 # =====================================================================  16
 cap("Seguridad y salud en el trabajo")
-p("Este módulo ayuda a cuidar al personal y a tener en orden los papeles de seguridad y salud: a qué entidades está afiliado cada trabajador, qué elementos de protección se le entregaron y cuándo toca reponerlos, qué actividades tiene el plan de trabajo del año y qué capacitaciones se dictaron.")
+p("Este módulo ayuda a cuidar al personal y a tener en orden los papeles de seguridad y salud: a qué entidades está afiliado cada trabajador, qué elementos de protección se le entregaron y cuándo toca reponerlos, qué actividades tiene el plan de trabajo del año, qué capacitaciones se dictaron y qué incapacidades y licencias ha tenido el personal, con quién paga cada día.")
 h2("Para qué sirve")
 p("Reemplaza las hojas de cálculo y los cuadernos donde hoy se anota todo esto. Cada dato queda con su fecha y con quién lo registró, y el sistema avisa solo cuando algo está por vencerse, para que nada se olvide.")
 h2("Quién puede usarlo")
 ul("**Gerente y administrador:** ven y trabajan todo el módulo. El administrador también registra las afiliaciones de los trabajadores.",
    "**Contratista SST:** la persona externa que lleva la seguridad y salud de la empresa. Ve el módulo completo y trabaja los elementos de protección, el plan de trabajo, las capacitaciones y las autorizaciones y documentos de cada trabajador. No ve salarios, dinero ni proyectos.",
    "**Consulta:** no ve este módulo.",
-   "**Parámetros y entidades** (valores legales del año, entidades y clases de riesgo): solo el gerente los cambia.")
+   "**Ausentismo (incapacidades y licencias):** el gerente, el administrador y el contratista SST ven los registros y pueden registrar y anular. El **diagnóstico, las observaciones y los certificados** son datos de salud: solo los ven el gerente y el contratista SST, no el administrador. Los **valores en pesos** (liquidación, recobros y novedades) solo los ven el gerente y el administrador, no el contratista SST. Corregir una liquidación o actualizar un recobro exige ver los valores, así que lo hacen el gerente y el administrador.",
+   "**Reportes de SST:** los ven quienes ven el módulo; la tabla de valores en pesos solo aparece para quien puede ver valores. **Cargar datos desde Excel:** solo el gerente.",
+   "**Parámetros y entidades** (valores legales del año, entidades y clases de riesgo) y **tipos de ausentismo**: solo el gerente los cambia.")
 h2("Qué ventajas te da")
 ul("Ves de un vistazo qué trabajadores tienen afiliaciones, certificados o autorizaciones por completar.",
    "Sabes qué elementos de protección están por reponerse o vencidos, según su vida útil.",
    "El plan de trabajo del año se ve como un cronograma de colores, y las actividades próximas o vencidas se marcan solas.",
    "Cada capacitación guarda quién asistió, quién firmó y qué calificación sacó, y calcula la cobertura.",
    "El sistema manda avisos por correo cada mañana, una sola vez por estado, para no llenar de mensajes a nadie.",
+   "Cada incapacidad o licencia se liquida sola por pagador (empleador, EPS, ARL o fondo de pensiones), mes por mes, y de ahí salen el resumen mensual y las novedades que se llevan a la nómina.",
+   "Puedes llevar el seguimiento del cobro a las entidades (recobro) y sacar reportes de ausentismo, EPP, plan y capacitaciones en pantalla, PDF y Excel.",
    "Nada se borra: lo que se hizo por error se anula o se cierra con su motivo, y queda en el historial.")
-importante("Esta herramienta **ayuda a llevar el control**, pero no certifica que la empresa cumpla la ley. Los valores legales (salario mínimo, auxilio de transporte, tasas de la ARL) los escribe la empresa y deben ser revisados por su asesor laboral; mientras no estén validados, el sistema lo avisa. Tampoco liquida la nómina, ni reporta nada a la EPS, la ARL o el fondo de pensión, ni registra todavía incapacidades, exámenes médicos o accidentes.")
+importante("Esta herramienta **ayuda a llevar el control**, pero no certifica que la empresa cumpla la ley. Los valores legales (salario mínimo, auxilio de transporte, tasas de la ARL) los escribe la empresa y deben ser revisados por su asesor laboral; mientras no estén validados, el sistema lo avisa. Tampoco liquida la nómina, ni reporta nada a la EPS, la ARL o el fondo de pensión, ni transmite incapacidades a esas entidades. Tampoco lleva exámenes médicos ocupacionales, la investigación de accidentes ni la matriz de peligros. Las incapacidades y licencias sí se registran y se liquidan como ayuda de apoyo (ver el apartado de Ausentismo).")
 importante("La **autorización de datos de salud** es un dato sensible protegido por la Ley 1581 de 2012. El sistema permite registrar que el trabajador la dio por escrito y adjuntar el documento firmado.")
 h2("Paso a paso")
 h3("Trabajadores y sus pendientes")
-p("La opción **Seguridad y salud** del menú abre la {fig:sst-trabajadores}. Arriba están las pestañas del módulo (1): Trabajadores, EPP, Plan de trabajo, Capacitaciones y Avisos. En las pestañas aparece, con un número amarillo, cuántas cosas hay por atender. Las tarjetas resumen cuántos trabajadores tienen alguna alerta (2): sin afiliación completa, sin certificado de afiliación o sin autorización de datos de salud. Para buscar a una persona escribe su nombre o su documento (3). El botón **Parámetros y entidades** (4) lo ve solo el gerente.")
+p("La opción **Seguridad y salud** del menú abre la {fig:sst-trabajadores}. Arriba están las pestañas del módulo (1): Trabajadores, EPP, Plan de trabajo, Capacitaciones, Ausentismo, Reportes y Avisos. En las pestañas aparece, con un número amarillo, cuántas cosas hay por atender. Las tarjetas resumen cuántos trabajadores tienen alguna alerta (2): sin afiliación completa, sin certificado de afiliación o sin autorización de datos de salud. Para buscar a una persona escribe su nombre o su documento (3). El botón **Parámetros y entidades** (4) lo ve solo el gerente.")
 fig("sst-trabajadores")
 p("En la tabla, cada afiliación aparece como una etiqueta: **verde** si el trabajador ya la tiene (EPS, pensión, cesantías, ARL y caja) y **gris** si falta. En la columna **Pendientes** se lee en amarillo lo que hay que completar. Hoy el sistema espera las cinco afiliaciones de todo trabajador activo, salvo en los contratos de prestación de servicios. Toca el nombre de un trabajador para abrir su ficha.")
 h3("La ficha de seguridad social")
@@ -550,6 +558,56 @@ p("Al tocar el tema de una capacitación se abre su detalle ({fig:sst-capacitaci
 fig("sst-capacitacion")
 p("**Agregar asistentes** abre la lista de la {fig:sst-asistentes}. Busca por nombre o documento (1), marca a los trabajadores que asistieron, indica si todos firmaron y pulsa **Registrar** con el número de asistentes. Así se carga una cuadrilla completa de una sola vez, sin repetir a quienes ya estaban. Más abajo se adjunta el **listado de asistencia firmado**, las fotos o la evaluación.")
 fig("sst-asistentes")
+h3("Ausentismo: incapacidades y licencias")
+p("La pestaña **Ausentismo** ({fig:sst-ausentismo-lista}) guarda las incapacidades y las licencias de los trabajadores. Arriba tiene cuatro secciones (1): **Registros**, **Resumen mensual**, **Recobro a entidades** y **Novedades para nómina** (esta última solo la ven quienes pueden ver valores). Los filtros (2) acotan la lista por año, mes, tipo, trabajador y estado. Cada fila muestra cuántos días paga cada uno (4): el empleador, la EPS, la ARL o el fondo de pensiones, y una etiqueta marca las prórrogas (5).")
+fig("sst-ausentismo-lista")
+importante("La liquidación del ausentismo es una **ayuda de apoyo**: dice quién paga cada día y cuánto, con los parámetros legales que la empresa tiene cargados. **No certifica cumplimiento legal** ni reemplaza a la nómina, y los parámetros y las reglas de cada tramo todavía deben ser validados por el asesor laboral de la empresa. El sistema no transmite nada a la EPS, la ARL ni al fondo de pensiones.")
+h3("Registrar una incapacidad o una licencia")
+p("Pulsa **Registrar ausentismo** (3 en la {fig:sst-ausentismo-lista}) para abrir el formulario de la {fig:sst-ausentismo-form}. Elige el **trabajador** (1) y el **tipo de ausentismo** (2); debajo del tipo el sistema te dice si exige diagnóstico. Escribe el primer y el último día (3): las fechas no pueden traslaparse con otro ausentismo del mismo trabajador, ni empezar antes de su ingreso. Si la incapacidad continúa otra anterior, marca **Es una prórroga de una incapacidad anterior** (4) y elige cuál continúa, o escribe los días que llevaba si venía de fuera del sistema: esos días cuentan para los tramos de pago. El **diagnóstico CIE-10** (5) se busca por código o por nombre. También puedes escribir el número del certificado, observaciones y adjuntar el certificado (PDF, PNG o JPG de hasta 10 MB). Termina con **Registrar ausentismo**.")
+fig("sst-ausentismo-form")
+p("La {tabla:tipos-ausentismo} resume quién paga cada día según el tipo de ausentismo que trae el sistema.")
+tabla("tipos-ausentismo", "Tipos de ausentismo que trae el sistema y quién paga", ["Tipo", "Quién paga"], [
+    ["Enfermedad general", "Los primeros días, el empleador; luego la EPS; y a partir de cierto día, el fondo de pensiones. Exige diagnóstico."],
+    ["Accidente de trabajo", "La ARL paga desde el día siguiente al del accidente; el día del accidente se paga como laborado. Exige diagnóstico."],
+    ["Enfermedad laboral", "La ARL. Exige diagnóstico."],
+    ["Licencia de maternidad o paternidad", "La EPS."],
+    ["Licencia por luto, calamidad doméstica o permiso remunerado", "El empleador, que sigue pagando el día."],
+    ["Licencia no remunerada y ausencia injustificada", "Nadie paga: son días que se descuentan del pago."],
+], [38, 62], "Nota. Los días de cada tramo y los porcentajes son parámetros del año, y los tipos se pueden ajustar en Configuración.")
+h3("Ver el detalle, anular y editar")
+p("Al tocar un registro se abre su detalle ({fig:sst-ausentismo-detalle}). Allí están los **datos del ausentismo** (2): trabajador, tipo, fechas, número del certificado y, si es una prórroga, de cuál viene. En **Datos de salud** (3) están el diagnóstico, las observaciones y el certificado; solo se muestran a quien tiene permiso, y **cada vez que se abren queda un registro en la auditoría**. Abajo está la **liquidación** (4), mes por mes.")
+fig("sst-ausentismo-detalle")
+p("Un ausentismo **no se borra ni se cambia de trabajador, tipo o fechas**: si hubo un error en eso, se anula con **Anular** (1), se escribe el motivo, y se registra de nuevo; las fechas anuladas quedan libres. Con **Editar datos** solo se corrigen el número del certificado, el diagnóstico y las observaciones.")
+h3("La liquidación por pagador")
+p("La sección **Liquidación** ({fig:sst-ausentismo-liquidacion}) reparte cada día entre el empleador, la EPS, la ARL y el fondo de pensiones, y suma lo que paga cada uno por mes. El **valor diario** (1) sale del salario del trabajador dividido entre los días base del mes. Los **parámetros** con que se liquidó (2) quedan guardados en el registro: si después cambian los valores legales del año, lo ya liquidado no se mueve. Si la EPS o la ARL reconocen algo distinto, el gerente o el administrador pulsa **Corregir la liquidación** (3).")
+fig("sst-ausentismo-liquidacion")
+p("En el formulario de la {fig:sst-ausentismo-correccion} se cambian los **días de cada pagador** (siguen sumando los del mes) y sus **valores**, y se escribe, obligatoriamente, el **motivo** de la corrección (1), por ejemplo lo que la EPS reconoció. Al **guardar la corrección** (2), el registro queda marcado como *corregido a mano*, el cálculo original se conserva y la auditoría guarda el valor anterior y el nuevo.")
+fig("sst-ausentismo-correccion")
+importante("Estos supuestos de la liquidación **todavía no están validados con el asesor laboral**: que los días del empleador usen el porcentaje del primer tramo, que el fondo de pensiones pague desde el día 181, que haya un piso de un salario mínimo diario solo en las incapacidades, que el día de un accidente de trabajo se pague como laborado, que la base sea el salario dividido entre los días base del mes (la opción de usar el ingreso base de cotización no está construida), que cada valor se redondee a pesos enteros y que un ausentismo que cruza de año use los parámetros del año en que empieza. Todos los valores salen de los parámetros del año y se pueden cambiar.")
+h3("Seguimiento del recobro a las entidades")
+p("Cuando la EPS, la ARL o el fondo de pensiones deben reconocer días de una incapacidad, la empresa suele cobrárselos a la entidad (a eso se le llama recobro). En el detalle, la sección **Recobro a las entidades** lleva el seguimiento de cada entidad con un estado: **pendiente**, **radicado**, **pagado** o **rechazado**. El formulario ({fig:sst-ausentismo-recobro-form}) pide lo que corresponde a cada estado (2): la fecha de radicación al radicar, la fecha de pago y el valor reconocido al registrar el pago, y el motivo si lo rechazan. Se guarda con **Guardar recobro**.")
+fig("sst-ausentismo-recobro-form")
+p("La sección **Recobro a entidades** ({fig:sst-ausentismo-recobros}) junta todos los recobros de la empresa. Filtra por estado (1) o por entidad (2) para saber qué falta radicar o cobrar, y mira lo que se espera cobrar y lo que cada entidad reconoció (3). Con **Actualizar** cambias el estado de un recobro.")
+fig("sst-ausentismo-recobros")
+consejo("El sistema solo lleva el seguimiento del recobro: no radica ni transmite nada a las entidades. Las radicaciones se siguen haciendo por los canales de cada una.")
+h3("Resumen mensual y novedades para la nómina")
+p("El **Resumen mensual** ({fig:sst-ausentismo-resumen}) muestra el **porcentaje de ausentismo** del año (1): los días de ausentismo sobre los días que se pudo trabajar, calculado con los trabajadores activos. Con las flechas de año (2) cambias de año, y la tabla (3) cuenta, mes por mes, cuántos días paga el empleador, la EPS, la ARL y el fondo de pensiones, y cuántos son descuentos.")
+fig("sst-ausentismo-resumen")
+p("**Novedades para nómina** ({fig:sst-ausentismo-novedades}) arma, para el mes que elijas (1), la lista de lo que hay que llevar a la nómina: cada incapacidad o licencia con sus días y valores. **Descargar Excel** (2) entrega el archivo con esas mismas columnas. Los valores a cargo de la EPS, la ARL y el fondo de pensiones son lo que esas entidades reconocen, no lo que paga la empresa. Esta sección solo la ven el gerente y el administrador.")
+fig("sst-ausentismo-novedades")
+h3("Qué ve cada rol en el ausentismo")
+p("El **contratista SST** ({fig:sst-ausentismo-contratista}) ve los días y quién paga cada uno, pero ninguna columna de dinero (1): no hay valores, recobros esperados ni la sección de novedades. Sí puede registrar y anular ausentismos y ver los diagnósticos (2). El **administrador** ({fig:sst-ausentismo-administrador}) ve los datos del ausentismo (1) y la liquidación con sus valores, que además puede corregir (2), pero entre ambos **no aparece la sección de datos de salud**: no ve diagnósticos, observaciones ni certificados.")
+fig("sst-ausentismo-contratista")
+fig("sst-ausentismo-administrador")
+importante("El diagnóstico, las observaciones y los certificados médicos son **datos sensibles de salud** (Ley 1581 de 2012). Registra solo lo necesario, no compartas tu cuenta con nadie, y recuerda que cada consulta de un diagnóstico queda en la auditoría, pero la auditoría nunca guarda el diagnóstico mismo.")
+h3("Reportes de seguridad y salud")
+p("La pestaña **Reportes** ({fig:sst-reportes}) ofrece cinco reportes (1): **Ausentismo: resumen mensual**, **Ausentismo: detalle por registro**, **EPP: entregados y por reponer**, **Plan de trabajo** y **Capacitaciones**. Elige uno, ajusta los filtros (2), que cambian según el reporte (año, mes, fechas, trabajador, tipo o estado), y pulsa **Ver reporte** (3) para verlo en pantalla. Con **Descargar PDF** o **Descargar Excel** (4) lo bajas; cada descarga queda registrada en la auditoría, y verlo en pantalla no.")
+fig("sst-reportes")
+p("Ningún reporte lleva diagnóstico ni observaciones, para ningún rol. En los de ausentismo, los **valores en pesos** van en una tabla aparte (5) que solo existe para quien puede ver valores; para los demás el reporte llega sin esa tabla. Si una tabla es más ancha que la pantalla, desliza hacia los lados para ver todas sus columnas; el PDF y el Excel las traen completas. Los anulados se listan solo si los pides y no suman. El PDF ({fig:sst-reportes-pdf}) lleva el logo y los datos de la empresa y recorta los textos muy largos; el Excel trae el texto completo.")
+fig("sst-reportes-pdf")
+h3("Cargar datos de seguridad y salud desde Excel")
+p("Si la empresa ya tiene trabajadores, ausentismos, entregas de EPP o asistencias a capacitaciones en un libro de Excel, el gerente puede cargarlos de una vez desde **Importar Excel**, en la pestaña **Seguridad y salud (SST)** (también hay un enlace **Cargar desde Excel** dentro del módulo). Se explica con detalle en el capítulo de Importar desde Excel.")
+
 h3("Avisos por correo")
 p("Cada mañana, a las 8:10 (hora de Colombia), el sistema avisa por correo al responsable de cada actividad del plan y de cada capacitación cuando queda **próxima** y cuando se **vence**, y manda un resumen de los EPP por reponer al correo de avisos de SST que se define en Configuración. Cada aviso sale **una sola vez por estado**. En la pestaña **Avisos** ({fig:sst-avisos}) puedes pulsar **Enviar avisos ahora** (1) para no esperar a la mañana, y consultar en el **historial** (2) cada intento con su resultado: enviado, omitido o fallido. El historial no se puede editar.")
 fig("sst-avisos")
@@ -562,7 +620,7 @@ fig("sst-entidades")
 p("Dos valores del módulo se cambian en Configuración, en la sección **Seguridad y salud en el trabajo** ({fig:config-sst}): los **días de anticipación** de las alertas (1), que por defecto son 15, y el **correo de avisos SST** (2) al que llega el resumen de EPP por reponer. Si dejas el correo vacío, ese resumen solo se ve en el panel.")
 fig("config-sst")
 h3("Lo que ve el contratista SST")
-p("Una persona con el rol Contratista SST entra al sistema y ve solamente la opción **Seguridad y salud** en su menú ({fig:rol-contratista}). Puede consultar a los trabajadores y sus afiliaciones, registrar las autorizaciones de datos de salud, adjuntar documentos y trabajar los elementos de protección, el plan de trabajo y las capacitaciones. No ve salarios, pagos, clientes, ventas ni proyectos. El gerente crea esta cuenta en Usuarios, como se explica en el capítulo 19.")
+p("Una persona con el rol Contratista SST entra al sistema y ve solamente la opción **Seguridad y salud** en su menú ({fig:rol-contratista}). Puede consultar a los trabajadores y sus afiliaciones, registrar las autorizaciones de datos de salud, adjuntar documentos y trabajar los elementos de protección, el plan de trabajo, las capacitaciones y el ausentismo. Ve los diagnósticos de las incapacidades, pero no los valores en pesos. No ve salarios, pagos, clientes, ventas ni proyectos. El gerente crea esta cuenta en Usuarios, como se explica en el capítulo 19.")
 fig("rol-contratista")
 
 # =====================================================================  17
@@ -584,7 +642,7 @@ fig("auditoria-cambios")
 
 # =====================================================================  17
 cap("Importar desde Excel")
-p("Esta opción permite cargar de una sola vez información que hoy está en hojas de cálculo: proyectos, lotes, clientes, ventas con su plan de cuotas y abonos históricos.")
+p("Esta opción permite cargar de una sola vez información que hoy está en hojas de cálculo: proyectos, lotes, clientes, ventas con su plan de cuotas y abonos históricos, y, desde la versión 1.2, trabajadores, ausentismos, entregas de EPP y asistencias a capacitaciones de seguridad y salud.")
 h2("Para qué sirve")
 p("Pasar al sistema la información que la empresa ya tiene, sin volver a digitarla. Se usa, sobre todo, al comenzar.")
 h2("Quién puede usarlo")
@@ -595,9 +653,18 @@ ul("Primero **revisa sin guardar**: el sistema te muestra los errores por hoja y
    "El mismo archivo no se puede importar dos veces.",
    "Los abonos históricos reciben recibos de una serie propia (con la letra H) y el sistema entrega un reporte de conciliación de saldos.")
 h2("Paso a paso")
-p("La pantalla de la {fig:importacion} tiene tres pasos. Primero, **descarga la plantilla** (1): trae una hoja de instrucciones y una hoja por cada tipo de dato. Llénala con los datos de la empresa. Segundo, **sube el archivo** (2) (.xlsx, máximo 5 MB) y pulsa **Revisar sin guardar** (3). Tercero, si todo está bien, confirma la importación. Abajo queda el historial de **importaciones anteriores**.")
+p("La opción tiene dos pestañas: **Ventas y abonos** y **Seguridad y salud (SST)**. Cada una tiene su propia plantilla y su propio historial. La pantalla de ventas ({fig:importacion}) tiene tres pasos. Primero, **descarga la plantilla** (1): trae una hoja de instrucciones y una hoja por cada tipo de dato. Llénala con los datos de la empresa. Segundo, **sube el archivo** (2) (.xlsx, máximo 5 MB) y pulsa **Revisar sin guardar** (3). Tercero, si todo está bien, confirma la importación. Abajo queda el historial de **importaciones anteriores**.")
 fig("importacion")
 importante("Antes de importar ventas con abonos por banco, las cuentas bancarias deben estar creadas en Configuración. Las ventas importadas no generan comisión, porque se consideran historia.")
+h3("Carga de seguridad y salud")
+p("En la pestaña **Seguridad y salud (SST)** ({fig:importacion-sst}) el procedimiento es el mismo. Esta pestaña (1) tiene su propia plantilla (2), con una hoja de instrucciones y cuatro hojas de datos: **Trabajadores**, **Ausentismos**, **Entregas EPP** y **Asistencias**. Puedes dejar vacías las hojas que no uses. Los trabajadores se identifican por su documento, que debe escribirse igual en todas las hojas. Sube el archivo (3) y pulsa **Revisar sin guardar** (4).")
+fig("importacion-sst")
+p("Cada fila pasa por **las mismas reglas que al digitarla en pantalla**: un ausentismo no puede traslaparse con otro, ni empezar antes del ingreso del trabajador, y necesita los parámetros legales del año en que empieza. La revisión corre la carga completa pero **no guarda nada**. Si hay errores ({fig:importacion-sst-errores}), mientras exista uno solo (1) no se guarda nada, ni siquiera lo que estaba bien; los errores se agrupan por hoja (2) y dicen la fila y la columna para corregirlos en el Excel y volver a subirlo.")
+fig("importacion-sst-errores")
+p("Cuando el archivo no tiene errores ({fig:importacion-sst-confirmar}), el sistema muestra lo que se cargaría (1) y cuántos trabajadores, ausentismos, entregas y asistencias traería (2). Todavía no se ha guardado nada. Si estás de acuerdo, confirma con **Sí, guardar** (3): entra todo o no entra nada. La carga queda en el historial ({fig:importacion-sst-guardada}) con su resumen (1) y la lista de las cargas anteriores (2).")
+fig("importacion-sst-confirmar")
+fig("importacion-sst-guardada")
+importante("Lo que se carga **no se puede borrar**: si algo quedó mal, se anula con su motivo y se registra el correcto. Además: un trabajador que ya existe con ese documento se reutiliza y no se modifica; los elementos de EPP y las capacitaciones deben existir antes, porque la carga no los crea; el ausentismo se liquida con el salario **actual** del trabajador y los parámetros legales del año en que empieza (hoy solo está cargado 2026); una prórroga necesita los días previos; y los certificados no se cargan por Excel. La plantilla es un borrador que se ajustará al libro real de la empresa.")
 
 # =====================================================================  18
 cap("Usuarios y roles")
@@ -646,6 +713,12 @@ p("Más abajo están los **avisos a clientes**, la **verificación de pagos** y 
 fig("config-avisos")
 fig("config-seguridad")
 p("En esa misma sección están los parámetros de **Seguridad y salud en el trabajo**: con cuántos días de anticipación se marcan como próximas las reposiciones de EPP, las actividades del plan y las capacitaciones, y el correo al que llega el resumen de EPP por reponer. Se explican, con su imagen, en el capítulo 16. Los valores legales por año (salario mínimo, auxilio de transporte, tasas de la ARL) y las entidades de seguridad social se editan en una pantalla aparte: en Configuración está la sección **Seguridad social**, con el botón **Administrar seguridad social**.")
+h3("Tipos de ausentismo y diagnósticos CIE-10")
+p("Dentro de **Administrar seguridad social** están dos secciones del ausentismo. En **Tipos de ausentismo** ({fig:config-ausentismo-tipos}) ves los tipos con su regla de pago (1): quién paga el día y con qué porcentaje. La regla y la clave de un tipo no se pueden cambiar una vez creado; si hace falta otra regla, se desactiva el tipo y se crea uno nuevo (2). Los porcentajes sí se pueden ajustar.")
+fig("config-ausentismo-tipos")
+p("En **Diagnósticos CIE-10** ({fig:config-ausentismo-cie10}) se busca un código por su número o por su nombre (1) y se agregan los que falten. Los códigos que trae el sistema son una **referencia**: si la empresa necesita el listado completo, se amplía aquí.")
+fig("config-ausentismo-cie10")
+
 h3("Correo de avisos")
 p("La sección **Correo de avisos** ({fig:config-correo}) muestra si el correo de la empresa está configurado. El correo se configura en el servidor, no aquí; en esta pantalla solo compruebas que funciona: escribe una dirección a la que tengas acceso y pulsa **Enviar correo de prueba** (1).")
 fig("config-correo")
@@ -684,10 +757,16 @@ tabla("permisos", "Permisos por rol", ["Función", "Gerente", "Administrador", "
     ["Anular una comisión", SI, NO, NO, NO],
     ["Ver el historial de notificaciones y enviar avisos", SI, SI, NO, NO],
     ["Trabajadores y pagos de nómina", SI, SI, NO, NO],
-    ["Ver Seguridad y salud (trabajadores, EPP, plan y capacitaciones)", SI, SI, NO, SI],
+    ["Ver Seguridad y salud (trabajadores, EPP, plan, capacitaciones y ausentismo)", SI, SI, NO, SI],
     ["Registrar afiliaciones, editar y retirar trabajadores", SI, SI, NO, NO],
     ["Registrar EPP, plan de trabajo, capacitaciones y autorizaciones de datos de salud", SI, SI, NO, SI],
-    ["Cambiar parámetros legales, entidades y clases de riesgo", SI, NO, NO, NO],
+    ["Registrar y anular incapacidades y licencias (ausentismo)", SI, SI, NO, SI],
+    ["Ver diagnósticos, observaciones y certificados del ausentismo", SI, NO, NO, SI],
+    ["Ver los valores liquidados, las novedades para nómina y el panel de ausentismo al pagar nómina", SI, SI, NO, NO],
+    ["Corregir una liquidación y llevar el seguimiento del recobro", SI, SI, NO, NO],
+    ["Ver y descargar los reportes de SST (la tabla de valores solo con permiso de valores)", SI, SI, NO, SI],
+    ["Cargar datos de SST desde Excel", SI, NO, NO, NO],
+    ["Cambiar parámetros legales, entidades, clases de riesgo y tipos de ausentismo", SI, NO, NO, NO],
     ["Registrar equipos de maquinaria", SI, SI, NO, NO],
     ["Dar de baja un equipo", SI, NO, NO, NO],
     ["Consultar la auditoría", SI, NO, NO, NO],
@@ -707,9 +786,11 @@ tabla("glosario", "Palabras que verás en el sistema", ["Palabra", "Qué signifi
     ["Anular", "Dejar sin efecto un registro equivocado, sin borrarlo. Queda a la vista, marcado como anulado, con su motivo."],
     ["ARL", "Administradora de riesgos laborales: la entidad a la que se afilia al trabajador para cubrir accidentes y enfermedades del trabajo. Su tasa de cotización depende de la clase de riesgo (de 1 a 5)."],
     ["Auditoría", "Registro de quién hizo cada cambio importante, cuándo y qué valores tenía antes y después."],
+    ["Ausentismo", "Los días en que un trabajador no va a trabajar por una incapacidad o una licencia. El módulo los registra y calcula quién paga cada día."],
     ["Autorización de datos de salud", "Permiso escrito del trabajador para que la empresa trate sus datos de salud. Es un dato sensible protegido por la Ley 1581 de 2012."],
     ["Caja de compensación", "Entidad de subsidio familiar a la que se afilia al trabajador."],
     ["Cartera", "El dinero que los clientes le deben a la empresa."],
+    ["CIE-10", "Clasificación internacional de enfermedades: el código que identifica el diagnóstico de una incapacidad (por ejemplo, J06.9). Es un dato de salud."],
     ["Cierre de caja", "Resumen de lo que entró y salió de la caja en un período, con el conteo del efectivo."],
     ["Cuota inicial", "Primer pago de una venta financiada, que se hace al firmar. Se cuenta como la cuota 0."],
     ["Desistimiento", "Cuando el comprador se retira de la compra. Se registra sin borrar los abonos ni los recibos."],
@@ -719,10 +800,17 @@ tabla("glosario", "Palabras que verás en el sistema", ["Palabra", "Qué signifi
     ["Excepción", "Una venta que se sale de las reglas (por ejemplo, cuota inicial menor). Necesita aprobación del gerente."],
     ["Extracto", "El documento del banco que muestra los movimientos de una cuenta."],
     ["Financiada", "Venta en la que la empresa le da plazo al comprador para pagar el saldo."],
+    ["Incapacidad", "Tiempo en que un médico ordena que el trabajador no trabaje por una enfermedad o un accidente. Según el origen y los días, la pagan el empleador, la EPS, la ARL o el fondo de pensiones."],
+    ["Licencia", "Permiso para no trabajar que no es una incapacidad: por maternidad o paternidad, luto, calamidad doméstica, o no remunerada."],
+    ["Liquidación de apoyo", "El cálculo que hace el sistema de quién paga cada día de un ausentismo y cuánto. Ayuda a la nómina, pero no la reemplaza ni certifica cumplimiento legal."],
     ["Lote", "Cada porción del terreno que se vende."],
     ["Mora", "Atraso en el pago de una cuota."],
+    ["Novedad", "Un valor extra de un pago de nómina: horas extras, bonos, descuentos o lo que sale de una incapacidad."],
+    ["Pagador", "Quien paga un día de ausentismo: el empleador, la EPS, la ARL o el fondo de pensiones."],
     ["PHVA", "Planear, hacer, verificar y actuar: los cuatro ciclos con los que se ordenan las actividades del plan de trabajo de seguridad y salud."],
+    ["Prórroga", "Una incapacidad que continúa otra anterior. Sus días se suman a los de la primera para saber en qué tramo de pago va."],
     ["Recibo de caja", "Comprobante numerado que se entrega por cada pago recibido."],
+    ["Recobro", "El cobro que la empresa le hace a la EPS, la ARL o el fondo de pensiones por los días de incapacidad que le corresponde pagar a la entidad."],
     ["Semáforo", "Colores de la cartera: verde (al día), amarillo (por vencer) y rojo (en mora)."],
     ["Separar", "Apartar un lote para un cliente interesado, con una fecha límite para formalizar la venta."],
     ["SMMLV", "Salario mínimo mensual legal vigente. Es uno de los valores legales que se guardan por año en el módulo de Seguridad y salud."],
@@ -748,6 +836,18 @@ h3("¿Por qué un trabajador aparece con afiliaciones pendientes?")
 p("Porque todavía no se le ha registrado alguna de las cinco afiliaciones (EPS, pensión, cesantías, ARL y caja), o no tiene el certificado de afiliación o la autorización de datos de salud. Entra a su ficha de seguridad social y complétalo; la alerta desaparece sola.")
 h3("¿Puedo borrar una entrega de EPP que registré mal?")
 p("No se borra, se anula. Abre la entrega, pulsa **Anular entrega** y escribe el motivo. Luego registra la entrega correcta.")
+h3("¿Puedo cambiar las fechas o el tipo de una incapacidad que registré mal?")
+p("No se cambian. Abre el registro, pulsa **Anular**, escribe el motivo y registra el correcto: las fechas anuladas quedan libres. Lo que sí se edita es el número del certificado, el diagnóstico y las observaciones.")
+h3("¿Por qué no veo el diagnóstico de una incapacidad?")
+p("Porque es un dato de salud y solo lo ven el gerente y el contratista SST. El administrador ve el registro y la liquidación, pero no esa sección.")
+h3("¿Por qué no veo los valores en pesos del ausentismo?")
+p("Porque tu rol no los incluye: los ven el gerente y el administrador. El contratista SST ve los días y quién paga cada uno, sin dinero.")
+h3("¿La liquidación del ausentismo es la liquidación de la nómina?")
+p("No. Es una ayuda de apoyo que dice quién paga cada día y cuánto, con los parámetros que tiene la empresa. La nómina se liquida fuera del sistema, y los parámetros deben ser validados por el asesor laboral.")
+h3("¿Por qué el sistema no me deja agregar una novedad de ausentismo?")
+p("Hay tres causas frecuentes: la novedad ya se agregó (aparece como Ya agregada), el período de pago pasa de 62 días, o los días del período los paga el empleador, que no generan novedad.")
+h3("¿Por qué la revisión de mi archivo de Excel de SST dice que no se guardó nada?")
+p("Porque la revisión nunca guarda: solo muestra lo que pasaría. Si hay errores, corrígelos en el Excel y súbelo otra vez. Solo cuando no hay errores y confirmas con **Sí, guardar** se carga todo.")
 h3("¿Por qué los avisos de seguridad y salud salen como “Omitido”?")
 p("Porque el correo de la empresa todavía no está configurado. Los avisos se guardan y salen solos cuando se configure. Mientras tanto, las alertas se ven en las pestañas del módulo y en el panel general.")
 h3("¿Se pueden recuperar los datos si algo sale mal?")
@@ -763,6 +863,10 @@ tabla("problemas", "Problemas frecuentes y qué hacer", ["Qué ves", "Qué hacer
     ["Un reporte tarda en abrir", "Los reportes grandes pueden tardar unos segundos. Espera a que termine; si falla, intenta con un rango de fechas más corto."],
     ["No veo la opción Seguridad y salud", "Tu rol no la incluye (el rol Consulta no la ve). Pídele al gerente que revise tu rol."],
     ["No puedo registrar una afiliación", "Solo el gerente y el administrador registran afiliaciones. El contratista SST las consulta, pero no las cambia."],
+    ["No puedo registrar un ausentismo: dice que las fechas se traslapan", "El trabajador ya tiene un ausentismo en esas fechas. Revisa la lista: si el otro está equivocado, anúlalo y vuelve a registrar."],
+    ["Al registrar el ausentismo dice que faltan los parámetros legales del año", "El gerente debe cargar y validar los valores del año en Configuración → Seguridad social."],
+    ["No veo la sección Novedades para nómina ni los valores", "Tu rol no puede ver valores. Los ven el gerente y el administrador."],
+    ["Al cargar el Excel de SST aparecen errores por fila", "Corrige la fila y la columna que indica el sistema, guarda el Excel y súbelo otra vez. Mientras haya un error no se guarda nada."],
     ["Un aviso aparece como “Omitida”", "El cliente no tiene correo o el correo de la empresa no está configurado. Usa WhatsApp o completa los datos."],
     ["Algo se ve raro en el celular", "Recarga la página. Si sigue igual, cuéntale al gerente qué pantalla era y qué estabas haciendo."],
 ], [32, 68])
@@ -771,5 +875,5 @@ p("Si el problema continúa, avisa al gerente con tres datos: qué estabas hacie
 C.append(("referencias", [
     "American Psychological Association. (2020). *Publication manual of the American Psychological Association* (7.ª ed.). https://doi.org/10.1037/0000165-000",
     "Congreso de la República de Colombia. (2012, 17 de octubre). *Ley 1581 de 2012, por la cual se dictan disposiciones generales para la protección de datos personales*. Diario Oficial n.º 48.587.",
-    "Gutierrez Lopez, V. A. (2026). *Sistema de gestión de urbanismo* (versión 1.0) [Software]. Edición para Balder Ingeniería y Mantenimiento SAS.",
+    "Gutierrez Lopez, V. A. (2026). *Sistema de gestión de urbanismo* (versión 1.2) [Software]. Edición para Balder Ingeniería y Mantenimiento SAS.",
 ]))
