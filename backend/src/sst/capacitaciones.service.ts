@@ -5,6 +5,7 @@ import { parsearFechaLocal } from '../common/fecha.util.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoActividadSst, EstadoTrabajador } from '../generated/prisma/enums.js';
+import type { ClienteDb } from '../prisma/cliente-db.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ActualizarAsistenciaDto,
@@ -222,7 +223,21 @@ export class CapacitacionesService {
 
   // Registra varios asistentes de una vez. Solo trabajadores activos; los que ya estaban registrados se omiten.
   async registrarAsistentes(capacitacionId: string, dto: RegistrarAsistentesDto, usuario: UsuarioAutenticado) {
-    const capacitacion = await this.buscarSimple(capacitacionId);
+    try {
+      return await this.prisma.$transaction((tx) => this.registrarAsistentesEnTx(tx, capacitacionId, dto, usuario));
+    } catch (error) {
+      // Dos personas registrando al mismo trabajador a la vez: el índice parcial de la base deja pasar solo una.
+      if (esViolacionDeUnico(error)) {
+        throw new ConflictException('Alguno de los asistentes ya fue registrado: vuelve a cargar la capacitación');
+      }
+      throw error;
+    }
+  }
+
+  // El registro completo (validaciones y asistencias) dentro de una transacción ya abierta: sirve al formulario y a la carga desde
+  // Excel, que corre muchos registros en una sola transacción.
+  async registrarAsistentesEnTx(db: Prisma.TransactionClient, capacitacionId: string, dto: RegistrarAsistentesDto, usuario: UsuarioAutenticado) {
+    const capacitacion = await this.buscarSimple(capacitacionId, db);
     if (capacitacion.estado === EstadoActividadSst.CANCELADA) {
       throw new BadRequestException('La capacitación está cancelada: no admite asistentes');
     }
@@ -231,7 +246,7 @@ export class CapacitacionesService {
     if (new Set(ids).size !== ids.length) {
       throw new BadRequestException('Hay un trabajador repetido en la lista');
     }
-    const trabajadores = await this.prisma.trabajador.findMany({ where: { id: { in: ids } }, select: { id: true, nombre: true, estado: true } });
+    const trabajadores = await db.trabajador.findMany({ where: { id: { in: ids } }, select: { id: true, nombre: true, estado: true } });
     if (trabajadores.length !== ids.length) {
       throw new NotFoundException('Alguno de los trabajadores no existe');
     }
@@ -240,7 +255,7 @@ export class CapacitacionesService {
       throw new BadRequestException(`Estos trabajadores están retirados: ${retirados.map((t) => t.nombre).join(', ')}`);
     }
 
-    const yaRegistrados = new Set((await this.prisma.asistenciaCapacitacion.findMany({ where: { capacitacionId, anulada: false, trabajadorId: { in: ids } }, select: { trabajadorId: true } })).map((a) => a.trabajadorId));
+    const yaRegistrados = new Set((await db.asistenciaCapacitacion.findMany({ where: { capacitacionId, anulada: false, trabajadorId: { in: ids } }, select: { trabajadorId: true } })).map((a) => a.trabajadorId));
     const nuevos = dto.asistentes.filter((a) => !yaRegistrados.has(a.trabajadorId));
     const nombres = new Map(trabajadores.map((t) => [t.id, t.nombre]));
 
@@ -248,34 +263,24 @@ export class CapacitacionesService {
       return { registrados: 0, omitidos: yaRegistrados.size };
     }
 
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        await tx.asistenciaCapacitacion.createMany({
-          data: nuevos.map((a) => ({
-            capacitacionId,
-            trabajadorId: a.trabajadorId,
-            firmo: a.firmo ?? false,
-            calificacion: a.calificacion === undefined ? null : new Prisma.Decimal(a.calificacion),
-            registradaPorId: usuario.id,
-          })),
-        });
-        await registrarAuditoria(tx, {
-          usuario,
-          accion: 'CAPACITACION_ASISTENCIA_REGISTRAR',
-          entidad: 'CAPACITACION',
-          entidadId: capacitacionId,
-          resumen: `Registró ${nuevos.length} asistente${nuevos.length === 1 ? '' : 's'} a la capacitación "${capacitacion.tema}"${yaRegistrados.size > 0 ? ` (${yaRegistrados.size} ya estaban registrados)` : ''}`,
-          despues: { registrados: nuevos.length, omitidos: yaRegistrados.size, trabajadores: nuevos.map((a) => nombres.get(a.trabajadorId)) },
-        });
-        return { registrados: nuevos.length, omitidos: yaRegistrados.size };
-      });
-    } catch (error) {
-      // Dos personas registrando al mismo trabajador a la vez: el índice parcial de la base deja pasar solo una.
-      if (esViolacionDeUnico(error)) {
-        throw new ConflictException('Alguno de los asistentes ya fue registrado: vuelve a cargar la capacitación');
-      }
-      throw error;
-    }
+    await db.asistenciaCapacitacion.createMany({
+      data: nuevos.map((a) => ({
+        capacitacionId,
+        trabajadorId: a.trabajadorId,
+        firmo: a.firmo ?? false,
+        calificacion: a.calificacion === undefined ? null : new Prisma.Decimal(a.calificacion),
+        registradaPorId: usuario.id,
+      })),
+    });
+    await registrarAuditoria(db, {
+      usuario,
+      accion: 'CAPACITACION_ASISTENCIA_REGISTRAR',
+      entidad: 'CAPACITACION',
+      entidadId: capacitacionId,
+      resumen: `Registró ${nuevos.length} asistente${nuevos.length === 1 ? '' : 's'} a la capacitación "${capacitacion.tema}"${yaRegistrados.size > 0 ? ` (${yaRegistrados.size} ya estaban registrados)` : ''}`,
+      despues: { registrados: nuevos.length, omitidos: yaRegistrados.size, trabajadores: nuevos.map((a) => nombres.get(a.trabajadorId)) },
+    });
+    return { registrados: nuevos.length, omitidos: yaRegistrados.size };
   }
 
   async actualizarAsistencia(capacitacionId: string, asistenciaId: string, dto: ActualizarAsistenciaDto, usuario: UsuarioAutenticado) {
@@ -337,8 +342,8 @@ export class CapacitacionesService {
     });
   }
 
-  private async buscarSimple(id: string) {
-    const capacitacion = await this.prisma.capacitacion.findUnique({ where: { id } });
+  private async buscarSimple(id: string, db: ClienteDb = this.prisma) {
+    const capacitacion = await db.capacitacion.findUnique({ where: { id } });
     if (!capacitacion) {
       throw new NotFoundException(`No existe la capacitación ${id}`);
     }

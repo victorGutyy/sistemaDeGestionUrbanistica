@@ -101,7 +101,13 @@ export class TrabajadoresService {
   constructor(private readonly prisma: PrismaService) {}
 
   async crear(dto: CrearTrabajadorDto, usuario: UsuarioAutenticado) {
-    const existente = await this.prisma.trabajador.findUnique({ where: { documento: dto.documento } });
+    return this.prisma.$transaction((tx) => this.crearEnTx(tx, dto, usuario));
+  }
+
+  // La creación completa dentro de una transacción ya abierta: sirve al formulario y a la carga desde Excel, que corre muchos
+  // registros en una sola transacción.
+  async crearEnTx(db: Prisma.TransactionClient, dto: CrearTrabajadorDto, usuario: UsuarioAutenticado) {
+    const existente = await db.trabajador.findUnique({ where: { documento: dto.documento } });
     if (existente) {
       throw new ConflictException(`Ya existe un trabajador con el documento ${dto.documento}`);
     }
@@ -114,36 +120,34 @@ export class TrabajadoresService {
     }
     const fechaNacimiento = dto.fechaNacimiento ? this.exigirNacimientoValido(dto.fechaNacimiento) : undefined;
 
-    return this.prisma.$transaction(async (tx) => {
-      const trabajador = await tx.trabajador.create({
-        data: {
-          nombre,
-          nombres,
-          apellidos,
-          documento: dto.documento,
-          tipoDocumento: dto.tipoDocumento,
-          fechaNacimiento,
-          sexo: dto.sexo,
-          area: textoOpcional(dto.area),
-          cargo: dto.cargo,
-          tipoContrato: dto.tipoContrato,
-          salarioBase: dto.salarioBase,
-          fechaIngreso: parsearFechaLocal(dto.fechaIngreso),
-          telefono: textoOpcional(dto.telefono),
-          celular: textoOpcional(dto.celular),
-          email: textoOpcional(dto.email),
-        },
-      });
-      await registrarAuditoria(tx, {
-        usuario,
-        accion: 'TRABAJADOR_CREAR',
-        entidad: 'TRABAJADOR',
-        entidadId: trabajador.id,
-        resumen: `Creó al trabajador ${trabajador.nombre} (${trabajador.cargo})`,
-        despues: soloCampos(trabajador, ['nombre', 'documento', 'tipoDocumento', 'cargo', 'tipoContrato', 'salarioBase', 'fechaIngreso', 'estado']),
-      });
-      return trabajador;
+    const trabajador = await db.trabajador.create({
+      data: {
+        nombre,
+        nombres,
+        apellidos,
+        documento: dto.documento,
+        tipoDocumento: dto.tipoDocumento,
+        fechaNacimiento,
+        sexo: dto.sexo,
+        area: textoOpcional(dto.area),
+        cargo: dto.cargo,
+        tipoContrato: dto.tipoContrato,
+        salarioBase: dto.salarioBase,
+        fechaIngreso: parsearFechaLocal(dto.fechaIngreso),
+        telefono: textoOpcional(dto.telefono),
+        celular: textoOpcional(dto.celular),
+        email: textoOpcional(dto.email),
+      },
     });
+    await registrarAuditoria(db, {
+      usuario,
+      accion: 'TRABAJADOR_CREAR',
+      entidad: 'TRABAJADOR',
+      entidadId: trabajador.id,
+      resumen: `Creó al trabajador ${trabajador.nombre} (${trabajador.cargo})`,
+      despues: soloCampos(trabajador, ['nombre', 'documento', 'tipoDocumento', 'cargo', 'tipoContrato', 'salarioBase', 'fechaIngreso', 'estado']),
+    });
+    return trabajador;
   }
 
   // Edición de la ficha (RF-PER-17). El documento no se edita. Solo lo que cambia queda en la auditoría, con su valor anterior.

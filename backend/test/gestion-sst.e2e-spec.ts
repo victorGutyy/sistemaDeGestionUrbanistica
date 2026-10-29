@@ -307,7 +307,11 @@ describe('Gestión SST contra Postgres real: reglas de la base (RF-SST-12 a 21)'
       await expect(epp.registrarEntrega({ trabajadorId: trabajador.id, elementoId: guantes.id, fecha: '2026-06-09', cantidad: 1, motivo: 'PERDIDA' }, usuario, hoy)).rejects.toThrow(/retirado/);
 
       // Todo quedó en la auditoría, en orden.
-      const acciones = (await tx.registroAuditoria.findMany({ where: { OR: [{ entidad: 'ENTREGA_EPP' }, { entidad: 'ELEMENTO_EPP' }], createdAt: { gte: new Date(Date.now() - 60_000) } }, orderBy: { createdAt: 'asc' } })).map((r) => r.accion);
+      // Solo lo de este recorrido: los archivos e2e corren en paralelo y otros crean elementos y entregas de EPP que también quedan
+      // en la auditoría, así que no se puede leer "lo de los últimos segundos".
+      const entregasPropias = await tx.entregaEpp.findMany({ where: { trabajadorId: trabajador.id }, select: { id: true } });
+      const idsPropios = [casco.id, guantes.id, ...entregasPropias.map((e) => e.id)];
+      const acciones = (await tx.registroAuditoria.findMany({ where: { OR: [{ entidad: 'ENTREGA_EPP' }, { entidad: 'ELEMENTO_EPP' }], entidadId: { in: idsPropios } }, orderBy: { createdAt: 'asc' } })).map((r) => r.accion);
       expect(acciones).toEqual([
         'ELEMENTO_EPP_CREAR',
         'ELEMENTO_EPP_CREAR',

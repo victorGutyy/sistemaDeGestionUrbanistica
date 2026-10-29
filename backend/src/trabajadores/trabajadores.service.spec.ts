@@ -9,9 +9,9 @@ import { auditoriaDe, auditoriasDe } from '../test-utils/auditoria.js';
 const D = (valor: string | number) => new Prisma.Decimal(valor);
 
 function crearPrismaFalso() {
-  return {
-    trabajador: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
-  };
+  const tablas = { trabajador: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() } };
+  // Crear un trabajador corre todo dentro de una transacción: aquí la transacción usa las mismas tablas falsas.
+  return { ...tablas, $transaction: vi.fn((accion: (tx: typeof tablas) => unknown) => accion(tablas)) };
 }
 
 describe('TrabajadoresService', () => {

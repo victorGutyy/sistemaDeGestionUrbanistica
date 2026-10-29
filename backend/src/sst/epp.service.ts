@@ -99,14 +99,20 @@ export class EppService {
   // ---------- Entregas (RF-SST-13) ----------
 
   async registrarEntrega(dto: RegistrarEntregaEppDto, usuario: UsuarioAutenticado, hoy = new Date()) {
-    const trabajador = await this.prisma.trabajador.findUnique({ where: { id: dto.trabajadorId } });
+    return this.prisma.$transaction((tx) => this.registrarEntregaEnTx(tx, dto, usuario, hoy));
+  }
+
+  // La entrega completa (validaciones y registro) dentro de una transacción ya abierta: sirve al formulario y a la carga desde
+  // Excel, que corre muchos registros en una sola transacción.
+  async registrarEntregaEnTx(db: Prisma.TransactionClient, dto: RegistrarEntregaEppDto, usuario: UsuarioAutenticado, hoy = new Date()) {
+    const trabajador = await db.trabajador.findUnique({ where: { id: dto.trabajadorId } });
     if (!trabajador) {
       throw new NotFoundException(`No existe el trabajador ${dto.trabajadorId}`);
     }
     if (trabajador.estado === EstadoTrabajador.INACTIVO) {
       throw new BadRequestException('El trabajador está retirado: no se le pueden registrar entregas');
     }
-    const elemento = await this.prisma.elementoEpp.findUnique({ where: { id: dto.elementoId } });
+    const elemento = await db.elementoEpp.findUnique({ where: { id: dto.elementoId } });
     if (!elemento) {
       throw new NotFoundException(`No existe el elemento ${dto.elementoId}`);
     }
@@ -130,44 +136,42 @@ export class EppService {
     const proximaReposicion = calcularProximaReposicion(fecha, vidaUtilDias);
     const entregadoPor = dto.entregadoPor?.trim() || usuario.nombre;
 
-    return this.prisma.$transaction(async (tx) => {
-      const entrega = await tx.entregaEpp.create({
-        data: {
-          trabajadorId: trabajador.id,
-          elementoId: elemento.id,
-          fecha,
-          cantidad: dto.cantidad,
-          tallaReferencia: dto.tallaReferencia?.trim() || null,
-          motivo: dto.motivo,
-          entregadoPor,
-          registradaPorId: usuario.id,
-          firmoRecibido: dto.firmoRecibido ?? false,
-          vidaUtilDias,
-          proximaReposicion,
-        },
-        include: { trabajador: { select: { nombre: true, documento: true } }, elemento: { select: { nombre: true } } },
-      });
-      await registrarAuditoria(tx, {
-        usuario,
-        accion: 'ENTREGA_EPP_REGISTRAR',
-        entidad: 'ENTREGA_EPP',
-        entidadId: entrega.id,
-        resumen: `Registró la entrega de ${entrega.cantidad} × ${elemento.nombre} a ${trabajador.nombre} (${ETIQUETA_MOTIVO[dto.motivo]})`,
-        despues: {
-          trabajadorId: trabajador.id,
-          elementoId: elemento.id,
-          elemento: elemento.nombre,
-          fecha: entrega.fecha,
-          cantidad: entrega.cantidad,
-          motivo: entrega.motivo,
-          entregadoPor,
-          firmoRecibido: entrega.firmoRecibido,
-          vidaUtilDias,
-          proximaReposicion,
-        },
-      });
-      return entrega;
+    const entrega = await db.entregaEpp.create({
+      data: {
+        trabajadorId: trabajador.id,
+        elementoId: elemento.id,
+        fecha,
+        cantidad: dto.cantidad,
+        tallaReferencia: dto.tallaReferencia?.trim() || null,
+        motivo: dto.motivo,
+        entregadoPor,
+        registradaPorId: usuario.id,
+        firmoRecibido: dto.firmoRecibido ?? false,
+        vidaUtilDias,
+        proximaReposicion,
+      },
+      include: { trabajador: { select: { nombre: true, documento: true } }, elemento: { select: { nombre: true } } },
     });
+    await registrarAuditoria(db, {
+      usuario,
+      accion: 'ENTREGA_EPP_REGISTRAR',
+      entidad: 'ENTREGA_EPP',
+      entidadId: entrega.id,
+      resumen: `Registró la entrega de ${entrega.cantidad} × ${elemento.nombre} a ${trabajador.nombre} (${ETIQUETA_MOTIVO[dto.motivo]})`,
+      despues: {
+        trabajadorId: trabajador.id,
+        elementoId: elemento.id,
+        elemento: elemento.nombre,
+        fecha: entrega.fecha,
+        cantidad: entrega.cantidad,
+        motivo: entrega.motivo,
+        entregadoPor,
+        firmoRecibido: entrega.firmoRecibido,
+        vidaUtilDias,
+        proximaReposicion,
+      },
+    });
+    return entrega;
   }
 
   // Un error en una entrega no se edita: se anula con motivo y se registra la correcta. La base de datos lo exige.

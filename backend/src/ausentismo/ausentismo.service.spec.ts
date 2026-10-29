@@ -175,7 +175,8 @@ describe('AusentismoService.registrar (RF-SST-01 a 03)', () => {
 
   it('usa los parámetros del año en que empieza el ausentismo', async () => {
     await m.servicio.registrar({ ...DATOS, fechaInicio: '2026-12-30', fechaFin: '2027-01-02' }, GERENTE);
-    expect(m.seguridadSocial.parametroDelAnio).toHaveBeenCalledWith(2026);
+    // Se pide con el cliente de la transacción en la que corre el registro.
+    expect(m.seguridadSocial.parametroDelAnio).toHaveBeenCalledWith(2026, expect.anything());
     const data = m.tablas.ausentismo.create.mock.calls[0][0].data;
     expect(data.periodos.create.map((p: { anio: number; mes: number }) => `${p.anio}-${p.mes}`)).toEqual(['2026-12', '2027-1']);
   });

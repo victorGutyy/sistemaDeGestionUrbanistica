@@ -17,15 +17,15 @@ export interface FilaLeida {
   celdas: Record<string, Celda>;
 }
 
-export interface HojaLeida {
-  clave: ClaveHoja;
+export interface HojaLeida<C extends string = ClaveHoja> {
+  clave: C;
   // false si el libro no trae esa hoja.
   presente: boolean;
   filas: FilaLeida[];
 }
 
-export interface LibroLeido {
-  hojas: Record<ClaveHoja, HojaLeida>;
+export interface LibroLeido<C extends string = ClaveHoja> {
+  hojas: Record<C, HojaLeida<C>>;
   problemas: ProblemaImportacion[];
 }
 
@@ -50,14 +50,19 @@ function valorSimple(valor: ExcelJS.CellValue): Celda {
   return valor;
 }
 
-function buscarHoja(libro: ExcelJS.Workbook, definicion: HojaPlantilla): ExcelJS.Worksheet | undefined {
+function buscarHoja<C extends string>(libro: ExcelJS.Workbook, definicion: HojaPlantilla<C>): ExcelJS.Worksheet | undefined {
   const nombres = [definicion.nombre, ...(definicion.alias ?? [])].map(normalizarTexto);
   return libro.worksheets.find((hoja) => nombres.includes(normalizarTexto(hoja.name)));
 }
 
-// Lee el libro con las hojas y columnas que describe la plantilla. Las hojas y columnas que no se reconocen se
+// Lee el libro de la carga de ventas, con las hojas y columnas de su plantilla.
+export function leerLibro(buffer: Buffer): Promise<LibroLeido> {
+  return leerLibroDe(buffer, HOJAS);
+}
+
+// Lee el libro con las hojas y columnas que describe una plantilla. Las hojas y columnas que no se reconocen se
 // ignoran; las columnas obligatorias que faltan se reportan. No interpreta los valores: eso lo hace la validación.
-export async function leerLibro(buffer: Buffer): Promise<LibroLeido> {
+export async function leerLibroDe<C extends string>(buffer: Buffer, definiciones: readonly HojaPlantilla<C>[]): Promise<LibroLeido<C>> {
   if (!parecexlsx(buffer)) {
     throw new BadRequestException('El archivo no es un libro de Excel (.xlsx). Descarga la plantilla y llénala.');
   }
@@ -70,9 +75,9 @@ export async function leerLibro(buffer: Buffer): Promise<LibroLeido> {
   }
 
   const problemas: ProblemaImportacion[] = [];
-  const hojas = {} as Record<ClaveHoja, HojaLeida>;
+  const hojas = {} as Record<C, HojaLeida<C>>;
 
-  for (const definicion of HOJAS) {
+  for (const definicion of definiciones) {
     const hoja = buscarHoja(libro, definicion);
     if (!hoja) {
       hojas[definicion.clave] = { clave: definicion.clave, presente: false, filas: [] };
@@ -119,8 +124,8 @@ export async function leerLibro(buffer: Buffer): Promise<LibroLeido> {
     hojas[definicion.clave] = { clave: definicion.clave, presente: true, filas };
   }
 
-  if (!HOJAS.some((definicion) => hojas[definicion.clave].presente)) {
-    throw new BadRequestException('El archivo no trae ninguna de las hojas de la plantilla (Proyectos, Lotes, Clientes, Ventas, Cuotas, Abonos).');
+  if (!definiciones.some((definicion) => hojas[definicion.clave].presente)) {
+    throw new BadRequestException(`El archivo no trae ninguna de las hojas de la plantilla (${definiciones.map((definicion) => definicion.nombre).join(', ')}).`);
   }
 
   return { hojas, problemas };

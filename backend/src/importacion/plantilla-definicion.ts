@@ -25,8 +25,9 @@ export interface ColumnaPlantilla {
   ancho?: number;
 }
 
-export interface HojaPlantilla {
-  clave: ClaveHoja;
+// La clave de la hoja es genérica para que otras cargas (como la de seguridad y salud en el trabajo) describan sus propias hojas.
+export interface HojaPlantilla<C extends string = ClaveHoja> {
+  clave: C;
   nombre: string;
   alias?: string[];
   descripcion: string;

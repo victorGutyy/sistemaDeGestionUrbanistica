@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
 import { registrarAuditoria, soloCampos } from '../auditoria/auditoria.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EntidadRecobro, EstadoTrabajador, ReglaAusentismo, TipoEntidadSS } from '../generated/prisma/enums.js';
+import type { ClienteDb } from '../prisma/cliente-db.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SeguridadSocialService } from '../seguridad-social/seguridad-social.service.js';
 import { DocumentosSstService } from '../sst/documentos-sst.service.js';
@@ -21,7 +22,7 @@ const REGLAS_CON_TRAMOS: readonly ReglaAusentismo[] = [ReglaAusentismo.INCAPACID
 
 const CAMPOS_AUDITADOS = ['trabajadorId', 'tipoId', 'fechaInicio', 'fechaFin', 'dias', 'numeroDocumento', 'esProrroga', 'prorrogaDeId', 'diasPrevios', 'diagnosticoId'] as const;
 
-const MENSAJE_TRASLAPE = 'El trabajador ya tiene un ausentismo en esas fechas';
+export const MENSAJE_TRASLAPE = 'El trabajador ya tiene un ausentismo en esas fechas';
 
 const INCLUIR_DETALLE = {
   trabajador: { select: { id: true, nombre: true, documento: true, cargo: true, estado: true } },
@@ -149,11 +150,28 @@ export class AusentismoService {
   // ---------- Registro (RF-SST-01 a 03) ----------
 
   async registrar(dto: RegistrarAusentismoDto, usuario: UsuarioAutenticado) {
-    const trabajador = await this.prisma.trabajador.findUnique({ where: { id: dto.trabajadorId } });
+    let creado: { id: string };
+    try {
+      creado = await this.prisma.$transaction((tx) => this.registrarEnTx(tx, dto, usuario));
+    } catch (error) {
+      // La base de datos también impide el traslape (dos registros simultáneos): se traduce al mismo mensaje. Los errores que ya
+      // son respuestas (como el traslape que detecta la validación, que dice entre qué fechas) pasan tal cual.
+      if (!(error instanceof HttpException) && error instanceof Error && error.message.includes(MENSAJE_TRASLAPE)) {
+        throw new ConflictException(MENSAJE_TRASLAPE);
+      }
+      throw error;
+    }
+    return this.presentar(await this.buscarCompleto(creado.id), usuario);
+  }
+
+  // El registro completo (validaciones, liquidación y creación) dentro de una transacción ya abierta: sirve al formulario y a la
+  // carga desde Excel, que corre muchos registros en una sola transacción. No presenta el resultado: solo devuelve el creado.
+  async registrarEnTx(db: Prisma.TransactionClient, dto: RegistrarAusentismoDto, usuario: UsuarioAutenticado): Promise<{ id: string }> {
+    const trabajador = await db.trabajador.findUnique({ where: { id: dto.trabajadorId } });
     if (!trabajador) {
       throw new NotFoundException(`No existe el trabajador ${dto.trabajadorId}`);
     }
-    const tipo = await this.prisma.tipoAusentismo.findUnique({ where: { id: dto.tipoId } });
+    const tipo = await db.tipoAusentismo.findUnique({ where: { id: dto.tipoId } });
     if (!tipo) {
       throw new NotFoundException(`No existe el tipo de ausentismo ${dto.tipoId}`);
     }
@@ -177,11 +195,11 @@ export class AusentismoService {
       throw new BadRequestException('El ausentismo no puede empezar después del retiro del trabajador');
     }
 
-    await this.validarDiagnostico(tipo.requiereDiagnostico, dto.diagnosticoId);
-    const { esProrroga, prorrogaDeId, diasPrevios } = await this.resolverProrroga(dto, tipo, trabajador.id, fechaInicio);
-    await this.exigirSinTraslape(trabajador.id, fechaInicio, fechaFin);
+    await this.validarDiagnostico(db, tipo.requiereDiagnostico, dto.diagnosticoId);
+    const { esProrroga, prorrogaDeId, diasPrevios } = await this.resolverProrroga(db, dto, tipo, trabajador.id, fechaInicio);
+    await this.exigirSinTraslape(db, trabajador.id, fechaInicio, fechaFin);
 
-    const parametro = await this.seguridadSocial.parametroDelAnio(fechaInicio.getFullYear());
+    const parametro = await this.seguridadSocial.parametroDelAnio(fechaInicio.getFullYear(), db);
     let liquidacion;
     try {
       liquidacion = liquidarAusentismo({
@@ -205,62 +223,50 @@ export class AusentismoService {
       throw new BadRequestException(error instanceof Error ? error.message : 'No se pudo liquidar el ausentismo');
     }
 
-    const foto = await this.fotoDeEntidades(trabajador.id, fechaInicio);
+    const foto = await this.fotoDeEntidades(db, trabajador.id, fechaInicio);
     const parametrosLiquidacion = { ...liquidacion.parametrosUsados, anio: parametro.anio, parametrosValidados: parametro.validadoEn !== null };
     const liquidacionCalculada = { periodos: liquidacion.periodos.map(periodoComoTexto), totales: totalesComoTexto(liquidacion.totales) };
     const recobros = entidadesConValor(liquidacion.totales);
 
-    let creado: { id: string };
-    try {
-      creado = await this.prisma.$transaction(async (tx) => {
-        const ausentismo = await tx.ausentismo.create({
-          data: {
-            trabajadorId: trabajador.id,
-            tipoId: tipo.id,
-            fechaInicio,
-            fechaFin,
-            dias,
-            anio: fechaInicio.getFullYear(),
-            mes: fechaInicio.getMonth() + 1,
-            numeroDocumento: dto.numeroDocumento?.trim() || null,
-            esProrroga,
-            prorrogaDeId,
-            diasPrevios,
-            diagnosticoId: dto.diagnosticoId ?? null,
-            observaciones: dto.observaciones?.trim() || null,
-            cargoFoto: trabajador.cargo,
-            salarioFoto: trabajador.salarioBase,
-            epsFoto: foto.EPS,
-            arlFoto: foto.ARL,
-            afpFoto: foto.AFP,
-            baseDiaria: liquidacion.baseDiaria,
-            pisoDiario: liquidacion.pisoDiario,
-            parametrosLiquidacion,
-            liquidacionCalculada,
-            registradaPorId: usuario.id,
-            periodos: { create: liquidacion.periodos.map(({ anio, mes, ...resto }) => ({ anio, mes, ...resto })) },
-            recobros: { create: recobros.map((entidad) => ({ entidad })) },
-          },
-        });
-        // Sin diagnóstico, sin observaciones y sin valores: el resumen lo ve quien consulta la auditoría (el gerente).
-        await registrarAuditoria(tx, {
-          usuario,
-          accion: 'AUSENTISMO_REGISTRAR',
-          entidad: 'AUSENTISMO',
-          entidadId: ausentismo.id,
-          resumen: `Registró ${tipo.nombre.toLowerCase()} de ${trabajador.nombre} del ${aISO(fechaInicio)} al ${aISO(fechaFin)} (${dias} ${dias === 1 ? 'día' : 'días'})${esProrroga ? ', prórroga' : ''}`,
-          despues: soloCampos(ausentismo, CAMPOS_AUDITADOS),
-        });
-        return ausentismo;
-      });
-    } catch (error) {
-      // La base de datos también impide el traslape (dos registros simultáneos): se traduce al mismo mensaje.
-      if (error instanceof Error && error.message.includes(MENSAJE_TRASLAPE)) {
-        throw new ConflictException(MENSAJE_TRASLAPE);
-      }
-      throw error;
-    }
-    return this.presentar(await this.buscarCompleto(creado.id), usuario);
+    const ausentismo = await db.ausentismo.create({
+      data: {
+        trabajadorId: trabajador.id,
+        tipoId: tipo.id,
+        fechaInicio,
+        fechaFin,
+        dias,
+        anio: fechaInicio.getFullYear(),
+        mes: fechaInicio.getMonth() + 1,
+        numeroDocumento: dto.numeroDocumento?.trim() || null,
+        esProrroga,
+        prorrogaDeId,
+        diasPrevios,
+        diagnosticoId: dto.diagnosticoId ?? null,
+        observaciones: dto.observaciones?.trim() || null,
+        cargoFoto: trabajador.cargo,
+        salarioFoto: trabajador.salarioBase,
+        epsFoto: foto.EPS,
+        arlFoto: foto.ARL,
+        afpFoto: foto.AFP,
+        baseDiaria: liquidacion.baseDiaria,
+        pisoDiario: liquidacion.pisoDiario,
+        parametrosLiquidacion,
+        liquidacionCalculada,
+        registradaPorId: usuario.id,
+        periodos: { create: liquidacion.periodos.map(({ anio, mes, ...resto }) => ({ anio, mes, ...resto })) },
+        recobros: { create: recobros.map((entidad) => ({ entidad })) },
+      },
+    });
+    // Sin diagnóstico, sin observaciones y sin valores: el resumen lo ve quien consulta la auditoría (el gerente).
+    await registrarAuditoria(db, {
+      usuario,
+      accion: 'AUSENTISMO_REGISTRAR',
+      entidad: 'AUSENTISMO',
+      entidadId: ausentismo.id,
+      resumen: `Registró ${tipo.nombre.toLowerCase()} de ${trabajador.nombre} del ${aISO(fechaInicio)} al ${aISO(fechaFin)} (${dias} ${dias === 1 ? 'día' : 'días'})${esProrroga ? ', prórroga' : ''}`,
+      despues: soloCampos(ausentismo, CAMPOS_AUDITADOS),
+    });
+    return ausentismo;
   }
 
   // ---------- Cambios ----------
@@ -271,7 +277,7 @@ export class AusentismoService {
     const actual = await this.buscarCompleto(id);
     this.exigirVigente(actual);
     if (dto.diagnosticoId !== undefined) {
-      await this.validarDiagnostico(actual.tipo.requiereDiagnostico, dto.diagnosticoId ?? undefined);
+      await this.validarDiagnostico(this.prisma, actual.tipo.requiereDiagnostico, dto.diagnosticoId ?? undefined);
     }
     const numeroDocumento = dto.numeroDocumento === undefined ? undefined : dto.numeroDocumento.trim() || null;
     const observaciones = dto.observaciones === undefined ? undefined : dto.observaciones.trim() || null;
@@ -441,14 +447,14 @@ export class AusentismoService {
   }
 
   // El diagnóstico debe existir y estar activo; en las incapacidades es obligatorio (RF-SST-02).
-  private async validarDiagnostico(obligatorio: boolean, diagnosticoId: string | undefined) {
+  private async validarDiagnostico(db: ClienteDb, obligatorio: boolean, diagnosticoId: string | undefined) {
     if (diagnosticoId === undefined) {
       if (obligatorio) {
         throw new BadRequestException('Este tipo de ausentismo exige el diagnóstico CIE-10');
       }
       return;
     }
-    const diagnostico = await this.prisma.diagnosticoCie10.findUnique({ where: { id: diagnosticoId } });
+    const diagnostico = await db.diagnosticoCie10.findUnique({ where: { id: diagnosticoId } });
     if (!diagnostico) {
       throw new NotFoundException(`No existe el diagnóstico ${diagnosticoId}`);
     }
@@ -459,7 +465,7 @@ export class AusentismoService {
 
   // Una prórroga continúa una incapacidad: los días de la anterior cuentan para los tramos (RF-SST-04). La anterior puede
   // estar en el sistema (se encadena) o venir de fuera (se digitan los días que llevaba).
-  private async resolverProrroga(dto: RegistrarAusentismoDto, tipo: { regla: ReglaAusentismo; id: string; nombre: string }, trabajadorId: string, fechaInicio: Date) {
+  private async resolverProrroga(db: ClienteDb, dto: RegistrarAusentismoDto, tipo: { regla: ReglaAusentismo; id: string; nombre: string }, trabajadorId: string, fechaInicio: Date) {
     if (!dto.esProrroga) {
       if (dto.prorrogaDeId || dto.diasPrevios !== undefined) {
         throw new BadRequestException('Para indicar la incapacidad anterior marca el ausentismo como prórroga');
@@ -473,7 +479,7 @@ export class AusentismoService {
       if (dto.diasPrevios !== undefined) {
         throw new BadRequestException('Con la incapacidad anterior en el sistema no se digitan los días previos: se toman de ella');
       }
-      const anterior = await this.prisma.ausentismo.findUnique({ where: { id: dto.prorrogaDeId } });
+      const anterior = await db.ausentismo.findUnique({ where: { id: dto.prorrogaDeId } });
       if (!anterior || anterior.trabajadorId !== trabajadorId) {
         throw new BadRequestException('La prórroga debe continuar un ausentismo del mismo trabajador');
       }
@@ -486,7 +492,7 @@ export class AusentismoService {
       if (inicioDelDia(anterior.fechaFin) >= fechaInicio) {
         throw new BadRequestException('La prórroga debe empezar después de que termina la incapacidad anterior');
       }
-      const yaProrrogada = await this.prisma.ausentismo.count({ where: { prorrogaDeId: anterior.id, anulada: false } });
+      const yaProrrogada = await db.ausentismo.count({ where: { prorrogaDeId: anterior.id, anulada: false } });
       if (yaProrrogada > 0) {
         throw new ConflictException('La incapacidad anterior ya tiene una prórroga: continúa la última');
       }
@@ -498,8 +504,8 @@ export class AusentismoService {
     return { esProrroga: true, prorrogaDeId: null as string | null, diasPrevios: dto.diasPrevios };
   }
 
-  private async exigirSinTraslape(trabajadorId: string, fechaInicio: Date, fechaFin: Date) {
-    const traslape = await this.prisma.ausentismo.findFirst({
+  private async exigirSinTraslape(db: ClienteDb, trabajadorId: string, fechaInicio: Date, fechaFin: Date) {
+    const traslape = await db.ausentismo.findFirst({
       where: { trabajadorId, anulada: false, fechaInicio: { lte: fechaFin }, fechaFin: { gte: fechaInicio } },
       select: { fechaInicio: true, fechaFin: true },
     });
@@ -509,8 +515,8 @@ export class AusentismoService {
   }
 
   // El nombre de la EPS, la ARL y el fondo de pensiones del trabajador el día en que empieza el ausentismo (RF-SST-03).
-  private async fotoDeEntidades(trabajadorId: string, fechaInicio: Date): Promise<Record<'EPS' | 'ARL' | 'AFP', string | null>> {
-    const afiliaciones = await this.prisma.afiliacionTrabajador.findMany({
+  private async fotoDeEntidades(db: ClienteDb, trabajadorId: string, fechaInicio: Date): Promise<Record<'EPS' | 'ARL' | 'AFP', string | null>> {
+    const afiliaciones = await db.afiliacionTrabajador.findMany({
       where: {
         trabajadorId,
         tipo: { in: [TipoEntidadSS.EPS, TipoEntidadSS.ARL, TipoEntidadSS.AFP] },

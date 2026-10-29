@@ -254,14 +254,22 @@ model Usuario {
 // Carga de datos desde Excel (RF-MIG-01 a 05). Solo se inserta: queda quién importó, qué archivo (por su huella,
 // para no cargar dos veces el mismo), cuánto se creó y el reporte de conciliación de saldos. La carga en sí es una
 // sola transacción: si algo falla no queda nada guardado y tampoco este registro.
+// Qué se cargó con una importación: ventas (proyectos, lotes, clientes, ventas y abonos) o datos de seguridad y salud en el
+// trabajo (trabajadores, ausentismos, entregas de EPP y asistencias). Cada una tiene su pantalla y su resumen.
+enum TipoImportacion {
+  VENTAS
+  SST
+}
+
 model Importacion {
-  id            String   @id @default(uuid())
-  createdAt     DateTime @default(now())
+  id            String          @id @default(uuid())
+  createdAt     DateTime        @default(now())
   usuarioId     String
-  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+  usuario       Usuario         @relation(fields: [usuarioId], references: [id])
   nombreArchivo String
   // SHA-256 del archivo: el mismo archivo no se importa dos veces.
-  huella        String   @unique
+  huella        String          @unique
+  tipo          TipoImportacion @default(VENTAS)
   resumen       Json
   conciliacion  Json
 

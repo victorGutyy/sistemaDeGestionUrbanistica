@@ -5,7 +5,7 @@ import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { hoyISO } from '../cierres-caja/periodo.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { EstadoCierre, EstadoVenta, type MedioPago } from '../generated/prisma/enums.js';
+import { EstadoCierre, EstadoVenta, TipoImportacion, type MedioPago } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ejecutarPlanEnTx } from './ejecutar.js';
 import { generarConciliacionExcel } from './generar-conciliacion-excel.js';
@@ -134,6 +134,7 @@ export class ImportacionService {
 
   listar() {
     return this.prisma.importacion.findMany({
+      where: { tipo: TipoImportacion.VENTAS },
       orderBy: { createdAt: 'desc' },
       select: { id: true, createdAt: true, nombreArchivo: true, resumen: true, usuario: { select: { nombre: true } } },
     });

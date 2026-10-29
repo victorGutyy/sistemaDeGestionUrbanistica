@@ -3,6 +3,7 @@ import { registrarAuditoria, soloCampos } from '../auditoria/auditoria.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { TipoEntidadSS } from '../generated/prisma/enums.js';
+import type { ClienteDb } from '../prisma/cliente-db.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { errorEnTramos } from './calculos.js';
 import {
@@ -53,8 +54,8 @@ export class SeguridadSocialService {
 
   // El parámetro del año de una fecha. Si no existe NO se usa el de otro año: una liquidación con valores de otro año
   // sería un error silencioso.
-  async parametroDelAnio(anio: number) {
-    const parametro = await this.prisma.parametroLegal.findUnique({ where: { anio } });
+  async parametroDelAnio(anio: number, db: ClienteDb = this.prisma) {
+    const parametro = await db.parametroLegal.findUnique({ where: { anio } });
     if (!parametro) {
       throw new NotFoundException(`No hay parámetros legales del año ${anio}: créalos en Configuración → Seguridad social`);
     }
