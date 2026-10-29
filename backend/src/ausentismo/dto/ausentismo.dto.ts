@@ -242,3 +242,15 @@ export class NovedadesAusentismoQueryDto {
   @Max(12)
   mes!: number;
 }
+
+// El período de un pago de nómina (RF-SST-11): el ausentismo de un trabajador que cae entre dos fechas.
+export class NovedadesDelPeriodoQueryDto {
+  @IsUUID()
+  trabajadorId!: string;
+
+  @Matches(FORMATO_FECHA, { message: 'desde debe tener el formato YYYY-MM-DD' })
+  desde!: string;
+
+  @Matches(FORMATO_FECHA, { message: 'hasta debe tener el formato YYYY-MM-DD' })
+  hasta!: string;
+}

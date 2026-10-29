@@ -24,13 +24,17 @@ describe('AusentismoController: permisos declarados (RF-USR-11, RNF-SEG-08)', ()
     expect(permisoDe(metodo)).toEqual([PERMISOS.SST_VER, PERMISOS.SST_VALORES_VER]);
   });
 
+  it('novedadesDelPeriodo (la propuesta para la nómina trae valores) pide poder pagar nómina y ver los valores', () => {
+    expect(permisoDe('novedadesDelPeriodo')).toEqual([PERMISOS.NOMINA_GESTIONAR, PERMISOS.SST_VALORES_VER]);
+  });
+
   it.each(['listarDocumentos', 'descargarDocumento'] as const)('%s (el certificado trae el diagnóstico) pide poder ver diagnósticos', (metodo) => {
     expect(permisoDe(metodo)).toEqual([PERMISOS.SST_VER, PERMISOS.SST_DIAGNOSTICOS_VER]);
   });
 
   it('toda ruta del controlador declara un permiso', () => {
     const metodos = Object.getOwnPropertyNames(AusentismoController.prototype).filter((nombre) => nombre !== 'constructor');
-    expect(metodos).toHaveLength(14);
+    expect(metodos).toHaveLength(15);
     for (const metodo of metodos) {
       expect(permisoDe(metodo as keyof AusentismoController), metodo).toBeDefined();
     }

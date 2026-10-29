@@ -167,6 +167,7 @@ const RUTAS_PROTEGIDAS: [metodo: 'get' | 'post' | 'put' | 'patch' | 'delete', ru
   ['get', '/sst/ausentismo/recobros'],
   ['get', '/sst/ausentismo/novedades'],
   ['get', '/sst/ausentismo/novedades/excel'],
+  ['get', '/sst/ausentismo/novedades-del-periodo'],
   ['patch', `/sst/ausentismo/${ID}/recobros/EPS`],
   ['post', '/sst/ausentismo'],
   ['get', `/sst/ausentismo/${ID}`],

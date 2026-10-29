@@ -218,7 +218,7 @@ export function DashboardPage() {
           <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {resumenSst && (
             <Link
-              to={resumenSst.epp.vencidos + resumenSst.epp.porReponer > 0 ? '/sst/epp' : resumenSst.plan.vencidas + resumenSst.plan.proximas > 0 ? '/sst/plan' : '/sst/capacitaciones'}
+              to={resumenSst.epp.vencidos + resumenSst.epp.porReponer > 0 ? '/sst/epp' : resumenSst.plan.vencidas + resumenSst.plan.proximas > 0 ? '/sst/plan' : resumenSst.capacitaciones.vencidas + resumenSst.capacitaciones.proximas > 0 ? '/sst/capacitaciones' : resumenSst.recobros.pendientes > 0 ? '/sst/ausentismo/recobros' : '/sst'}
               className={`block rounded-lg border p-4 ${resumenSst.totalAlertas > 0 ? 'border-amber-200 bg-amber-50 hover:bg-amber-100' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
             >
               <p className={`text-xs ${resumenSst.totalAlertas > 0 ? 'text-amber-800' : 'text-slate-500'}`}>Gestión SST por atender</p>
@@ -227,6 +227,11 @@ export function DashboardPage() {
                 <p className="text-xs text-slate-600">
                   EPP: {resumenSst.epp.vencidos} vencidos y {resumenSst.epp.porReponer} por reponer · Plan: {resumenSst.plan.vencidas} vencidas y {resumenSst.plan.proximas} próximas · Capacitaciones: {resumenSst.capacitaciones.vencidas} sin ejecutar y{' '}
                   {resumenSst.capacitaciones.proximas} próximas
+                </p>
+              )}
+              {resumenSst.recobros.pendientes > 0 && (
+                <p className="text-xs text-slate-600">
+                  {resumenSst.recobros.pendientes} {resumenSst.recobros.pendientes === 1 ? 'recobro de incapacidad por radicar' : 'recobros de incapacidades por radicar'}
                 </p>
               )}
             </Link>

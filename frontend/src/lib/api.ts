@@ -1653,6 +1653,8 @@ export interface ResumenSst {
   epp: { vencidos: number; porReponer: number }
   plan: { anio: number; vencidas: number; proximas: number; avancePromedio: number; cumplimiento: number }
   capacitaciones: { anio: number; vencidas: number; proximas: number; coberturaEjecutadas: number | null }
+  // Recobros de incapacidades que faltan por radicar. No suman en totalAlertas: no tienen plazo.
+  recobros: { pendientes: number }
   diasAlerta: number
   totalAlertas: number
 }
@@ -3083,4 +3085,30 @@ export function obtenerNovedadesAusentismo(anio: number, mes: number) {
 
 export function descargarNovedadesAusentismo(anio: number, mes: number) {
   return descargarArchivo(`/sst/ausentismo/novedades/excel?anio=${anio}&mes=${mes}`, `novedades-ausentismo-${anio}-${String(mes).padStart(2, '0')}.xlsx`)
+}
+
+// ----- Propuesta de novedades de nómina a partir del ausentismo (RF-SST-11) -----
+
+export interface NovedadPropuesta {
+  tipo: 'INCAPACIDAD' | 'DESCUENTO'
+  // Pesos enteros, como texto.
+  valor: string
+  descripcion: string
+}
+
+export interface PropuestaDeAusentismo {
+  ausentismoId: string
+  tipo: string
+  numeroDocumento: string | null
+  desde: string
+  hasta: string
+  diasEnPeriodo: number
+  dias: { empleador: number; eps: number; arl: number; afp: number; laborados: number; descuento: number }
+  novedades: NovedadPropuesta[]
+  avisos: string[]
+}
+
+// Solo con nomina.gestionar y sst.valores_ver. Nunca trae diagnósticos.
+export function obtenerNovedadesDelPeriodo(trabajadorId: string, desde: string, hasta: string) {
+  return solicitar<PropuestaDeAusentismo[]>(`/sst/ausentismo/novedades-del-periodo?trabajadorId=${trabajadorId}&desde=${desde}&hasta=${hasta}`)
 }

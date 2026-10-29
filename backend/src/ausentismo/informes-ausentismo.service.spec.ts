@@ -143,3 +143,64 @@ describe('InformesAusentismoService.novedades y novedadesExcel (RF-SST-11)', () 
     expect(texto).not.toMatch(/diagn[oó]stico|M54|cie-?10|salario/i);
   });
 });
+
+describe('InformesAusentismoService.novedadesDelPeriodo (RF-SST-11)', () => {
+  const PARAMETROS_FOTO = {
+    regla: 'INCAPACIDAD_GENERAL',
+    porcentajeTipo: null,
+    diaEventoComoLaborado: false,
+    diasPrevios: 0,
+    smmlv: 1_750_905,
+    diasBaseMes: 30,
+    porcentajeTramo1: 66.67,
+    porcentajeTramo2: 50,
+    porcentajeLaboral: 100,
+    diasEmpleador: 2,
+    diasTramo1Hasta: 90,
+    diasTramo2Hasta: 180,
+  };
+  const AUSENTISMO = {
+    id: 'a-1',
+    numeroDocumento: 'INC-1',
+    esProrroga: false,
+    corregida: false,
+    fechaInicio: dia(3, 10),
+    fechaFin: dia(3, 14),
+    salarioFoto: d(3_000_000),
+    parametrosLiquidacion: PARAMETROS_FOTO,
+    tipo: { nombre: 'Enfermedad general' },
+  };
+
+  function montarPeriodo(trabajadorExiste = true) {
+    const tablas = {
+      trabajador: { findUnique: vi.fn().mockResolvedValue(trabajadorExiste ? { id: 't-1' } : null) },
+      ausentismo: { findMany: vi.fn().mockResolvedValue([AUSENTISMO]) },
+    };
+    return { tablas, servicio: new InformesAusentismoService(tablas as unknown as PrismaService, {} as unknown as ConfiguracionService) };
+  }
+
+  it('propone la incapacidad de los días de la EPS que caen en el período', async () => {
+    const { servicio, tablas } = montarPeriodo();
+    const propuestas = await servicio.novedadesDelPeriodo('t-1', '2026-03-01', '2026-03-15');
+    expect(propuestas).toHaveLength(1);
+    expect(propuestas[0].novedades).toEqual([{ tipo: 'INCAPACIDAD', valor: '300000', descripcion: 'Enfermedad general INC-1: 3 de la EPS (del 12/03 al 14/03)' }]);
+    // Solo pide los ausentismos vigentes que se cruzan con el período.
+    expect(tablas.ausentismo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { trabajadorId: 't-1', anulada: false, fechaInicio: { lte: dia(3, 15) }, fechaFin: { gte: dia(3, 1) } } }),
+    );
+  });
+
+  it('rechaza un trabajador que no existe', async () => {
+    const { servicio } = montarPeriodo(false);
+    await expect(servicio.novedadesDelPeriodo('t-x', '2026-03-01', '2026-03-15')).rejects.toThrow(/No existe el trabajador/);
+  });
+
+  it.each([
+    ['fecha inválida', '2026-02-30', '2026-03-15', /no es una fecha válida/],
+    ['fin antes del inicio', '2026-03-15', '2026-03-01', /no puede ser anterior/],
+    ['período demasiado largo', '2026-01-01', '2026-06-30', /no puede pasar de 62 días/],
+  ])('rechaza %s', async (_caso, desde, hasta, mensaje) => {
+    const { servicio } = montarPeriodo();
+    await expect(servicio.novedadesDelPeriodo('t-1', desde, hasta)).rejects.toThrow(mensaje);
+  });
+});

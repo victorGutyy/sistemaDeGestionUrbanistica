@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { AusentismoDelPeriodo } from '../components/ausentismo/AusentismoDelPeriodo'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
+import { useAuth } from '../contexts/AuthContext'
 import {
   crearPagoNomina,
   listarCuentasActivas,
@@ -9,9 +11,11 @@ import {
   type CuentaBancaria,
   type MedioPago,
   type MedioPagoConfig,
+  type NovedadPropuesta,
   type TipoNovedad,
 } from '../lib/api'
 import { hoyEnBogota } from '../lib/formato'
+import { PERMISOS } from '../lib/permisos'
 
 type NovedadFormulario = CrearNovedadPayload & { id: number }
 
@@ -20,6 +24,7 @@ let siguienteId = 1
 export function RegistrarPagoNominaPage() {
   const { id: trabajadorId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { tiene } = useAuth()
 
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -46,6 +51,10 @@ export function RegistrarPagoNominaPage() {
 
   function agregarNovedad() {
     setNovedades((actual) => [...actual, { id: siguienteId++, tipo: 'HORAS_EXTRA', valor: '', descripcion: '' }])
+  }
+
+  function agregarPropuesta(propuesta: NovedadPropuesta) {
+    setNovedades((actual) => [...actual, { id: siguienteId++, tipo: propuesta.tipo, valor: propuesta.valor, descripcion: propuesta.descripcion }])
   }
 
   function actualizarNovedad(id: number, cambios: Partial<NovedadFormulario>) {
@@ -168,6 +177,10 @@ export function RegistrarPagoNominaPage() {
           etiquetaCuenta="Cuenta de donde salió el dinero"
           mostrarReferencia={false}
         />
+
+        {trabajadorId && tiene(PERMISOS.SST_VALORES_VER) && (
+          <AusentismoDelPeriodo trabajadorId={trabajadorId} desde={periodoInicio} hasta={periodoFin} agregadas={novedades} onAgregar={agregarPropuesta} />
+        )}
 
         <div>
           <div className="flex flex-wrap items-start justify-between gap-3">

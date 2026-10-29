@@ -259,6 +259,7 @@ describe('Trabajadores y SST por rol, con los guardas reales (e2e)', () => {
           epp: { vencidos: expect.any(Number), porReponer: expect.any(Number) },
           plan: { anio: expect.any(Number), vencidas: expect.any(Number), proximas: expect.any(Number) },
           capacitaciones: { anio: expect.any(Number), vencidas: expect.any(Number), proximas: expect.any(Number) },
+          recobros: { pendientes: expect.any(Number) },
           diasAlerta: 15,
           totalAlertas: expect.any(Number),
         });

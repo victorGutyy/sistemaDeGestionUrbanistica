@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CapacitacionesService } from './capacitaciones.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
 import type { EppService } from './epp.service.js';
 import type { PlanTrabajoService } from './plan-trabajo.service.js';
 import { ResumenSstService } from './resumen-sst.service.js';
@@ -20,8 +21,14 @@ function montar() {
       capacitaciones: [{ alerta: 'PROXIMA' }, { alerta: 'PROXIMA' }, { alerta: 'SIN_ALERTA' }],
     }),
   };
-  const servicio = new ResumenSstService(epp as unknown as EppService, plan as unknown as PlanTrabajoService, capacitaciones as unknown as CapacitacionesService);
-  return { epp, plan, capacitaciones, servicio };
+  const recobroAusentismo = { count: vi.fn().mockResolvedValue(4) };
+  const servicio = new ResumenSstService(
+    epp as unknown as EppService,
+    plan as unknown as PlanTrabajoService,
+    capacitaciones as unknown as CapacitacionesService,
+    { recobroAusentismo } as unknown as PrismaService,
+  );
+  return { epp, plan, capacitaciones, recobroAusentismo, servicio };
 }
 
 describe('ResumenSstService (panel)', () => {
@@ -31,9 +38,17 @@ describe('ResumenSstService (panel)', () => {
       epp: { vencidos: 2, porReponer: 1 },
       plan: { anio: 2026, vencidas: 2, proximas: 1, avancePromedio: 62.5, cumplimiento: 40 },
       capacitaciones: { anio: 2026, vencidas: 0, proximas: 2, coberturaEjecutadas: 80 },
+      recobros: { pendientes: 4 },
       diasAlerta: 15,
+      // Los recobros por radicar no suman: no tienen plazo.
       totalAlertas: 2 + 1 + 2 + 1 + 0 + 2,
     });
+  });
+
+  it('cuenta solo los recobros pendientes de ausentismos vigentes', async () => {
+    const m = montar();
+    await m.servicio.obtener();
+    expect(m.recobroAusentismo.count).toHaveBeenCalledWith({ where: { estado: 'PENDIENTE', ausentismo: { anulada: false } } });
   });
 
   it('usa los mismos cálculos de cada pantalla, con la misma fecha de referencia', async () => {

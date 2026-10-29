@@ -201,6 +201,47 @@ function periodoVacio(anio: number, mes: number): PeriodoLiquidado {
   };
 }
 
+// Un día de un ausentismo ya clasificado: a quién le toca pagarlo y cuánto vale ese día (sin redondear).
+export interface DiaDeAusentismo {
+  // El día calendario (local) y su número dentro de la incapacidad, contando los días de las prórrogas anteriores.
+  fecha: Date;
+  numero: number;
+  pagador: Pagador;
+  valor: Prisma.Decimal;
+}
+
+export type { Pagador };
+
+// Clasifica cada día del ausentismo con las mismas reglas de la liquidación. Sirve para repartir un ausentismo en períodos que
+// no son meses (por ejemplo, la semana o la quincena de un pago de nómina). El valor de cada día no se redondea: quien suma
+// redondea al final.
+export function diasDeAusentismo(entrada: EntradaLiquidacion): DiaDeAusentismo[] {
+  const error = errorEnEntrada(entrada);
+  if (error) {
+    throw new Error(error);
+  }
+  const { tipo, parametros } = entrada;
+  const diasPrevios = entrada.diasPrevios ?? 0;
+  const base = new Prisma.Decimal(entrada.salario).div(parametros.diasBaseMes);
+  const piso = new Prisma.Decimal(parametros.smmlv).div(parametros.diasBaseMes);
+  const primerDia = numeroDeDia(entrada.fechaInicio);
+  const ultimoDia = numeroDeDia(entrada.fechaFin);
+
+  const dias: DiaDeAusentismo[] = [];
+  for (let dia = primerDia; dia <= ultimoDia; dia++) {
+    const numero = diasPrevios + (dia - primerDia) + 1;
+    const clasificado = clasificarDia(numero, tipo, parametros);
+    let valor = base.mul(clasificado.porcentaje).div(CIEN);
+    if (clasificado.conPiso && valor.lessThan(piso)) {
+      valor = piso;
+    }
+    const { anio, mes } = anioYMes(dia);
+    const diaDelMes = new Date(dia * 86_400_000).getUTCDate();
+    dias.push({ fecha: new Date(anio, mes - 1, diaDelMes), numero, pagador: clasificado.pagador, valor: clasificado.pagador === 'LABORADO' ? CERO : valor });
+  }
+  return dias;
+}
+
 // Liquida un ausentismo día por día y reparte el resultado por mes (RF-SST-04, 05 y 06):
 //  - enfermedad general: empleador, EPS al primer porcentaje, EPS al segundo y AFP según los días acumulados, contando los
 //    de las prórrogas, sin que el día pague menos que el salario mínimo diario;
@@ -217,13 +258,11 @@ export function liquidarAusentismo(entrada: EntradaLiquidacion): ResultadoLiquid
   const base = new Prisma.Decimal(entrada.salario).div(parametros.diasBaseMes);
   const piso = new Prisma.Decimal(parametros.smmlv).div(parametros.diasBaseMes);
 
-  const primerDia = numeroDeDia(entrada.fechaInicio);
-  const ultimoDia = numeroDeDia(entrada.fechaFin);
-
   // Se acumula sin redondear por mes y pagador.
   const acumulados = new Map<string, { periodo: PeriodoLiquidado; valores: Record<Pagador, Prisma.Decimal> }>();
-  for (let dia = primerDia; dia <= ultimoDia; dia++) {
-    const { anio, mes } = anioYMes(dia);
+  for (const dia of diasDeAusentismo(entrada)) {
+    const anio = dia.fecha.getFullYear();
+    const mes = dia.fecha.getMonth() + 1;
     const clave = `${anio}-${mes}`;
     let acumulado = acumulados.get(clave);
     if (!acumulado) {
@@ -233,16 +272,10 @@ export function liquidarAusentismo(entrada: EntradaLiquidacion): ResultadoLiquid
       };
       acumulados.set(clave, acumulado);
     }
-    const numero = diasPrevios + (dia - primerDia) + 1;
-    const clasificado = clasificarDia(numero, tipo, parametros);
-    let valorDia = base.mul(clasificado.porcentaje).div(CIEN);
-    if (clasificado.conPiso && valorDia.lessThan(piso)) {
-      valorDia = piso;
-    }
 
     const periodo = acumulado.periodo;
     periodo.dias += 1;
-    switch (clasificado.pagador) {
+    switch (dia.pagador) {
       case 'EMPLEADOR':
         periodo.diasEmpleador += 1;
         break;
@@ -262,8 +295,8 @@ export function liquidarAusentismo(entrada: EntradaLiquidacion): ResultadoLiquid
         periodo.diasDescuento += 1;
         break;
     }
-    if (clasificado.pagador !== 'LABORADO') {
-      acumulado.valores[clasificado.pagador] = acumulado.valores[clasificado.pagador].plus(valorDia);
+    if (dia.pagador !== 'LABORADO') {
+      acumulado.valores[dia.pagador] = acumulado.valores[dia.pagador].plus(dia.valor);
     }
   }
 

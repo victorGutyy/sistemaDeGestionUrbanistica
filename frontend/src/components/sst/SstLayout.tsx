@@ -7,7 +7,7 @@ import { PERMISOS } from '../../lib/permisos'
 interface Pestana {
   to: string
   etiqueta: string
-  // Cuántas alertas tiene (se muestra como un contador en la pestaña).
+  // Cuántas alertas o pendientes tiene (se muestra como un contador en la pestaña).
   alertas?: number
   fin?: boolean
 }
@@ -31,7 +31,7 @@ export function SstLayout() {
     { to: '/sst/epp', etiqueta: 'EPP', alertas: resumen ? resumen.epp.vencidos + resumen.epp.porReponer : 0 },
     { to: '/sst/plan', etiqueta: 'Plan de trabajo', alertas: resumen ? resumen.plan.vencidas + resumen.plan.proximas : 0 },
     { to: '/sst/capacitaciones', etiqueta: 'Capacitaciones', alertas: resumen ? resumen.capacitaciones.vencidas + resumen.capacitaciones.proximas : 0 },
-    { to: '/sst/ausentismo', etiqueta: 'Ausentismo' },
+    { to: '/sst/ausentismo', etiqueta: 'Ausentismo', alertas: resumen ? resumen.recobros.pendientes : 0 },
     { to: '/sst/avisos', etiqueta: 'Avisos', fin: true },
   ]
 

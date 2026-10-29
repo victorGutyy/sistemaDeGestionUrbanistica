@@ -15,6 +15,7 @@ import {
   ListarAusentismosQueryDto,
   ListarRecobrosQueryDto,
   NovedadesAusentismoQueryDto,
+  NovedadesDelPeriodoQueryDto,
   RegistrarAusentismoDto,
   ResumenAusentismoQueryDto,
 } from './dto/ausentismo.dto.js';
@@ -62,6 +63,13 @@ export class AusentismoController {
   @Get('novedades')
   novedades(@Query() filtro: NovedadesAusentismoQueryDto) {
     return this.informes.novedades(filtro.anio, filtro.mes);
+  }
+
+  // Lo que se propone como novedad al registrar un pago de nómina. Lo usa quien paga nómina y puede ver valores.
+  @Permiso(PERMISOS.NOMINA_GESTIONAR, PERMISOS.SST_VALORES_VER)
+  @Get('novedades-del-periodo')
+  novedadesDelPeriodo(@Query() filtro: NovedadesDelPeriodoQueryDto) {
+    return this.informes.novedadesDelPeriodo(filtro.trabajadorId, filtro.desde, filtro.hasta);
   }
 
   @Permiso(PERMISOS.SST_VER, PERMISOS.SST_VALORES_VER)

@@ -362,6 +362,35 @@ describe('Ausentismo por rol, con los guardas reales (e2e)', () => {
       expect(text).not.toMatch(/M54\.5|Lumbago|Cirugía|diagnostico|salarioFoto/);
     });
 
+    it('al pagar la nómina se propone la novedad de los días que caen en el período; solo quien paga nómina y ve valores la recibe', async () => {
+      const ruta = (desde: string, hasta: string) => `/sst/ausentismo/novedades-del-periodo?trabajadorId=${trabajadorId}&desde=${desde}&hasta=${hasta}`;
+      // Marzo completo: la incapacidad y su prórroga, cada una con su novedad (salario 3.333.333 → día de 111.111,1).
+      const { body, text } = await como('ADMINISTRADOR').get(ruta('2026-03-01', '2026-03-31')).expect(200);
+      expect(body).toHaveLength(2);
+      expect(body[0]).toMatchObject({ numeroDocumento: 'INC-E2E-1', desde: '2026-03-10', hasta: '2026-03-14', dias: { empleador: 2, eps: 3 } });
+      expect(body[0].novedades).toEqual([expect.objectContaining({ tipo: 'INCAPACIDAD', valor: '333333' })]);
+      expect(body[1].novedades).toEqual([expect.objectContaining({ tipo: 'INCAPACIDAD', valor: '666667' })]);
+      expect(text).not.toMatch(/M54\.5|Lumbago|Cirugía|diagnostico|salarioFoto/);
+      // Una quincena que solo toca la prórroga.
+      const quincena = await como('GERENTE').get(ruta('2026-03-16', '2026-03-31')).expect(200);
+      expect(quincena.body).toHaveLength(1);
+      expect(quincena.body[0]).toMatchObject({ desde: '2026-03-16', hasta: '2026-03-20', diasEnPeriodo: 5 });
+      // Un período sin ausentismo da una lista vacía; una licencia que paga el empleador aparece, pero sin novedad.
+      expect((await como('ADMINISTRADOR').get(ruta('2026-04-20', '2026-04-30')).expect(200)).body).toEqual([]);
+      const mayo = await como('ADMINISTRADOR').get(ruta('2026-05-01', '2026-05-15')).expect(200);
+      expect(mayo.body).toHaveLength(1);
+      expect(mayo.body[0]).toMatchObject({ desde: '2026-05-04', hasta: '2026-05-06', novedades: [] });
+      // El contratista no ve valores y Consulta no paga nómina.
+      for (const clave of ['CONTRATISTA', 'CONSULTA', 'CONSULTA_LIMITADA']) {
+        await como(clave).get(ruta('2026-03-01', '2026-03-31')).expect(403);
+      }
+      // Datos mal formados.
+      await como('ADMINISTRADOR').get(ruta('2026-03-31', '2026-03-01')).expect(400);
+      await como('ADMINISTRADOR').get(ruta('2026-01-01', '2026-12-31')).expect(400);
+      await como('ADMINISTRADOR').get('/sst/ausentismo/novedades-del-periodo?trabajadorId=no-es-uuid&desde=2026-03-01&hasta=2026-03-31').expect(400);
+      await como('ADMINISTRADOR').get(ruta('2026-03-01', '2026-03-31').replace(trabajadorId, '00000000-0000-4000-8000-000000000000')).expect(404);
+    });
+
     it('el Excel de novedades es un libro real con los números como números y deja rastro en la auditoría', async () => {
       const respuesta = await binario('ADMINISTRADOR', '/sst/ausentismo/novedades/excel?anio=2026&mes=3').expect(200);
       expect(respuesta.headers['content-type']).toContain('spreadsheetml.sheet');
