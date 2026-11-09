@@ -5,7 +5,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { OPCIONES_TIPO_DOCUMENTO_EXCEL } from '../common/tipo-documento.js';
 import { EstadoLote, EstadoProyecto, FormaPago, MedioPago, TipoDocumento, TipoProyecto, TipoVendedor } from '../generated/prisma/enums.js';
 import { generarPlanDePagos } from '../ventas/plan-de-pagos.js';
-import { esVacia, leerCodigo, leerDecimal, leerEntero, leerFecha, leerOpcion, leerPesos, leerTexto, normalizarTexto, type Celda, type Lectura } from './celdas.js';
+import { esVacia, leerCodigo, leerDecimal, leerEntero, leerFecha, leerOpcion, leerPesos, leerPesosRedondeados, leerTexto, normalizarTexto, type Celda, type Lectura } from './celdas.js';
 import type { FilaLeida, LibroLeido, ProblemaImportacion } from './leer-libro.js';
 import { hojaPorClave, HOJAS, type ClaveHoja, type HojaPlantilla } from './plantilla-definicion.js';
 
@@ -198,6 +198,20 @@ class Colector {
   aviso(hoja: string, fila: number | null, columna: string | undefined, mensaje: string) {
     this.avisos.push({ hoja, fila, columna, mensaje });
   }
+
+  // Cuántos valores con centavos se redondearon al peso, por hoja y columna: se avisa una sola vez al final, no por fila.
+  private readonly redondeos = new Map<string, { hoja: string; columna: string | undefined; cantidad: number }>();
+  redondeo(hoja: string, columna: string | undefined) {
+    const llave = `${hoja}|${columna ?? ''}`;
+    const actual = this.redondeos.get(llave) ?? { hoja, columna, cantidad: 0 };
+    actual.cantidad++;
+    this.redondeos.set(llave, actual);
+  }
+  avisarRedondeos() {
+    for (const { hoja, columna, cantidad } of this.redondeos.values()) {
+      this.aviso(hoja, null, columna, `${cantidad} ${cantidad === 1 ? 'valor traía' : 'valores traían'} centavos y se redondeó al peso más cercano`);
+    }
+  }
 }
 
 // Lee los datos de una fila según el tipo de cada columna y anota los errores. `ok` queda en false si algo falló.
@@ -251,6 +265,12 @@ class LectorFila {
   }
   pesos(clave: string) {
     return this.leer(clave, leerPesos);
+  }
+  // Para datos de referencia que pueden traer centavos (precio de lista, valor por m²): se redondea al peso y se cuenta.
+  pesosRedondeados(clave: string) {
+    const lectura = this.leer(clave, leerPesosRedondeados);
+    if (lectura?.redondeado) this.colector.redondeo(this.hoja.nombre, this.hoja.columnas.find((candidata) => candidata.clave === clave)?.encabezado);
+    return lectura?.valor;
   }
   decimal(clave: string) {
     return this.leer(clave, leerDecimal);
@@ -456,8 +476,8 @@ export function validarImportacion(libro: LibroLeido, contexto: ContextoValidaci
     const manzana = lector.texto('manzana');
     const numero = lector.codigo('numero');
     const area = lector.decimal('area');
-    const valorVenta = lector.pesos('valorVenta');
-    const valorPorM2 = lector.pesos('valorPorM2');
+    const valorVenta = lector.pesosRedondeados('valorVenta');
+    const valorPorM2 = lector.pesosRedondeados('valorPorM2');
     const linderos = lector.texto('linderos');
     if (area !== undefined && area.lessThanOrEqualTo(0)) lector.falla('area', 'El área debe ser mayor a cero');
     if (valorVenta !== undefined && valorVenta.lessThanOrEqualTo(0)) lector.falla('valorVenta', 'El precio debe ser mayor a cero');
@@ -956,6 +976,8 @@ export function validarImportacion(libro: LibroLeido, contexto: ContextoValidaci
     totalSaldo: totalSaldo.toString(),
     conDiferencia: conciliacion.filter((fila) => fila.estado === 'DIFERENCIA').length,
   };
+
+  colector.avisarRedondeos();
 
   return { errores: colector.errores, avisos: colector.avisos, plan, resumen, conciliacion };
 }

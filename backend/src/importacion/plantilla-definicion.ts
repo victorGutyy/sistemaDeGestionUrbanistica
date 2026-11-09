@@ -97,8 +97,8 @@ export const HOJAS: HojaPlantilla[] = [
     columnas: [
       ...COLUMNAS_LOTE,
       { clave: 'area', encabezado: 'Área (m²)', alias: ['Area', 'Área', 'Area m2'], tipo: 'decimal', obligatoria: true, ayuda: 'Área del lote en metros cuadrados (hasta 2 decimales).', ejemplo: '90', ancho: 12 },
-      { clave: 'valorVenta', encabezado: 'Precio de venta', alias: ['Valor de venta', 'Valor venta', 'Precio'], tipo: 'pesos', obligatoria: true, ayuda: 'Precio de lista del lote, en pesos enteros.', ejemplo: '45000000', ancho: 18 },
-      { clave: 'valorPorM2', encabezado: 'Valor por m²', alias: ['Valor m2', 'Precio por m2'], tipo: 'pesos', obligatoria: false, ayuda: 'Informativo.', ejemplo: '500000', ancho: 14 },
+      { clave: 'valorVenta', encabezado: 'Precio de venta', alias: ['Valor de venta', 'Valor venta', 'Precio'], tipo: 'pesos', obligatoria: true, ayuda: 'Precio de lista del lote, en pesos. Si trae centavos (por ejemplo un precio calculado), se redondea al peso más cercano.', ejemplo: '45000000', ancho: 18 },
+      { clave: 'valorPorM2', encabezado: 'Valor por m²', alias: ['Valor m2', 'Precio por m2'], tipo: 'pesos', obligatoria: false, ayuda: 'Informativo. Si trae centavos (por ejemplo una fórmula de precio ÷ área), se redondea al peso más cercano.', ejemplo: '500000', ancho: 14 },
       { clave: 'linderos', encabezado: 'Linderos', alias: ['Medidas', 'Medidas y linderos'], tipo: 'texto', obligatoria: false, ayuda: 'Medidas y linderos en texto libre.', ejemplo: 'Norte 9 m con vía, sur 9 m con lote 13', ancho: 36 },
     ],
   },

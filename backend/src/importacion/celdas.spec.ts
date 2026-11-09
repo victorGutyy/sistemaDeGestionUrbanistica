@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esVacia, leerCodigo, leerDecimal, leerEntero, leerFecha, leerOpcion, leerPesos, leerTexto, normalizarTexto } from './celdas.js';
+import { esVacia, leerCodigo, leerDecimal, leerEntero, leerFecha, leerOpcion, leerPesos, leerPesosRedondeados, leerTexto, normalizarTexto } from './celdas.js';
 
 const valor = <T>(lectura: { ok: true; valor: T } | { ok: false; mensaje: string }) => (lectura.ok ? lectura.valor : `ERROR: ${lectura.mensaje}`);
 
@@ -28,6 +28,46 @@ describe('leerPesos', () => {
     const lectura = leerPesos(celda as never);
     expect(lectura.ok).toBe(false);
     if (!lectura.ok) expect(lectura.mensaje).toMatch(mensaje);
+  });
+});
+
+describe('leerPesosRedondeados', () => {
+  it.each([
+    // [celda, pesos esperados, ¿redondeó?]
+    [45_000_000, '45000000', false],
+    ['$1.500.000', '1500000', false],
+    ['1.500.000,00', '1500000', false],
+    [611_111.4444, '611111', true],
+    [611_111.5, '611112', true],
+    [70_588_000.0000001, '70588000', true],
+    ['611111,56', '611112', true],
+    ['$1.500.000,49', '1500000', true],
+    [0, '0', false],
+  ])('acepta %j y lo deja en pesos enteros', (celda, esperado, redondeado) => {
+    const lectura = leerPesosRedondeados(celda);
+    expect(lectura.ok).toBe(true);
+    if (lectura.ok) {
+      expect(lectura.valor.valor.toString()).toBe(esperado);
+      expect(lectura.valor.redondeado).toBe(redondeado);
+    }
+  });
+
+  it.each([
+    [-1, /negativo/],
+    ['-500,5', /negativo/],
+    ['abc', /valor en pesos/],
+    ['611.111.5', /valor en pesos/],
+    [1_000_000_000_000, /demasiado grande/],
+    [Number.POSITIVE_INFINITY, /valor en pesos/],
+    [new Date(), /fecha/],
+  ])('rechaza %j', (celda, mensaje) => {
+    const lectura = leerPesosRedondeados(celda as never);
+    expect(lectura.ok).toBe(false);
+    if (!lectura.ok) expect(lectura.mensaje).toMatch(mensaje);
+  });
+
+  it('leerPesos sigue siendo estricto: el dinero que se cobra no admite centavos', () => {
+    expect(leerPesos(611_111.5).ok).toBe(false);
   });
 });
 

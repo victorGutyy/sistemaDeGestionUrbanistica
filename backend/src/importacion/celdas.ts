@@ -71,6 +71,39 @@ export function leerPesos(celda: Celda): Lectura<Prisma.Decimal> {
   return ok(new Prisma.Decimal(entero));
 }
 
+const PESOS_CON_PUNTOS_Y_CENTAVOS = /^\d{1,3}(\.\d{3})+(,\d+)?$/;
+const PESOS_PLANOS_Y_CENTAVOS = /^\d+(,\d+)?$/;
+
+export interface PesosRedondeados {
+  valor: Prisma.Decimal;
+  // true si la celda traía centavos y se redondearon al peso más cercano.
+  redondeado: boolean;
+}
+
+// Dinero de referencia que puede traer centavos (un precio de lista calculado como área × valor por m²): se redondea al peso más
+// cercano (la mitad hacia arriba) y avisa si redondeó. Solo para datos de referencia, NUNCA para pagos, cuotas ni totales de venta:
+// en el dinero que se cobra el sistema trabaja en pesos enteros (ver leerPesos).
+export function leerPesosRedondeados(celda: Celda): Lectura<PesosRedondeados> {
+  if (celda instanceof Date) return mal('Debe ser un valor en pesos, no una fecha');
+  let original: Prisma.Decimal;
+  if (typeof celda === 'number') {
+    if (!Number.isFinite(celda)) return mal('Debe ser un valor en pesos');
+    if (celda < 0) return mal('No puede ser negativo');
+    original = new Prisma.Decimal(celda);
+  } else {
+    const texto = String(celda).replace(/[$\s]/g, '');
+    if (texto.startsWith('-')) return mal('No puede ser negativo');
+    if (!PESOS_CON_PUNTOS_Y_CENTAVOS.test(texto) && !PESOS_PLANOS_Y_CENTAVOS.test(texto)) {
+      return mal('Debe ser un valor en pesos (por ejemplo 1500000 o $1.500.000)');
+    }
+    const [enteros, centavos = ''] = texto.split(',');
+    original = new Prisma.Decimal(`${enteros.replace(/\./g, '')}${centavos ? `.${centavos}` : ''}`);
+  }
+  const valor = original.toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP);
+  if (valor.greaterThan(MAXIMO_PESOS)) return mal('El valor es demasiado grande');
+  return ok({ valor, redondeado: !valor.equals(original) });
+}
+
 // Áreas y medidas: número con hasta 2 decimales (punto o coma).
 export function leerDecimal(celda: Celda): Lectura<Prisma.Decimal> {
   if (celda instanceof Date) return mal('Debe ser un número, no una fecha');

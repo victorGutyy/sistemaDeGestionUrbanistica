@@ -270,6 +270,49 @@ describe('validarImportacion · lo que ya existe en el sistema', () => {
   });
 });
 
+describe('validarImportacion · precio y valor por m² con centavos', () => {
+  it('redondea al peso el precio y el valor por m² de los lotes y avisa una sola vez por columna', () => {
+    const lotes = [
+      { ...LOTE, numero: '1', area: 115.51, valorVenta: 70_588_000.0000001, valorPorM2: 611_111.1111 },
+      { ...LOTE, numero: '2', area: 90, valorVenta: 45_000_000, valorPorM2: 500_000.6 },
+      { ...LOTE, numero: '3', area: 100, valorVenta: 50_000_000.5 },
+    ];
+    const resultado = validarImportacion(libro({ proyectos: [PROYECTO], lotes }), contextoVacio());
+    expect(resultado.errores).toEqual([]);
+    expect(resultado.plan.lotes.map((lote) => lote.valorVenta.toString())).toEqual(['70588000', '45000000', '50000001']);
+    expect(resultado.plan.lotes.map((lote) => lote.valorPorM2?.toString() ?? null)).toEqual(['611111', '500001', null]);
+
+    const avisosDeRedondeo = resultado.avisos.filter((aviso) => /redondeó/.test(aviso.mensaje));
+    expect(avisosDeRedondeo.map((aviso) => [aviso.hoja, aviso.columna, aviso.fila, aviso.mensaje])).toEqual([
+      ['Lotes', 'Precio de venta', null, '2 valores traían centavos y se redondeó al peso más cercano'],
+      ['Lotes', 'Valor por m²', null, '2 valores traían centavos y se redondeó al peso más cercano'],
+    ]);
+  });
+
+  it('sin centavos no hay aviso de redondeo', () => {
+    const resultado = validarImportacion(libro(base()), contextoVacio());
+    expect(resultado.avisos.filter((aviso) => /redondeó/.test(aviso.mensaje))).toEqual([]);
+  });
+
+  it('el valor total de la venta, la cuota inicial y los abonos siguen exigiendo pesos enteros', () => {
+    const resultado = validarImportacion(
+      libro(base({ ventas: [{ ...VENTA_FINANCIADA, valorTotal: 45_000_000.5 }], abonos: [{ ...ABONO_CUOTA_INICIAL, valor: 13_500_000.5 }] })),
+      contextoVacio(),
+    );
+    expect(resultado.errores.map((error) => [error.hoja, error.columna])).toEqual(
+      expect.arrayContaining([
+        ['Ventas', 'Valor total'],
+        ['Abonos', 'Valor pagado'],
+      ]),
+    );
+  });
+
+  it('un precio negativo o con texto sigue siendo un error', () => {
+    const resultado = validarImportacion(libro({ proyectos: [PROYECTO], lotes: [{ ...LOTE, valorVenta: -5 }, { ...LOTE, numero: '2', valorVenta: 'abc' }] }), contextoVacio());
+    expect(resultado.errores.filter((error) => error.hoja === 'Lotes' && error.columna === 'Precio de venta')).toHaveLength(2);
+  });
+});
+
 describe('validarImportacion · referencias entre hojas y datos inválidos', () => {
   it('un lote, cliente o proyecto que no existe en ninguna parte es un error ubicado por hoja y fila', () => {
     const resultado = validarImportacion(
