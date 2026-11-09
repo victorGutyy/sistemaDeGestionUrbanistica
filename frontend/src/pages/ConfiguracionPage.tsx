@@ -340,7 +340,7 @@ function SeccionParametros({ empresa, onGuardada }: { empresa: EmpresaConfig; on
       <Aviso error={error} ok={ok} />
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Campo id="cuotaInicial" etiqueta="Cuota inicial (%)" ayuda="Porcentaje del valor del lote que se pide al firmar.">
+          <Campo id="cuotaInicial" etiqueta="Cuota inicial sugerida (%)" ayuda="Porcentaje del valor del lote que se sugiere al registrar una venta. La cuota inicial es libre: en cada venta se escribe el valor que acuerden el cliente y la empresa.">
             <input id="cuotaInicial" required inputMode="decimal" value={cuotaInicial} onChange={(e) => setCuotaInicial(e.target.value)} className={CLASE_INPUT} />
           </Campo>
           <Campo id="plazo" etiqueta="Plazo máximo (meses)">

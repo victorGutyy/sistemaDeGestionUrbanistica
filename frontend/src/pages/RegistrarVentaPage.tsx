@@ -22,10 +22,10 @@ import {
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
 import { ETIQUETA_TIPO_DOCUMENTO, TIPOS_DOCUMENTO } from '../lib/clientes'
 import { formatearCOP, hoyEnBogota } from '../lib/formato'
+import { formatearPorcentaje } from '../lib/seguridadSocial'
 
 type OrigenCliente = 'existente' | 'nuevo'
 type OrigenVendedor = 'ninguno' | 'existente' | 'nuevo'
-type ModoCuotaInicial = 'porcentaje' | 'valor'
 
 const CLASE_INPUT =
   'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100'
@@ -70,8 +70,6 @@ export function RegistrarVentaPage() {
 
   const [formaPago, setFormaPago] = useState<FormaPago>('CONTADO')
   const [valorTotal, setValorTotal] = useState('')
-  const [modoCuota, setModoCuota] = useState<ModoCuotaInicial>('porcentaje')
-  const [porcentaje, setPorcentaje] = useState('')
   const [cuotaInicialValor, setCuotaInicialValor] = useState('')
   const [numeroCuotas, setNumeroCuotas] = useState('12')
   const [fechaVenta, setFechaVenta] = useState(() => hoyEnBogota())
@@ -99,7 +97,6 @@ export function RegistrarVentaPage() {
         setClientes(clientesRecibidos)
         setVendedores(vendedoresRecibidos)
         setParametros(parametrosRecibidos)
-        setPorcentaje(String(Number(parametrosRecibidos.porcentajeCuotaInicial)))
         const activos = medios.filter((m) => m.activo)
         setMediosPago(activos)
         setMedioPago(activos[0]?.medio ?? '')
@@ -123,17 +120,13 @@ export function RegistrarVentaPage() {
   const financiado = formaPago === 'FINANCIADO'
   const total = Number(valorTotal) || 0
   const cuotasNum = Number(numeroCuotas) || 0
-  const cuotaInicial = !financiado
-    ? total
-    : modoCuota === 'porcentaje'
-      ? Math.round((total * (Number(porcentaje) || 0)) / 100)
-      : Number(cuotaInicialValor) || 0
-  const minimaCuotaInicial = parametros ? Math.round((total * Number(parametros.porcentajeCuotaInicial)) / 100) : 0
+  // La cuota inicial es libre (CC-04): el porcentaje configurado solo se ofrece como valor sugerido.
+  const cuotaInicial = !financiado ? total : Number(cuotaInicialValor) || 0
+  const sugerida = parametros ? Math.round((total * Number(parametros.porcentajeCuotaInicial)) / 100) : 0
+  const porcentajeReal = total > 0 ? (cuotaInicial / total) * 100 : 0
+  const cuotaBajaDeLaSugerida = financiado && cuotaInicialValor !== '' && sugerida > 0 && cuotaInicial < sugerida
   const razonesExcepcion: string[] = []
   if (financiado && parametros && total > 0) {
-    if (cuotaInicial < minimaCuotaInicial) {
-      razonesExcepcion.push(`La cuota inicial (${pesos(cuotaInicial)}) es menor al ${Number(parametros.porcentajeCuotaInicial)} % configurado (mínimo ${pesos(minimaCuotaInicial)}).`)
-    }
     if (cuotasNum > parametros.plazoMaximoMeses) {
       razonesExcepcion.push(`El plazo (${cuotasNum} cuotas) supera el máximo de ${parametros.plazoMaximoMeses} meses.`)
     }
@@ -173,7 +166,7 @@ export function RegistrarVentaPage() {
         ...(financiado
           ? {
               numeroCuotas: cuotasNum,
-              ...(modoCuota === 'porcentaje' ? { cuotaInicialPorcentaje: porcentaje } : { cuotaInicial: cuotaInicialValor }),
+              cuotaInicial: cuotaInicialValor,
             }
           : {}),
         fechaVenta,
@@ -340,41 +333,36 @@ export function RegistrarVentaPage() {
 
         {financiado && (
           <div className="space-y-3 rounded-md border border-slate-200 p-3">
-            <div className="flex flex-wrap gap-4 text-sm text-slate-600">
-              <span className="font-medium text-slate-700">Cuota inicial:</span>
-              <label className="flex items-center gap-1">
-                <input type="radio" checked={modoCuota === 'porcentaje'} onChange={() => setModoCuota('porcentaje')} />
-                En porcentaje
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="radio" checked={modoCuota === 'valor'} onChange={() => setModoCuota('valor')} />
-                En valor
-              </label>
-            </div>
-
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {modoCuota === 'porcentaje' ? (
-                <div>
-                  <label htmlFor="porcentaje" className="block text-sm text-slate-700">
-                    Porcentaje (%)
-                  </label>
-                  <input id="porcentaje" required inputMode="decimal" value={porcentaje} onChange={(e) => setPorcentaje(e.target.value.replace(',', '.'))} className={CLASE_INPUT} />
-                </div>
-              ) : (
-                <div>
-                  <label htmlFor="cuotaInicialValor" className="block text-sm text-slate-700">
-                    Valor (pesos)
-                  </label>
-                  <input
-                    id="cuotaInicialValor"
-                    required
-                    inputMode="numeric"
-                    value={cuotaInicialValor}
-                    onChange={(e) => setCuotaInicialValor(soloDigitos(e.target.value))}
-                    className={CLASE_INPUT}
-                  />
-                </div>
-              )}
+              <div>
+                <label htmlFor="cuotaInicialValor" className="block text-sm text-slate-700">
+                  Cuota inicial (pesos)
+                </label>
+                <input
+                  id="cuotaInicialValor"
+                  required
+                  inputMode="numeric"
+                  value={cuotaInicialValor}
+                  onChange={(e) => setCuotaInicialValor(soloDigitos(e.target.value))}
+                  className={CLASE_INPUT}
+                />
+                {total > 0 && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {cuotaInicialValor !== '' && <>Equivale al {formatearPorcentaje(porcentajeReal, 1)} del valor total. </>}
+                    {sugerida > 0 && (
+                      <>
+                        Sugerida ({Number(parametros?.porcentajeCuotaInicial)} %): {pesos(sugerida)}.{' '}
+                        <button type="button" onClick={() => setCuotaInicialValor(String(sugerida))} className="font-medium text-blue-700 underline">
+                          Usar la sugerida
+                        </button>
+                      </>
+                    )}
+                  </p>
+                )}
+                {cuotaBajaDeLaSugerida && (
+                  <p className="mt-1 text-xs text-amber-700">Es menor a la sugerida. No necesita autorización: queda registrado el valor que acuerden el cliente y la empresa.</p>
+                )}
+              </div>
               <div>
                 <label htmlFor="numeroCuotas" className="block text-sm text-slate-700">
                   Número de cuotas

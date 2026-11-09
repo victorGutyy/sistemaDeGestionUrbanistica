@@ -223,7 +223,7 @@ p("Todos los roles ven las ventas. Registrar ventas lo hacen el gerente y el adm
 h2("Qué ventajas te da")
 ul("El plan de cuotas se calcula solo, con valores en pesos enteros y sin errores de suma.",
    "Las condiciones del negocio (cuota inicial, plazo máximo) vienen de la configuración, así que no dependen de la memoria de nadie.",
-   "Las ventas que se salen de las reglas (por ejemplo, una cuota inicial menor) quedan **pendientes de aprobación** del gerente, con su motivo.",
+   "Las ventas que se salen de las reglas (por ejemplo, un plazo mayor al máximo) quedan **pendientes de aprobación** del gerente, con su motivo.",
    "Todos los documentos firmados quedan adjuntos a la venta.")
 h2("Paso a paso")
 h3("Ver las ventas")
@@ -239,9 +239,9 @@ h3("Venta de contado")
 p("Elige **Contado** (1) como en la {fig:venta-contado}. El valor total aparece ya escrito con el precio del lote, pero puedes cambiarlo. Si el cliente pagó todo hoy, marca **Ya se recibió el pago completo** (2) y elige el medio de pago: el sistema registra el abono y emite el recibo. Si todavía no pagó, déjala sin marcar y registra el abono después. Termina con **Registrar venta** (3).")
 fig("venta-contado")
 h3("Venta financiada")
-p("Elige **Financiado** (1) y se despliegan las condiciones, como en la {fig:venta-financiada}. La **cuota inicial** se puede escribir como porcentaje (por defecto, 30 %) o como valor, y el **número de cuotas** (por defecto, 12) divide el saldo. El sistema te muestra al instante la cuota inicial, el saldo a financiar y el valor aproximado de cada cuota. La financiación de la empresa no cobra interés. Si el cliente ya entregó la cuota inicial, marca la casilla y elige el medio de pago.")
+p("Elige **Financiado** (1) y se despliegan las condiciones, como en la {fig:venta-financiada}. La **cuota inicial** se escribe en pesos: es libre, el valor lo acuerdan el cliente y la empresa. El sistema te sugiere el porcentaje configurado (por defecto, 30 %) con el botón **Usar la sugerida** y te dice a qué porcentaje equivale lo que escribiste. El **número de cuotas** (por defecto, 12) divide el saldo. El sistema te muestra al instante la cuota inicial, el saldo a financiar y el valor aproximado de cada cuota. La financiación de la empresa no cobra interés. Si el cliente ya entregó la cuota inicial, marca la casilla y elige el medio de pago.")
 fig("venta-financiada")
-importante("Si la cuota inicial queda por debajo del mínimo o el plazo supera el máximo configurados, la venta se guarda como **pendiente de aprobación** y pide un motivo. No se genera su plan de cuotas hasta que el gerente la apruebe.")
+importante("Si el plazo supera el máximo configurado, la venta se guarda como **pendiente de aprobación** y pide un motivo. No se genera su plan de cuotas hasta que el gerente la apruebe. Una cuota inicial menor a la sugerida no necesita aprobación: la pantalla solo te avisa.")
 h3("Seguir una venta")
 p("El detalle de una venta ({fig:venta-financiada-detalle}) tiene arriba el botón **Registrar abono** (1) y tres tarjetas: lo que el cliente ya pagó (2), el saldo pendiente (3) y la próxima cuota (4). También muestra si el cliente está al día o tiene cuotas vencidas.")
 fig("venta-financiada-detalle")
@@ -707,7 +707,7 @@ h3("Datos de la empresa")
 p("La primera sección ({fig:config-empresa}) guarda los datos de la empresa. Con **Subir logo** (1) cargas el logo (PNG, JPG o WebP de hasta 2 MB). Completa la **razón social** (2), el nombre comercial, el NIT, el correo de contacto, la dirección y los teléfonos. El **color principal** (3) cambia el color de los botones. También defines el prefijo de los recibos (por ejemplo, RC-) y el texto legal que se imprime al pie de cada recibo. Guarda con **Guardar datos de la empresa** (4).")
 fig("config-empresa")
 h3("Parámetros del negocio")
-p("La segunda sección ({fig:config-parametros}) tiene las reglas de venta y cartera: el porcentaje de la **cuota inicial** (1), el **plazo máximo** en meses (2), el interés de financiación, el **interés de mora mensual** (3), los días de gracia antes de cobrar mora y los días de aviso del semáforo amarillo.")
+p("La segunda sección ({fig:config-parametros}) tiene las reglas de venta y cartera: el porcentaje de **cuota inicial sugerida** (1), el **plazo máximo** en meses (2), el interés de financiación, el **interés de mora mensual** (3), los días de gracia antes de cobrar mora y los días de aviso del semáforo amarillo.")
 fig("config-parametros")
 p("Más abajo están los **avisos a clientes**, la **verificación de pagos** y la **seguridad de la sesión** ({fig:config-avisos} y {fig:config-seguridad}): cuántos días antes se manda el recordatorio, cada cuántos días se repite el aviso de mora, si el recibo se manda solo por correo, cuántos días de espera antes de que un pago sin verificar se ponga en rojo, cuántos intentos fallidos bloquean una cuenta y cuántos minutos de inactividad cierran la sesión. Todo se guarda con **Guardar parámetros**.")
 fig("config-avisos")
@@ -797,7 +797,7 @@ tabla("glosario", "Palabras que verás en el sistema", ["Palabra", "Qué signifi
     ["EPP", "Elementos de protección personal: casco, guantes, botas, gafas y demás que se entregan al trabajador. Cada uno tiene una vida útil, al cabo de la cual se repone."],
     ["EPS", "Entidad promotora de salud a la que está afiliado el trabajador."],
     ["Escriturar", "Marcar que el lote ya tiene su escritura firmada."],
-    ["Excepción", "Una venta que se sale de las reglas (por ejemplo, cuota inicial menor). Necesita aprobación del gerente."],
+    ["Excepción", "Una venta que se sale de las reglas (por ejemplo, un plazo mayor al máximo). Necesita aprobación del gerente."],
     ["Extracto", "El documento del banco que muestra los movimientos de una cuenta."],
     ["Financiada", "Venta en la que la empresa le da plazo al comprador para pagar el saldo."],
     ["Incapacidad", "Tiempo en que un médico ordena que el trabajador no trabaje por una enfermedad o un accidente. Según el origen y los días, la pagan el empleador, la EPS, la ARL o el fondo de pensiones."],
@@ -827,7 +827,7 @@ p("Porque los pagos por banco quedan pendientes hasta confirmarse contra el extr
 h3("¿Por qué no puedo generar un cierre de caja?")
 p("Hay dos causas frecuentes: el cierre anterior todavía no está aprobado, o el período que elegiste no ha terminado. El sistema te muestra el mensaje en la misma pantalla.")
 h3("Una venta quedó “pendiente de aprobación”. ¿Qué hago?")
-p("Se salió de las reglas (cuota inicial baja o plazo largo). El gerente debe aprobarla o rechazarla desde la lista de ventas.")
+p("Se salió de las reglas (plazo largo). El gerente debe aprobarla o rechazarla desde la lista de ventas.")
 h3("¿Cómo sé si el cliente recibió el recibo?")
 p("Mira la opción Notificaciones: allí queda cada aviso con su resultado. Si el resultado es “Omitida”, el cliente no tiene correo registrado: usa WhatsApp o edita su ficha.")
 h3("¿Puedo usar el sistema desde el celular?")

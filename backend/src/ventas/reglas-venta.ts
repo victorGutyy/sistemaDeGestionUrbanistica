@@ -18,11 +18,6 @@ export function aPesos(valor: Prisma.Decimal): Prisma.Decimal {
   return valor.toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP);
 }
 
-// Cuota inicial mínima que no exige excepción.
-export function cuotaInicialMinima(valorTotal: Prisma.Decimal, parametros: ParametrosVenta): Prisma.Decimal {
-  return aPesos(valorTotal.mul(parametros.porcentajeCuotaInicial).div(100));
-}
-
 interface EntradaCuotaInicial {
   formaPago: FormaPago;
   valorTotal: Prisma.Decimal;
@@ -52,21 +47,13 @@ export interface EvaluacionExcepcion {
   razones: string[];
 }
 
-// Una venta financiada es excepción si la cuota inicial queda por debajo de la configurada
-// o si el plazo supera el máximo. La venta de contado nunca es excepción.
-export function evaluarExcepcion(
-  venta: { formaPago: FormaPago; valorTotal: Prisma.Decimal; cuotaInicial: Prisma.Decimal; numeroCuotas?: number | null },
-  parametros: ParametrosVenta,
-): EvaluacionExcepcion {
+// Una venta financiada es excepción solo si el plazo supera el máximo. La venta de contado nunca es excepción.
+// La cuota inicial es libre (CC-04): el porcentaje configurado es solo una sugerencia, así que una cuota inicial
+// menor NO es excepción y no pide motivo ni autorización (la pantalla solo avisa el porcentaje real).
+export function evaluarExcepcion(venta: { formaPago: FormaPago; numeroCuotas?: number | null }, parametros: ParametrosVenta): EvaluacionExcepcion {
   const razones: string[] = [];
 
   if (venta.formaPago === FormaPago.FINANCIADO) {
-    const minima = cuotaInicialMinima(venta.valorTotal, parametros);
-    if (venta.cuotaInicial.lessThan(minima)) {
-      razones.push(
-        `La cuota inicial es menor al ${parametros.porcentajeCuotaInicial.toString()} % configurado (mínimo ${minima.toString()}).`,
-      );
-    }
     if (venta.numeroCuotas && venta.numeroCuotas > parametros.plazoMaximoMeses) {
       razones.push(`El plazo (${venta.numeroCuotas} cuotas) supera el máximo de ${parametros.plazoMaximoMeses} meses.`);
     }

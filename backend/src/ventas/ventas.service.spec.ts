@@ -347,21 +347,37 @@ describe('VentasService.crear', () => {
   });
 
   describe('excepciones (RF-VEN-05)', () => {
-    const CUOTA_BAJA = { ...BASE_FINANCIADA, cuotaInicial: '10000000' };
+    // La cuota inicial es libre (CC-04): lo que exige excepción es el plazo mayor al máximo (12).
+    const PLAZO_LARGO = { ...BASE_FINANCIADA, numeroCuotas: 24 };
 
-    it('una cuota inicial baja sin motivo se rechaza, avisando la razón y el código', async () => {
-      const error = await service.crear(CUOTA_BAJA, GERENTE).catch((e: unknown) => e);
+    it('un plazo mayor al máximo sin motivo se rechaza, avisando la razón y el código', async () => {
+      const error = await service.crear(PLAZO_LARGO, GERENTE).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(BadRequestException);
       expect((error as BadRequestException).getResponse()).toMatchObject({ codigo: 'EXCEPCION_REQUIERE_MOTIVO' });
       expect(tx.venta.create).not.toHaveBeenCalled();
     });
 
-    it('un plazo mayor al máximo también exige motivo', async () => {
-      await expect(service.crear({ ...BASE_FINANCIADA, numeroCuotas: 24 }, GERENTE)).rejects.toBeInstanceOf(BadRequestException);
+    it('una cuota inicial menor al porcentaje configurado NO es excepción: se registra ACTIVA, sin motivo ni autorización', async () => {
+      // 10 % cuando el porcentaje configurado es 30 %; la registra quien no puede autorizar.
+      await service.crear({ ...BASE_FINANCIADA, cuotaInicial: '10000000' }, USUARIO);
+
+      const { data } = tx.venta.create.mock.calls[0][0];
+      expect(data).toMatchObject({ estado: EstadoVenta.ACTIVA, esExcepcion: false, motivoExcepcion: null });
+      expect(data.cuotaInicial.toString()).toBe('10000000');
+      expect(tx.cuota.createMany).toHaveBeenCalled();
+      expect(tx.lote.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { estado: EstadoLote.VENDIDO } }));
+    });
+
+    it('el resto después de una cuota inicial libre se reparte en cuotas iguales que suman el saldo exacto', async () => {
+      await service.crear({ ...BASE_FINANCIADA, cuotaInicial: '12345678', numeroCuotas: 7 }, USUARIO);
+      const cuotas = tx.cuota.createMany.mock.calls[0][0].data as { valor: Prisma.Decimal }[];
+      const suma = cuotas.reduce((total, c) => total.plus(c.valor), D('0'));
+      expect(cuotas).toHaveLength(7);
+      expect(suma.toString()).toBe('87654322'); // 100.000.000 - 12.345.678
     });
 
     it('quien no puede autorizar deja la venta PENDIENTE_APROBACION: sin plan de cuotas, y el lote queda SEPARADO', async () => {
-      await service.crear({ ...CUOTA_BAJA, motivoExcepcion: 'Cliente de confianza' }, USUARIO);
+      await service.crear({ ...PLAZO_LARGO, motivoExcepcion: 'Cliente de confianza' }, USUARIO);
 
       const { data } = tx.venta.create.mock.calls[0][0];
       expect(data).toMatchObject({ estado: EstadoVenta.PENDIENTE_APROBACION, esExcepcion: true, motivoExcepcion: 'Cliente de confianza', resueltaPorId: null });
@@ -377,19 +393,19 @@ describe('VentasService.crear', () => {
 
     it('una venta pendiente sobre un lote que ya estaba SEPARADO no lo vuelve a separar', async () => {
       tx.lote.findUnique.mockResolvedValue({ ...LOTE, estado: EstadoLote.SEPARADO });
-      await service.crear({ ...CUOTA_BAJA, motivoExcepcion: 'Motivo válido' }, USUARIO);
+      await service.crear({ ...PLAZO_LARGO, motivoExcepcion: 'Motivo válido' }, USUARIO);
       expect(tx.lote.updateMany).not.toHaveBeenCalled();
       expect(tx.venta.update).not.toHaveBeenCalled();
     });
 
     it('una venta pendiente no puede registrar el pago de la cuota inicial todavía', async () => {
       await expect(
-        service.crear({ ...CUOTA_BAJA, motivoExcepcion: 'Motivo válido', cuotaInicialRecibida: true, medioPago: MedioPago.EFECTIVO }, USUARIO),
+        service.crear({ ...PLAZO_LARGO, motivoExcepcion: 'Motivo válido', cuotaInicialRecibida: true, medioPago: MedioPago.EFECTIVO }, USUARIO),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('quien puede autorizar (gerente) la deja ACTIVA, autorizada por él mismo y con el motivo registrado', async () => {
-      await service.crear({ ...CUOTA_BAJA, motivoExcepcion: 'Cliente de confianza' }, GERENTE);
+      await service.crear({ ...PLAZO_LARGO, motivoExcepcion: 'Cliente de confianza' }, GERENTE);
 
       const { data } = tx.venta.create.mock.calls[0][0];
       expect(data).toMatchObject({ estado: EstadoVenta.ACTIVA, esExcepcion: true, motivoExcepcion: 'Cliente de confianza', resueltaPorId: GERENTE.id });
@@ -832,8 +848,8 @@ describe('VentasService: comisiones de la venta (RF-COM-01 y RF-COM-04)', () => 
   });
 
   it('una excepción pendiente de aprobación todavía no genera comisión', async () => {
-    // Cuota inicial del 10 % (la configurada es 30 %): queda pendiente porque quien registra no puede autorizar.
-    await service.crear({ ...BASE_FINANCIADA, cuotaInicial: '10000000', motivoExcepcion: 'Convenio con la empresa del comprador', vendedorId: 'vend-1' }, USUARIO);
+    // Plazo de 24 cuotas (el máximo es 12): queda pendiente porque quien registra no puede autorizar.
+    await service.crear({ ...BASE_FINANCIADA, numeroCuotas: 24, motivoExcepcion: 'Convenio con la empresa del comprador', vendedorId: 'vend-1' }, USUARIO);
     expect(tx.venta.create.mock.calls[0][0].data.estado).toBe(EstadoVenta.PENDIENTE_APROBACION);
     expect(tx.comision.create).not.toHaveBeenCalled();
   });

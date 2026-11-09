@@ -103,7 +103,7 @@ Los cambios de alcance posteriores a esta versión se registran en la sección *
 | RF-VEN-02 | Registrar una venta de contado o financiada | Debe | 1 |
 | RF-VEN-03 | Definir la cuota inicial en porcentaje o en valor; por defecto, el porcentaje configurado | Debe | 1 |
 | RF-VEN-04 | Generar automáticamente el plan de cuotas mensuales sin interés, con fechas y valores | Debe | 1 |
-| RF-VEN-05 | Exigir motivo y autorización del gerente cuando la cuota inicial sea menor a la configurada o el plazo supere el máximo | Debe | 1 |
+| RF-VEN-05 | Exigir motivo y autorización del gerente cuando el plazo supere el máximo (la cuota inicial es libre y solo se avisa si queda por debajo de la sugerida; ver CC-04) | Debe | 1 |
 | RF-VEN-06 | Adjuntar a la venta uno o varios documentos firmados (PDF o imagen) | Debe | 1 |
 | RF-VEN-07 | Registrar el vendedor de la venta: asesor inmobiliario o referido, con nombre, documento y teléfono | Debe | 1 |
 | RF-VEN-08 | Registrar el desistimiento de una venta con motivo, fecha y valor a devolver o retener, sin borrar sus abonos ni recibos | Debe | 1 |
@@ -518,3 +518,17 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 | Clases de riesgo y tasas de ARL que aplican a los trabajadores de Balder | RF-CFG-14, RF-PER-18 |
 | Cantidad de trabajadores a cubrir (el libro prevé unos 200) y si hay registros reales para cargar | RF-SST-23 |
 | Tiempo que la empresa debe conservar estos registros, según su asesor de SST | RF-SST-21 |
+
+### CC-04 · 9 de noviembre de 2026 · Cuota inicial libre en la venta financiada
+
+**Origen.** Pedido de Víctor tras las primeras pruebas con el sistema en producción: la cuota inicial no siempre es el 30 %; el valor lo acuerdan el cliente y la empresa y el resto se reparte en cuotas mensuales.
+
+**Cambio.**
+- RF-VEN-03 (cuota inicial en porcentaje o en valor): la pantalla de venta pide ahora la cuota inicial en **pesos**, con el porcentaje configurado como **valor sugerido** (botón "Usar la sugerida") y el porcentaje real que resulta como dato informativo. El servidor sigue aceptando valor o porcentaje.
+- RF-VEN-04 (plan de cuotas): sin cambio; el saldo después de la cuota inicial se reparte en cuotas mensuales iguales y la última absorbe el residuo del redondeo.
+- RF-VEN-05 (excepciones): **una cuota inicial menor a la sugerida deja de ser excepción**: no pide motivo ni autorización del gerente y la venta nace activa; la pantalla solo avisa. El **plazo mayor al máximo** sigue exigiendo motivo y autorización del gerente.
+- RF-CFG (parámetros): el porcentaje de cuota inicial de Configuración pasa a llamarse "Cuota inicial sugerida (%)".
+
+**No cambia.** Las ventas ya registradas ni sus excepciones; la carga desde Excel; el plazo máximo; el interés de financiación.
+
+**Alcance y costo.** Ajuste pequeño de reglas y pantalla (sin migración); se asume dentro del presupuesto.

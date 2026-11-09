@@ -99,9 +99,10 @@ export class VentasService {
       throw new BadRequestException('La cuota inicial cubre todo el valor: registra la venta como de contado');
     }
 
-    // RF-VEN-05: cuota inicial baja o plazo largo = excepción, con motivo y autorización del gerente.
+    // RF-VEN-05 (ajustado por CC-04): un plazo mayor al máximo es excepción, con motivo y autorización del gerente.
+    // La cuota inicial es libre: no genera excepción.
     const numeroCuotas = dto.formaPago === FormaPago.FINANCIADO ? (dto.numeroCuotas ?? null) : null;
-    const evaluacion = evaluarExcepcion({ formaPago: dto.formaPago, valorTotal, cuotaInicial, numeroCuotas }, parametros);
+    const evaluacion = evaluarExcepcion({ formaPago: dto.formaPago, numeroCuotas }, parametros);
     const motivoExcepcion = dto.motivoExcepcion?.trim();
     if (evaluacion.esExcepcion && !motivoExcepcion) {
       throw new BadRequestException({
