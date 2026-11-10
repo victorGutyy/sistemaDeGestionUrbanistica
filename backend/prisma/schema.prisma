@@ -159,6 +159,8 @@ enum TipoNovedad {
   HORAS_EXTRA
   DESCUENTO
   INCAPACIDAD
+  // CC-05: adelanto de dinero al trabajador que se descuenta del pago (resta, igual que el descuento).
+  ANTICIPO
 }
 
 enum EstadoUsuario {
@@ -303,6 +305,7 @@ model Proyecto {
   lotes             Lote[]
   movimientos       MovimientoFinanciero[]
   equipos           Equipo[]
+  pagosNomina       PagoNomina[]
   usuariosConAcceso UsuarioProyecto[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
@@ -784,6 +787,15 @@ model Trabajador {
   cargo                            String
   tipoContrato                     TipoContrato             @default(OBRA_LABOR)
   salarioBase                      Decimal                  @db.Decimal(14, 2)
+  // CC-05: pago por día trabajado. El cargo del catálogo solo sugiere el valor día; el trabajador guarda el SUYO (cambia con
+  // el tiempo y no depende de la obra) y cada pago conserva una foto del valor con que se liquidó.
+  cargoNominaId                    String?
+  cargoNomina                      CargoNomina?             @relation(fields: [cargoNominaId], references: [id])
+  valorDia                         Decimal?                 @db.Decimal(14, 2)
+  // Datos para pagarle (banco, tipo y número de cuenta): texto libre porque cada banco los nombra distinto.
+  banco                            String?
+  tipoCuenta                       String?
+  numeroCuenta                     String?
   fechaIngreso                     DateTime
   // El retiro no borra al trabajador: queda la fecha y el motivo (RF-PER-17).
   fechaRetiro                      DateTime?
@@ -806,6 +818,18 @@ model Trabajador {
   ausentismos                      Ausentismo[]
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
+}
+
+// CC-05: catálogo de cargos de nómina (auxiliar, práctico, maestro, oficial, SISO...) con un valor día SUGERIDO. Es un
+// parámetro editable de la empresa, no una constante: un cargo se desactiva, no se borra.
+model CargoNomina {
+  id           String       @id @default(uuid())
+  nombre       String       @unique
+  valorDia     Decimal      @db.Decimal(14, 2)
+  activo       Boolean      @default(true)
+  trabajadores Trabajador[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 enum SexoTrabajador {
@@ -1349,22 +1373,39 @@ model RecobroAusentismo {
 // valorPagado quedan como una foto de ese momento (igual que Cuota.valor
 // en Ventas): si el salario del trabajador cambia después, los pagos ya
 // hechos no deben cambiar retroactivamente.
+//
+// CC-05: un pago por trabajador, obra y quincena. Los pagos nuevos por día traen el proyecto (la obra), los días
+// (admite medios días), el valor día aplicado, las horas extra con su tarifa digitada y el devengado (días + horas
+// extra), que es el costo que se carga a la obra; `salarioBase` guarda lo devengado por los días y `valorPagado` el neto
+// después de descuentos y anticipos. Todos los campos nuevos son opcionales: los pagos anteriores no los tienen.
 model PagoNomina {
-  id            String          @id @default(uuid())
-  trabajadorId  String
-  trabajador    Trabajador      @relation(fields: [trabajadorId], references: [id])
-  periodoInicio DateTime
-  periodoFin    DateTime
-  salarioBase   Decimal         @db.Decimal(14, 2)
-  valorPagado   Decimal         @db.Decimal(14, 2)
-  fechaPago     DateTime
+  id              String          @id @default(uuid())
+  trabajadorId    String
+  trabajador      Trabajador      @relation(fields: [trabajadorId], references: [id])
+  proyectoId      String?
+  proyecto        Proyecto?       @relation(fields: [proyectoId], references: [id])
+  periodoInicio   DateTime
+  periodoFin      DateTime
+  salarioBase     Decimal         @db.Decimal(14, 2)
+  dias            Decimal?        @db.Decimal(4, 1)
+  valorDia        Decimal?        @db.Decimal(14, 2)
+  horasExtra      Decimal?        @db.Decimal(5, 1)
+  valorHoraExtra  Decimal?        @db.Decimal(14, 2)
+  valorHorasExtra Decimal?        @db.Decimal(14, 2)
+  valorDevengado  Decimal?        @db.Decimal(14, 2)
+  observaciones   String?
+  valorPagado     Decimal         @db.Decimal(14, 2)
+  fechaPago       DateTime
   // Con qué se pagó y de qué cuenta salió el dinero: el cierre de caja necesita saber cuánto salió en efectivo.
-  medioPago     MedioPago
-  cuentaId      String?
-  cuenta        CuentaBancaria? @relation(fields: [cuentaId], references: [id])
-  novedades     NovedadNomina[]
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  medioPago       MedioPago
+  cuentaId        String?
+  cuenta          CuentaBancaria? @relation(fields: [cuentaId], references: [id])
+  novedades       NovedadNomina[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([proyectoId, periodoInicio])
+  @@index([trabajadorId, periodoInicio])
 }
 
 // Horas extra, descuento o incapacidad aplicada a un pago de nómina.

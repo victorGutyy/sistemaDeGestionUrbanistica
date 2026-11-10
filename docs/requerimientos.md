@@ -10,7 +10,7 @@ Fuentes: formulario de levantamiento (14 de octubre de 2026), entrevista y acta 
 
 Reparto por etapa (verificado): Etapa 1 = 77 requerimientos funcionales (68 "Debe"), Etapa 2 = 24, Etapa 3 = 11.
 
-Los cambios de alcance posteriores a esta versión se registran en la sección **Control de cambios** (al final). Los cambios CC-01 (11 requerimientos), CC-02 (8) y CC-03 (29 funcionales y 2 no funcionales) agregan 48 requerimientos funcionales y 2 no funcionales sin alterar los 112 y 32 originales.
+Los cambios de alcance posteriores a esta versión se registran en la sección **Control de cambios** (al final). Los cambios CC-01 (11 requerimientos), CC-02 (8), CC-03 (29 funcionales y 2 no funcionales) y CC-05 (6) agregan 54 requerimientos funcionales y 2 no funcionales sin alterar los 112 y 32 originales; CC-04 ajusta RF-VEN-03 y RF-VEN-05 sin agregar requerimientos.
 
 ## Convenciones
 
@@ -532,3 +532,41 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 **No cambia.** Las ventas ya registradas ni sus excepciones; la carga desde Excel; el plazo máximo; el interés de financiación.
 
 **Alcance y costo.** Ajuste pequeño de reglas y pantalla (sin migración); se asume dentro del presupuesto.
+
+### CC-05 · 10 de noviembre de 2026 · Nómina por obra y quincena (pago por día)
+
+**Origen.** Libro real de liquidación de la empresa y respuestas del administrador (10/11/2026). La empresa liquida por **obra y quincena**: una lista de trabajadores por obra, con días trabajados (admite medios días), valor del día, horas extra y un valor de hora extra digitado. Un trabajador puede trabajar en varias obras en la misma quincena y recibe **un pago por obra**. El módulo de nómina vigente liquida un salario mensual con novedades en pesos y no tiene obra, días ni horas extra, por lo que no sirve para esta operación.
+
+**Relación con requerimientos existentes.** RF-PER-03 (asignar trabajadores a proyectos), RF-PER-09 (el pago crea el egreso de nómina del proyecto) y RF-PER-10 (costo de mano de obra por proyecto y período) ya eran "Debe" de la Etapa 3, no estaban construidos y **siguen vigentes**: este cambio los construye. Cada pago nuevo lleva su proyecto, de donde sale el costo por obra.
+
+**Nuevos requerimientos funcionales (6).**
+
+| ID | Requerimiento | Prioridad | Etapa |
+|---|---|---|---|
+| RF-PER-19 | Mantener un catálogo de cargos de nómina (auxiliar, práctico, maestro, oficial, SISO, ingeniero, administrativo y los que la empresa defina) con un valor día sugerido, editable, que se desactiva y no se borra | Debe | 3 |
+| RF-PER-20 | Guardar en el trabajador su valor día vigente (precargado desde su cargo y ajustable, porque cambia con el tiempo y no depende de la obra) y sus datos de pago (banco, tipo y número de cuenta); cada pago conserva una foto del valor con que se liquidó | Debe | 3 |
+| RF-PER-21 | Liquidar la quincena por obra: un pago por trabajador, obra y período con días (enteros o medios días), horas extra con la tarifa digitada, devengado (costo de la obra) y neto pagado, en pesos enteros | Debe | 3 |
+| RF-PER-22 | Registrar el anticipo como novedad que resta del pago, igual que el descuento | Debe | 3 |
+| RF-PER-23 | Impedir un pago repetido del mismo trabajador en la misma obra y período, y avisar cuando los días de un trabajador en un período superen los días del período | Debería | 3 |
+| RF-PER-24 | Cargar desde Excel el historial de nómina desde septiembre de 2026 con un conversor que corre en el equipo del desarrollador y no imprime datos personales | Debería | 3 |
+
+**Reglas de negocio.**
+- El valor día del cargo es solo una sugerencia; el valor del pago es el del trabajador en ese momento y queda como foto.
+- El costo que se carga a la obra es el devengado (días más horas extra); descuentos y anticipos reducen lo pagado, no el costo de la obra.
+- Los valores se redondean al peso más cercano (la mitad hacia arriba). Topes de digitación: 31 días y 300 horas extra por pago.
+- Los pagos anteriores a este cambio no se modifican: los campos nuevos son opcionales.
+- Los datos bancarios del trabajador los ve solo quien tiene permiso de nómina, nunca el contratista de SST.
+
+**No se incluye.** Recibo de nómina en PDF (RF-PER-08), préstamos a trabajadores (CC-01), liquidación de prestaciones y seguridad social, y la nómina electrónica.
+
+**Fases.** N1.1 esquema y cálculo (hecho el 10/11/2026), N1.2 servicio y API, N1.3 cargos y ficha del trabajador, N1.4 pantalla de liquidación quincenal, N1.5 costo por proyecto en Finanzas, Flujo y Reportes, N1.6 verificación y despliegue, N2 conversor y carga del historial.
+
+**Puntos por confirmar derivados de este cambio:**
+
+| Punto | Requerimientos afectados |
+|---|---|
+| Cotización: si este cambio se cobra como adicional al presupuesto de $10.000.000 o va dentro de la Etapa 3 | CC-05 completo |
+| Catálogo final de cargos (¿topógrafo?) y si ingeniero, administrativo y SISO también se pagan por día | RF-PER-19 |
+| Tipo de proyecto de las obras (hoy solo Remodelación encaja) y cuáles se crean: las de la quincena del 1 al 15 de octubre de 2026 | RF-PER-03, RF-PER-21 |
+| Fecha y medio de pago de las quincenas del historial (el libro no los trae) | RF-PER-24 |
+| Si los trabajadores ya se cargaron por el módulo de SST o los crea el conversor | RF-PER-24 |
