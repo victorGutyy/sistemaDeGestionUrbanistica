@@ -5,3 +5,39 @@
     @apply bg-slate-50 text-slate-900 antialiased;
   }
 }
+
+/* Aspecto general (sin tocar cada pantalla): fondo con un degradado suave que parte del color de la empresa, tarjetas con
+   sombra y esquinas más redondeadas, y botones principales con un poco de relieve. Estas reglas van fuera de las capas de
+   Tailwind a propósito: así ganan sobre las clases sueltas de cada pantalla. */
+.fondo-app {
+  background-color: #f8fafc;
+  background-image: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-blue-500) 11%, #f8fafc) 0%,
+    #f8fafc 42%,
+    color-mix(in srgb, var(--color-blue-600) 7%, #f1f5f9) 100%
+  );
+  background-attachment: fixed;
+}
+
+[class~='rounded-lg'][class~='border-slate-200'][class~='bg-white'],
+[class~='rounded-xl'][class~='border-slate-200'][class~='bg-white'] {
+  border-radius: 0.75rem;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.05),
+    0 6px 16px -6px rgb(15 23 42 / 0.1);
+}
+
+:is(button, a)[class~='bg-blue-600'] {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.15), 0 4px 10px -4px color-mix(in srgb, var(--color-blue-600) 60%, transparent);
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+:is(button, a)[class~='bg-blue-600']:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+:is(button, a)[class~='bg-blue-600']:active:not(:disabled) {
+  transform: translateY(0);
+}

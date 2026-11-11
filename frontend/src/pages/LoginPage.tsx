@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { FondoLogo } from '../components/FondoLogo'
 import { LogoEmpresa } from '../components/LogoEmpresa'
 import { useAuth } from '../contexts/AuthContext'
 import { useEmpresa } from '../contexts/EmpresaContext'
@@ -39,7 +40,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+    <div className="fondo-app relative isolate flex min-h-screen items-center justify-center px-4">
+      <FondoLogo />
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <LogoEmpresa grande />
         <h1 className="mt-4 text-center text-lg font-semibold text-slate-900">{marca.nombreComercial || marca.nombreProducto}</h1>

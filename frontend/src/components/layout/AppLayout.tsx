@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useEmpresa } from '../../contexts/EmpresaContext'
 import { ITEMS_MENU } from '../../lib/menu'
 import { cn } from '../../lib/utils'
+import { FondoLogo } from '../FondoLogo'
 import { LogoEmpresa } from '../LogoEmpresa'
 
 // Páginas de inicio: no tienen a dónde volver.
@@ -49,9 +50,10 @@ export function AppLayout() {
   const nombreMarca = marca.nombreComercial || marca.nombreProducto
 
   return (
-    <div className="min-h-screen bg-slate-50 md:flex">
+    <div className="fondo-app relative isolate min-h-screen md:flex">
+      <FondoLogo conMenu />
       {/* Barra superior: solo en celular */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-t-[3px] border-slate-200 border-t-blue-600 bg-white px-4 py-3 shadow-sm md:hidden">
         <button
           type="button"
           onClick={() => setMenuAbierto(true)}
@@ -71,7 +73,7 @@ export function AppLayout() {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white transition-transform md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-t-[3px] border-slate-200 border-t-blue-600 bg-white shadow-lg transition-transform md:shadow-sm md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:translate-x-0',
           menuAbierto ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -102,7 +104,7 @@ export function AppLayout() {
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                  isActive && 'bg-blue-50 text-blue-700 hover:bg-blue-50 hover:text-blue-700',
+                  isActive && 'bg-blue-50 text-blue-700 shadow-[inset_3px_0_0_var(--color-blue-600)] hover:bg-blue-50 hover:text-blue-700',
                 )
               }
             >
