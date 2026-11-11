@@ -35,6 +35,11 @@ export function NominaPage() {
             Cargos y valor día
           </Link>
           {tiene(PERMISOS.NOMINA_GESTIONAR) && (
+            <Link to="/nomina/liquidar" className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              Liquidar quincena
+            </Link>
+          )}
+          {tiene(PERMISOS.NOMINA_GESTIONAR) && (
             <Link
               to="/trabajadores/nuevo"
               className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"

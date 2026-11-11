@@ -342,7 +342,7 @@ export class TrabajadoresService {
     const trabajador = await this.prisma.trabajador.findUnique({
       where: { id },
       include: {
-        pagos: { include: { novedades: true }, orderBy: { fechaPago: 'desc' } },
+        pagos: { include: { novedades: true, proyecto: { select: { id: true, nombre: true } } }, orderBy: { fechaPago: 'desc' } },
         afiliaciones: { include: INCLUIR_AFILIACION, orderBy: [{ tipo: 'asc' }, { fechaInicio: 'desc' }] },
         documentos: {
           where: { tipo: { in: [...tiposDocumentoVisibles(usuario?.permisos ?? [])] } },

@@ -2128,6 +2128,64 @@ export interface PagoNomina {
   fechaPago: string
   novedades: NovedadNomina[]
   trabajador: Trabajador
+  // CC-05: los pagos por día traen la obra, los días, el valor día aplicado y el devengado; los anteriores no.
+  proyectoId?: string | null
+  proyecto?: { id: string; nombre: string } | null
+  dias?: string | null
+  valorDia?: string | null
+  horasExtra?: string | null
+  valorHoraExtra?: string | null
+  valorDevengado?: string | null
+  observaciones?: string | null
+}
+
+export function listarPagosNomina(filtros: { trabajadorId?: string; proyectoId?: string; periodoInicio?: string; periodoFin?: string } = {}) {
+  const consulta = new URLSearchParams()
+  for (const [clave, valor] of Object.entries(filtros)) if (valor) consulta.set(clave, valor)
+  const texto = consulta.toString()
+  return solicitar<PagoNomina[]>(`/nomina/pagos${texto ? `?${texto}` : ''}`)
+}
+
+// Un trabajador dentro de la liquidación de una obra (CC-05). Pesos y días van como texto: "7.5", "65000".
+export interface PagoQuincenaPayload {
+  trabajadorId: string
+  dias: string
+  valorDia?: string
+  horasExtra?: string
+  valorHoraExtra?: string
+  novedades?: { tipo: TipoNovedad; valor: string; descripcion?: string }[]
+  observaciones?: string
+}
+
+export interface LiquidarQuincenaPayload {
+  proyectoId: string
+  periodoInicio: string
+  periodoFin: string
+  fechaPago: string
+  medioPago: MedioPago
+  cuentaId?: string
+  pagos: PagoQuincenaPayload[]
+}
+
+export interface ResultadoLiquidacion {
+  pagos: {
+    id: string
+    trabajador: { id: string; nombre: string; documento: string }
+    dias: string
+    valorDia: string
+    horasExtra: string
+    valorHorasExtra: string
+    valorDevengado: string
+    valorPagado: string
+  }[]
+  totales: { trabajadores: number; devengado: string; pagado: string }
+  // Cosas para revisar que no impidieron guardar (por ejemplo, días que suman más que el período).
+  avisos: { trabajadorId: string; mensaje: string }[]
+}
+
+// Una obra y una quincena: un pago por trabajador, todo o nada.
+export function liquidarQuincena(payload: LiquidarQuincenaPayload) {
+  return solicitar<ResultadoLiquidacion>('/nomina/liquidaciones', { method: 'POST', body: JSON.stringify(payload) })
 }
 
 export interface TrabajadorConPagos extends Trabajador {

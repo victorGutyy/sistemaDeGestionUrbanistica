@@ -111,10 +111,11 @@ export function TrabajadorDetallePage() {
       <section>
         <h2 className="text-sm font-semibold text-slate-900">Pagos de nómina</h2>
         <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full min-w-[30rem] text-left text-sm">
+          <table className="w-full min-w-[36rem] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-2 font-medium">Período</th>
+                <th className="px-4 py-2 font-medium">Obra</th>
                 <th className="px-4 py-2 font-medium">Fecha de pago</th>
                 <th className="px-4 py-2 font-medium">Novedades</th>
                 <th className="px-4 py-2 font-medium">Valor pagado</th>
@@ -123,7 +124,7 @@ export function TrabajadorDetallePage() {
             <tbody>
               {trabajador.pagos.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
                     Todavía no hay pagos registrados.
                   </td>
                 </tr>
@@ -132,6 +133,16 @@ export function TrabajadorDetallePage() {
                 <tr key={pago.id} className="border-b border-slate-100 last:border-0">
                   <td className="px-4 py-2">
                     {formatearFecha(pago.periodoInicio)} a {formatearFecha(pago.periodoFin)}
+                  </td>
+                  <td className="px-4 py-2">
+                    {pago.proyecto ? (
+                      <>
+                        {pago.proyecto.nombre}
+                        {pago.dias && <span className="block text-xs text-slate-500">{Number(pago.dias)} días</span>}
+                      </>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-2">{formatearFecha(pago.fechaPago)}</td>
                   <td className="px-4 py-2">

@@ -560,7 +560,7 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 
 **No se incluye.** Recibo de nómina en PDF (RF-PER-08), préstamos a trabajadores (CC-01), liquidación de prestaciones y seguridad social, y la nómina electrónica.
 
-**Fases.** N1.1 esquema y cálculo (hecho el 10/11/2026), N1.2 servicio y API (hecho el 10/11/2026), N1.3 cargos y ficha del trabajador (hecho el 10/11/2026), N1.4 pantalla de liquidación quincenal, N1.5 costo por proyecto en Finanzas, Flujo y Reportes, N1.6 verificación y despliegue, N2 conversor y carga del historial.
+**Fases.** N1.1 esquema y cálculo (hecho el 10/11/2026), N1.2 servicio y API (hecho el 10/11/2026), N1.3 cargos y ficha del trabajador (hecho el 10/11/2026), N1.4 pantalla de liquidación quincenal (hecho el 11/11/2026), N1.5 costo por proyecto en Finanzas, Flujo y Reportes, N1.6 verificación y despliegue, N2 conversor y carga del historial.
 
 **Puntos por confirmar derivados de este cambio:**
 
