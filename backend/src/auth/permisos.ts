@@ -69,6 +69,7 @@ export interface DefinicionRolSistema {
 
 export const CLAVE_GERENTE = 'GERENTE';
 export const CLAVE_CONTRATISTA_SST = 'CONTRATISTA_SST';
+export const CLAVE_SOPORTE_TECNICO = 'SOPORTE_TECNICO';
 
 // Roles que trae el sistema. Su lista de permisos se sincroniza desde aquí al
 // arrancar la app (RolesService.onModuleInit): si mañana se agrega un permiso
@@ -112,6 +113,33 @@ export const ROLES_SISTEMA: DefinicionRolSistema[] = [
     nombre: 'Contratista SST',
     descripcion: 'Persona externa de seguridad y salud en el trabajo: ve y gestiona solo el módulo SST, incluidos los diagnósticos. No ve valores liquidados, salarios, dinero ni proyectos.',
     permisos: [PERMISOS.SST_VER, PERMISOS.SST_GESTIONAR, PERMISOS.SST_DIAGNOSTICOS_VER],
+    limitablePorProyecto: false,
+  },
+  {
+    clave: CLAVE_SOPORTE_TECNICO,
+    nombre: 'Soporte técnico',
+    descripcion:
+      'Para quien desarrolla y da soporte al sistema: ve todos los módulos pero no puede registrar, cambiar ni anular nada. No gestiona usuarios y no ve diagnósticos de incapacidades (datos de salud).',
+    // Lista explícita, a propósito: un permiso nuevo NO se incluye solo. Solo lectura: ningún permiso de acción, ni
+    // usuarios.gestionar (permite crear y editar cuentas) ni sst.diagnosticos_ver (dato de salud, Ley 1581).
+    permisos: [
+      PERMISOS.PROYECTOS_VER,
+      PERMISOS.CLIENTES_VER,
+      PERMISOS.VENTAS_VER,
+      PERMISOS.ABONOS_VER,
+      PERMISOS.CARTERA_VER,
+      PERMISOS.CAJA_VER,
+      PERMISOS.FINANZAS_VER,
+      PERMISOS.NOMINA_VER,
+      PERMISOS.DASHBOARD_VER,
+      PERMISOS.CONFIGURACION_VER,
+      PERMISOS.AUDITORIA_VER,
+      PERMISOS.COMISIONES_VER,
+      PERMISOS.REPORTES_VER,
+      PERMISOS.NOTIFICACIONES_VER,
+      PERMISOS.SST_VER,
+      PERMISOS.SST_VALORES_VER,
+    ],
     limitablePorProyecto: false,
   },
   {

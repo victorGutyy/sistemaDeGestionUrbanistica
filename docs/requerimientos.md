@@ -573,3 +573,19 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 | Fecha y medio de pago de las quincenas del historial (el libro no los trae) | RF-PER-24 |
 | Cómo se maneja hoy el anticipo entregado antes de la quincena: el costo de la obra cuenta lo devengado completo, así que un anticipo que ya se registró como egreso aparte no debe contarse una segunda vez; y la caja solo ve lo pagado en la quincena, no el anticipo entregado antes | RF-PER-09, RF-PER-22 |
 | Si los trabajadores ya se cargaron por el módulo de SST o los crea el conversor | RF-PER-24 |
+
+### CC-06 · 11 de noviembre de 2026 · Rol Soporte técnico (solo lectura)
+
+**Origen.** El desarrollador entraba al sistema con el usuario del gerente, de modo que sus acciones quedaban en la auditoría a nombre del gerente y su cuenta podía mover dinero, usuarios y configuración sin necesitarlo. Se pide un rol propio para revisar todos los módulos sin poder cambiar nada.
+
+| ID | Requerimiento | Prioridad | Etapa |
+|---|---|---|---|
+| RF-USR-12 | Existe el rol de sistema Soporte técnico: ve todos los módulos de consulta (proyectos, clientes, ventas, abonos, cartera, caja, finanzas, nómina, panel, configuración, auditoría, comisiones, reportes, notificaciones y SST con valores liquidados) y no tiene ningún permiso de acción; no gestiona usuarios ni ve diagnósticos de incapacidades (datos de salud) | Debe | 1 |
+
+**Reglas de negocio.**
+- Solo lectura: ninguna ruta que registre, cambie, anule, cargue, envíe o exporte todos los datos queda abierta a este rol. Una prueba automática recorre los controladores y falla si una ruta de escritura queda protegida solo por permisos de consulta.
+- La lista de permisos del rol es explícita: un permiso nuevo no entra solo al rol.
+- Sin límite por proyecto (alcance total). Exporta reportes (PDF y Excel), y esa exportación queda en la auditoría; no tiene la exportación completa de datos.
+- La cuenta la crea el gerente desde Usuarios, a nombre y correo del desarrollador, de modo que cada acción queda a su nombre.
+- **Excepciones a otros requerimientos (por decisión del desarrollador):** este rol consulta la auditoría (RF-AUD-02, que la daba solo al gerente) y ve los valores liquidados de ausentismo (RF-USR-11, que los daba por defecto al gerente y al administrador). No cambia lo que ve ningún otro rol.
+- Los datos bancarios de los trabajadores (`nomina.ver`) los ve este rol; ocultarlos exigiría un permiso nuevo y no se construyó. Las pruebas de desarrollo se hacen con la base de demostración.

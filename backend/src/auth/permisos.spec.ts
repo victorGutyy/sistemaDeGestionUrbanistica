@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLAVE_CONTRATISTA_SST, CLAVE_GERENTE, esPermisoValido, PERMISOS, ROLES_SISTEMA, TODOS_LOS_PERMISOS } from './permisos.js';
+import { CLAVE_CONTRATISTA_SST, CLAVE_GERENTE, CLAVE_SOPORTE_TECNICO, esPermisoValido, PERMISOS, ROLES_SISTEMA, TODOS_LOS_PERMISOS } from './permisos.js';
 
 describe('catálogo de permisos y roles del sistema', () => {
   const rol = (clave: string) => {
@@ -64,8 +64,8 @@ describe('catálogo de permisos y roles del sistema', () => {
     expect(rol('CONSULTA').permisos.some((p) => p.startsWith('caja.'))).toBe(false);
   });
 
-  it('solo el gerente consulta la auditoría (RF-AUD-02)', () => {
-    expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.AUDITORIA_VER)).map((r) => r.clave)).toEqual([CLAVE_GERENTE]);
+  it('solo el gerente y el soporte técnico (solo lectura, CC-06) consultan la auditoría (RF-AUD-02)', () => {
+    expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.AUDITORIA_VER)).map((r) => r.clave).sort()).toEqual([CLAVE_GERENTE, CLAVE_SOPORTE_TECNICO].sort());
   });
 
   it('solo el gerente registra desistimientos', () => {
@@ -80,8 +80,8 @@ describe('catálogo de permisos y roles del sistema', () => {
       expect(rol('ADMINISTRADOR').permisos).not.toContain(PERMISOS.SST_DIAGNOSTICOS_VER);
     });
 
-    it('los valores liquidados los ven el gerente y el administrador: el contratista SST no', () => {
-      expect(quienTiene(PERMISOS.SST_VALORES_VER)).toEqual(['ADMINISTRADOR', CLAVE_GERENTE].sort());
+    it('los valores liquidados los ven el gerente, el administrador y el soporte técnico (CC-06): el contratista SST no', () => {
+      expect(quienTiene(PERMISOS.SST_VALORES_VER)).toEqual(['ADMINISTRADOR', CLAVE_GERENTE, CLAVE_SOPORTE_TECNICO].sort());
       expect(rol(CLAVE_CONTRATISTA_SST).permisos).not.toContain(PERMISOS.SST_VALORES_VER);
     });
 
