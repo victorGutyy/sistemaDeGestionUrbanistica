@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { validarCuentaDestino } from '../abonos/validar-pago.js';
 import { registrarAuditoria } from '../auditoria/auditoria.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
@@ -10,6 +10,8 @@ import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { calcularValorPagado } from './calculo-pago.js';
 import { CrearPagoNominaDto } from './dto/crear-pago-nomina.dto.js';
+import type { LiquidarQuincenaDto } from './dto/liquidar-quincena.dto.js';
+import { liquidarQuincenaEnTx, prepararLiquidacion } from './liquidar-quincena.js';
 
 @Injectable()
 export class NominaService {
@@ -76,10 +78,28 @@ export class NominaService {
     });
   }
 
-  listarPagos(trabajadorId?: string) {
+  // CC-05: los pagos de una obra durante una quincena, en una sola operación (o se guardan todos o ninguno).
+  async liquidarQuincena(dto: LiquidarQuincenaDto, usuario: UsuarioAutenticado) {
+    // El medio y la cuenta de salida quedan registrados: el cierre de caja necesita saber cuánto salió en efectivo.
+    await this.configuracion.exigirMedioPagoActivo(dto.medioPago);
+    const cuentaId = await validarCuentaDestino(this.prisma, dto.medioPago, dto.cuentaId, 'de donde salió el dinero');
+    const liquidacion = prepararLiquidacion(dto, cuentaId);
+    return this.prisma.$transaction((tx) => liquidarQuincenaEnTx(tx, liquidacion, usuario));
+  }
+
+  listarPagos(filtros: { trabajadorId?: string; proyectoId?: string; periodoInicio?: string; periodoFin?: string } = {}) {
+    const formato = /^\d{4}-\d{2}-\d{2}$/;
+    for (const [campo, valor] of [['periodoInicio', filtros.periodoInicio], ['periodoFin', filtros.periodoFin]] as const) {
+      if (valor !== undefined && !formato.test(valor)) throw new BadRequestException(`${campo} debe tener el formato YYYY-MM-DD`);
+    }
     return this.prisma.pagoNomina.findMany({
-      where: { trabajadorId },
-      include: { novedades: true, trabajador: true },
+      where: {
+        trabajadorId: filtros.trabajadorId,
+        proyectoId: filtros.proyectoId,
+        periodoInicio: filtros.periodoInicio ? parsearFechaLocal(filtros.periodoInicio) : undefined,
+        periodoFin: filtros.periodoFin ? parsearFechaLocal(filtros.periodoFin) : undefined,
+      },
+      include: { novedades: true, trabajador: true, proyecto: { select: { id: true, nombre: true } } },
       orderBy: { fechaPago: 'desc' },
     });
   }

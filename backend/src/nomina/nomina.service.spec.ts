@@ -154,3 +154,62 @@ describe('NominaService: auditoría (RF-AUD-01)', () => {
     expect(auditoriasDe(prisma.registroAuditoria.create)).toEqual([]);
   });
 });
+
+describe('NominaService.liquidarQuincena (CC-05)', () => {
+  const LIQUIDACION = {
+    proyectoId: 'obra-1',
+    periodoInicio: '2026-10-01',
+    periodoFin: '2026-10-15',
+    fechaPago: '2026-10-15',
+    medioPago: MedioPago.TRANSFERENCIA,
+    pagos: [{ trabajadorId: 'trabajador-1', dias: '10', valorDia: '60000' }],
+  };
+
+  it('un pago por transferencia exige la cuenta de salida y no abre la transacción sin ella', async () => {
+    const prisma = crearPrismaFalso();
+    const service = new NominaService(prisma as unknown as PrismaService, { exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined) } as unknown as ConfiguracionService);
+
+    await expect(service.liquidarQuincena(LIQUIDACION, USUARIO)).rejects.toThrow(/de donde salió el dinero/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('un medio de pago desactivado se rechaza antes de tocar la base', async () => {
+    const prisma = crearPrismaFalso();
+    const service = new NominaService(
+      prisma as unknown as PrismaService,
+      { exigirMedioPagoActivo: vi.fn().mockRejectedValue(new Error('medio desactivado')) } as unknown as ConfiguracionService,
+    );
+
+    await expect(service.liquidarQuincena({ ...LIQUIDACION, medioPago: MedioPago.EFECTIVO }, USUARIO)).rejects.toThrow('medio desactivado');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('una forma inválida (fechas imposibles) se rechaza sin abrir la transacción', async () => {
+    const prisma = crearPrismaFalso();
+    const service = new NominaService(prisma as unknown as PrismaService, { exigirMedioPagoActivo: vi.fn().mockResolvedValue(undefined) } as unknown as ConfiguracionService);
+
+    await expect(service.liquidarQuincena({ ...LIQUIDACION, medioPago: MedioPago.EFECTIVO, periodoFin: '2026-02-30' }, USUARIO)).rejects.toThrow(/fecha real/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('NominaService.listarPagos (CC-05)', () => {
+  it('filtra por obra y período, y trae el nombre de la obra', async () => {
+    const prisma = crearPrismaFalso();
+    prisma.pagoNomina.findMany.mockResolvedValue([]);
+    const service = new NominaService(prisma as unknown as PrismaService, {} as unknown as ConfiguracionService);
+
+    await service.listarPagos({ proyectoId: 'obra-1', periodoInicio: '2026-10-01', periodoFin: '2026-10-15' });
+
+    const consulta = prisma.pagoNomina.findMany.mock.calls[0][0];
+    expect(consulta.where).toMatchObject({ proyectoId: 'obra-1' });
+    expect(consulta.where.periodoInicio).toBeInstanceOf(Date);
+    expect(consulta.include.proyecto).toEqual({ select: { id: true, nombre: true } });
+  });
+
+  it('rechaza un período con formato inválido', () => {
+    const prisma = crearPrismaFalso();
+    const service = new NominaService(prisma as unknown as PrismaService, {} as unknown as ConfiguracionService);
+    expect(() => service.listarPagos({ periodoInicio: '01/10/2026' })).toThrow(/YYYY-MM-DD/);
+  });
+});
