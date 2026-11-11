@@ -349,9 +349,6 @@ export function LiquidarQuincenaPage() {
   return (
     <div className="max-w-4xl space-y-4">
       <div>
-        <Link to="/nomina" className="text-sm text-blue-600 hover:underline">
-          ← Nómina
-        </Link>
         <h1 className="mt-2 text-lg font-semibold text-slate-900">Liquidar quincena</h1>
         <p className="text-sm text-slate-500">
           Una obra y una quincena. Cada trabajador recibe un pago por obra: si trabajó en dos obras, liquida una y luego la otra.

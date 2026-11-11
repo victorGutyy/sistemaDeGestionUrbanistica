@@ -1,11 +1,43 @@
-import { LogOut, Menu, X } from 'lucide-react'
+import { ArrowLeft, LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useEmpresa } from '../../contexts/EmpresaContext'
 import { ITEMS_MENU } from '../../lib/menu'
 import { cn } from '../../lib/utils'
 import { LogoEmpresa } from '../LogoEmpresa'
+
+// Páginas de inicio: no tienen a dónde volver.
+const RUTAS_DE_INICIO = ['/', '/dashboard']
+
+// Flecha para volver a la página anterior, en todas las pantallas. Si la persona llegó directo a la dirección (sin historial
+// dentro de la aplicación), sube un nivel en la ruta y, si no hay más niveles, va al inicio.
+function BotonVolver() {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  if (RUTAS_DE_INICIO.includes(pathname)) return null
+
+  function volver() {
+    const posicion = (window.history.state as { idx?: number } | null)?.idx ?? 0
+    if (posicion > 0) {
+      navigate(-1)
+      return
+    }
+    const partes = pathname.split('/').filter(Boolean)
+    navigate(partes.length > 1 ? '/' + partes.slice(0, -1).join('/') : '/dashboard', { replace: true })
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={volver}
+      className="mb-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 -ml-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+    >
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      Volver
+    </button>
+  )
+}
 
 export function AppLayout() {
   const { usuario, logout, tiene, alcanceTotal } = useAuth()
@@ -97,6 +129,7 @@ export function AppLayout() {
       </aside>
 
       <main className="min-w-0 flex-1 p-4 md:p-8">
+        <BotonVolver />
         <Outlet />
       </main>
     </div>

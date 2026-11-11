@@ -49,9 +49,6 @@ export function TrabajadorDetallePage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link to="/nomina" className="text-sm text-blue-600 hover:underline">
-            ← Nómina
-          </Link>
           <h1 className="mt-1 text-lg font-semibold text-slate-900">{trabajador.nombre}</h1>
           <p className="text-sm text-slate-500">
             {trabajador.cargo} — {trabajador.documento}

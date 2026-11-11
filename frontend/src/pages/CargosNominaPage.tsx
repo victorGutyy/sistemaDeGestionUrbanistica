@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { SeccionCargosNomina } from '../components/nomina/SeccionCargosNomina'
 import { useAuth } from '../contexts/AuthContext'
 import { listarCargosNomina, type CargoNomina } from '../lib/api'
@@ -23,9 +22,6 @@ export function CargosNominaPage() {
   return (
     <div className="max-w-3xl space-y-4">
       <div>
-        <Link to="/nomina" className="text-sm text-blue-600 hover:underline">
-          ← Nómina
-        </Link>
         <h1 className="mt-2 text-lg font-semibold text-slate-900">Cargos y valor día</h1>
         <p className="text-sm text-slate-500">Se usan para sugerir el valor día al registrar un trabajador. Cada cambio queda en la auditoría.</p>
       </div>

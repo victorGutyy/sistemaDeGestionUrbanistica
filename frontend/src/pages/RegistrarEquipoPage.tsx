@@ -61,9 +61,6 @@ export function RegistrarEquipoPage() {
 
   return (
     <div className="max-w-xl">
-      <Link to={`/proyectos/${proyectoId}`} className="text-sm text-blue-600 hover:underline">
-        ← {nombreProyecto || 'Proyecto'}
-      </Link>
       <h1 className="mt-2 text-lg font-semibold text-slate-900">Nuevo equipo</h1>
       <p className="text-sm text-slate-500">Un equipo de maquinaria del proyecto {nombreProyecto}. No hay límite de equipos.</p>
 

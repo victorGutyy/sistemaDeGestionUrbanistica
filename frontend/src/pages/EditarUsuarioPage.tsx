@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { SelectorAlcance } from '../components/SelectorAlcance'
 import {
   actualizarUsuario,
@@ -113,9 +113,6 @@ export function EditarUsuarioPage() {
   return (
     <div className="max-w-xl space-y-6">
       <div>
-        <Link to="/usuarios" className="text-sm text-blue-600 hover:underline">
-          ← Volver a usuarios
-        </Link>
         <h1 className="mt-2 text-lg font-semibold text-slate-900">Editar usuario</h1>
         <p className="text-sm text-slate-500">{usuario.email}</p>
       </div>

@@ -54,9 +54,6 @@ export function ProyectoFinanzasPage() {
 
   return (
     <div className="max-w-4xl">
-      <Link to={`/proyectos/${proyecto.id}`} className="text-sm text-blue-600 hover:underline">
-        ← {proyecto.nombre}
-      </Link>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-slate-900">Finanzas del proyecto</h1>

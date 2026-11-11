@@ -17,6 +17,8 @@ export function FormularioTrabajador(props: Props) {
   const [nombres, setNombres] = useState(inicial?.nombres ?? '')
   const [apellidos, setApellidos] = useState(inicial?.apellidos ?? '')
   const [nombre, setNombre] = useState(inicial?.nombre ?? '')
+  // Un trabajador antiguo puede no tener nombres ni apellidos separados: solo ese caso edita el nombre completo a mano.
+  const soloNombreCompleto = props.modo === 'editar' && !props.trabajador.nombres && !props.trabajador.apellidos
   const [fechaNacimiento, setFechaNacimiento] = useState(fechaParaInput(inicial?.fechaNacimiento))
   const [sexo, setSexo] = useState<SexoTrabajador | ''>(inicial?.sexo ?? '')
   const [cargo, setCargo] = useState(inicial?.cargo ?? '')
@@ -53,11 +55,10 @@ export function FormularioTrabajador(props: Props) {
     setEnviando(true)
     try {
       if (props.modo === 'crear') {
-        // En la creación lo vacío se omite: el servidor arma el nombre completo con nombres y apellidos.
+        // El nombre completo no se escribe: el servidor lo arma con nombres y apellidos.
         await props.onGuardar({
-          nombre: nombre.trim() || undefined,
-          nombres: nombres.trim() || undefined,
-          apellidos: apellidos.trim() || undefined,
+          nombres: nombres.trim(),
+          apellidos: apellidos.trim(),
           documento: documento.trim(),
           tipoDocumento,
           fechaNacimiento: fechaNacimiento || undefined,
@@ -77,12 +78,12 @@ export function FormularioTrabajador(props: Props) {
           numeroCuenta: numeroCuenta.trim() || undefined,
         })
       } else {
-        // En la edición un texto vacío borra el dato. El nombre completo solo se envía si la persona lo cambió: si no,
-        // el servidor lo vuelve a armar cuando cambian los nombres o los apellidos.
+        // En la edición un texto vacío borra el dato. El nombre completo solo se envía en el caso del trabajador antiguo sin
+        // nombres ni apellidos; en los demás el servidor lo vuelve a armar cuando cambian los nombres o los apellidos.
         await props.onGuardar({
-          ...(nombre.trim() !== props.trabajador.nombre ? { nombre: nombre.trim() } : {}),
-          nombres: nombres.trim(),
-          apellidos: apellidos.trim(),
+          ...(soloNombreCompleto
+            ? nombre.trim() !== props.trabajador.nombre ? { nombre: nombre.trim() } : {}
+            : { nombres: nombres.trim(), apellidos: apellidos.trim() }),
           tipoDocumento,
           ...(fechaNacimiento ? { fechaNacimiento } : {}),
           ...(sexo ? { sexo } : {}),
@@ -122,20 +123,25 @@ export function FormularioTrabajador(props: Props) {
             ))}
           </select>
         </Campo>
-        <Campo id="documento" etiqueta="Número de documento" ayuda={props.modo === 'editar' ? 'No se puede cambiar.' : undefined}>
+        <Campo id="documento" etiqueta="Número de documento" ayuda={props.modo === 'editar' ? 'No se puede cambiar. Si quedó mal, retira al trabajador y créalo de nuevo.' : undefined}>
           <input id="documento" required minLength={3} disabled={props.modo === 'editar'} value={documento} onChange={(e) => setDocumento(e.target.value)} className={`${CLASE_INPUT} disabled:bg-slate-100 disabled:text-slate-500`} />
-        </Campo>
-        <Campo id="nombres" etiqueta="Nombres">
-          <input id="nombres" maxLength={80} value={nombres} onChange={(e) => setNombres(e.target.value)} className={CLASE_INPUT} />
-        </Campo>
-        <Campo id="apellidos" etiqueta="Apellidos">
-          <input id="apellidos" maxLength={80} value={apellidos} onChange={(e) => setApellidos(e.target.value)} className={CLASE_INPUT} />
         </Campo>
       </div>
 
-      <Campo id="nombre" etiqueta="Nombre completo" ayuda={props.modo === 'crear' ? 'Si lo dejas vacío, se arma con los nombres y apellidos.' : 'Si cambias los nombres o apellidos y dejas este igual, se vuelve a armar solo.'}>
-        <input id="nombre" required={props.modo === 'editar'} minLength={3} value={nombre} onChange={(e) => setNombre(e.target.value)} className={CLASE_INPUT} />
-      </Campo>
+      {soloNombreCompleto ? (
+        <Campo id="nombre" etiqueta="Nombre completo" ayuda="Este trabajador se registró con un solo nombre.">
+          <input id="nombre" required minLength={3} value={nombre} onChange={(e) => setNombre(e.target.value)} className={CLASE_INPUT} />
+        </Campo>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Campo id="nombres" etiqueta="Nombres">
+            <input id="nombres" required={props.modo === 'crear'} maxLength={80} value={nombres} onChange={(e) => setNombres(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+          <Campo id="apellidos" etiqueta="Apellidos">
+            <input id="apellidos" required={props.modo === 'crear'} maxLength={80} value={apellidos} onChange={(e) => setApellidos(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo id="fechaNacimiento" etiqueta="Fecha de nacimiento">

@@ -66,9 +66,6 @@ export function SstAusentismoDetallePage() {
     <div className="max-w-4xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link to="/sst/ausentismo" className="text-sm text-blue-600 hover:underline">
-            ← Ausentismo
-          </Link>
           <h2 className="mt-1 text-lg font-semibold text-slate-900">
             {ausentismo.tipo.nombre} · {ausentismo.trabajador.nombre}
           </h2>

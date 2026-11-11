@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { FormularioTrabajador } from '../components/trabajador/FormularioTrabajador'
 import { actualizarTrabajador, obtenerTrabajador, type Trabajador } from '../lib/api'
 
@@ -21,9 +21,6 @@ export function EditarTrabajadorPage() {
 
   return (
     <div className="max-w-2xl">
-      <Link to={`/trabajadores/${id}`} className="text-sm text-blue-600 hover:underline">
-        ← Volver a la ficha
-      </Link>
       <h1 className="mt-2 text-lg font-semibold text-slate-900">Editar a {trabajador.nombre}</h1>
       <p className="text-sm text-slate-500">Cada cambio queda en la auditoría con su valor anterior.</p>
 

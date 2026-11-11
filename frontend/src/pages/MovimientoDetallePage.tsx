@@ -83,9 +83,6 @@ export function MovimientoDetallePage() {
 
   return (
     <div className="max-w-xl">
-      <Link to="/finanzas" className="text-sm text-blue-600 hover:underline">
-        ← Finanzas
-      </Link>
 
       <div className="mt-3 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">

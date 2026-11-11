@@ -35,9 +35,6 @@ export function SstTrabajadorPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link to="/sst" className="text-sm text-blue-600 hover:underline">
-            ← Seguridad y salud
-          </Link>
           <h1 className="mt-1 text-lg font-semibold text-slate-900">{ficha.nombre}</h1>
           <p className="text-sm text-slate-500">
             {ficha.cargo} — {ficha.documento}

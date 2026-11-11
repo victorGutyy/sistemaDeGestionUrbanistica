@@ -224,9 +224,6 @@ export function SstCapacitacionPage() {
     <div className="max-w-4xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link to="/sst/capacitaciones" className="text-sm text-blue-600 hover:underline">
-            ← Capacitaciones
-          </Link>
           <h2 className="mt-1 text-lg font-semibold text-slate-900">{capacitacion.tema}</h2>
           <p className="text-sm text-slate-500">{capacitacion.objetivo}</p>
         </div>

@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
 import { SeccionDiagnosticos, SeccionTiposAusentismo } from '../components/ausentismo/CatalogosAusentismo'
 import { Aviso, CLASE_BOTON, CLASE_BOTON_SECUNDARIO, CLASE_INPUT, Campo, Insignia, Seccion } from '../components/formulario'
 import {
@@ -478,9 +477,6 @@ export function ConfiguracionSeguridadSocialPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <Link to="/configuracion" className="text-sm text-blue-600 hover:underline">
-          ← Configuración
-        </Link>
         <h1 className="mt-1 text-lg font-semibold text-slate-900">Seguridad social</h1>
         <p className="text-sm text-slate-500">Parámetros legales, entidades, clases de riesgo, tipos de ausentismo y diagnósticos CIE-10. Solo el gerente puede cambiarlos; cada cambio queda en la auditoría.</p>
       </div>

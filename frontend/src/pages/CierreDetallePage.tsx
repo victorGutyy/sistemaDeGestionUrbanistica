@@ -125,9 +125,6 @@ export function CierreDetallePage() {
 
   return (
     <div className="max-w-3xl">
-      <Link to="/caja" className="text-sm text-blue-600 hover:underline">
-        ← Cierres de caja
-      </Link>
 
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>

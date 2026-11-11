@@ -204,9 +204,6 @@ export function EquipoDetallePage() {
 
   return (
     <div className="max-w-3xl">
-      <Link to={`/proyectos/${equipo.proyectoId}`} className="text-sm text-blue-600 hover:underline">
-        ← {equipo.proyecto.nombre}
-      </Link>
 
       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

@@ -128,9 +128,6 @@ export function LoteDetallePage() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <Link to={`/proyectos/${lote.proyecto.id}`} className="text-sm text-blue-600 hover:underline">
-          ← {lote.proyecto.nombre}
-        </Link>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold text-slate-900">
             {lote.manzana ? `Manzana ${lote.manzana.nombre} · ` : ''}Lote {lote.numero}
