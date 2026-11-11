@@ -72,6 +72,22 @@ describe('cargarLibroSst: trabajadores (RF-SST-23)', () => {
     expect(m.servicios.trabajadores.crearEnTx).toHaveBeenCalledWith(m.db, expect.objectContaining({ documento: '1000000001', nombres: 'Persona', apellidos: 'Inventada', cargo: 'Oficial', salarioBase: '1750905', fechaIngreso: '2026-01-15' }), USUARIO);
   });
 
+  it('pasa el valor día y los datos de pago al servicio que crea al trabajador (CC-05)', async () => {
+    const r = await m.cargar(libro({ trabajadores: [fila(2, { ...TRABAJADOR_NUEVO, valorDia: 62571, banco: 'Banco de Ejemplo', tipoCuenta: 'Ahorros', numeroCuenta: '1234567890' })] }));
+    expect(r.errores).toEqual([]);
+    expect(m.servicios.trabajadores.crearEnTx).toHaveBeenCalledWith(
+      m.db,
+      expect.objectContaining({ documento: '1000000001', valorDia: '62571', banco: 'Banco de Ejemplo', tipoCuenta: 'Ahorros', numeroCuenta: '1234567890' }),
+      USUARIO,
+    );
+  });
+
+  it('un valor día con centavos se rechaza y no se crea el trabajador', async () => {
+    const r = await m.cargar(libro({ trabajadores: [fila(2, { ...TRABAJADOR_NUEVO, valorDia: '62571,5' })] }));
+    expect(r.errores.length).toBeGreaterThan(0);
+    expect(m.servicios.trabajadores.crearEnTx).not.toHaveBeenCalled();
+  });
+
   it('un trabajador que ya existe se reutiliza sin modificar y se avisa', async () => {
     m.db.trabajador.findUnique.mockResolvedValue({ id: TRABAJADOR_ID, nombre: 'Persona Inventada' });
     const r = await m.cargar(libro({ trabajadores: [fila(2, TRABAJADOR_NUEVO)] }));

@@ -23,6 +23,30 @@ describe('interpretarTrabajador (RF-SST-23)', () => {
     expect(datos?.tipoContrato).toBeUndefined();
   });
 
+  it('lee el valor día y los datos de pago (CC-05); el número de cuenta de Excel no pierde nada', () => {
+    const { datos, errores } = interpretarTrabajador(fila({ ...completa, valorDia: '$62.571', banco: ' Banco de Ejemplo ', tipoCuenta: 'Ahorros', numeroCuenta: 1234567890123 }));
+    expect(errores).toEqual([]);
+    expect(datos).toMatchObject({ valorDia: '62571', banco: 'Banco de Ejemplo', tipoCuenta: 'Ahorros', numeroCuenta: '1234567890123' });
+  });
+
+  it('sin esas columnas el trabajador se lee igual y quedan sin dato', () => {
+    const { datos } = interpretarTrabajador(fila(completa));
+    expect(datos?.valorDia).toBeUndefined();
+    expect(datos?.banco).toBeUndefined();
+    expect(datos?.numeroCuenta).toBeUndefined();
+  });
+
+  it.each(['0', '-5000', '62.571,50', 'mucho'])('rechaza el valor día %s', (valorDia) => {
+    const { datos, errores } = interpretarTrabajador(fila({ ...completa, valorDia }));
+    expect(datos).toBeNull();
+    expect(mensajes(errores).some((m) => m.startsWith('Valor día:'))).toBe(true);
+  });
+
+  it('rechaza un número de cuenta de más de 40 caracteres', () => {
+    const { errores } = interpretarTrabajador(fila({ ...completa, numeroCuenta: '1'.repeat(41) }));
+    expect(mensajes(errores)).toContain('Número de cuenta: Máximo 40 caracteres');
+  });
+
   it('traduce las listas al valor que guarda el sistema', () => {
     const { datos } = interpretarTrabajador(fila({ ...completa, tipoDocumento: 'pasaporte', tipoContrato: 'término fijo', sexo: 'femenino', fechaNacimiento: '03/05/1990' }));
     expect(datos).toMatchObject({ tipoDocumento: 'PASAPORTE', tipoContrato: 'TERMINO_FIJO', sexo: 'FEMENINO', fechaNacimiento: '1990-05-03' });

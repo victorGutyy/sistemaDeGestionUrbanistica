@@ -27,6 +27,11 @@ export interface DatosTrabajador {
   telefono?: string;
   celular?: string;
   email?: string;
+  // CC-05: pago por día.
+  valorDia?: string;
+  banco?: string;
+  tipoCuenta?: string;
+  numeroCuenta?: string;
 }
 
 export interface DatosAusentismo {
@@ -132,6 +137,16 @@ export function interpretarTrabajador(fila: FilaLeida): Interpretada<DatosTrabaj
     return lectura.ok && !CORREO.test(lectura.valor) ? ({ ok: false, mensaje: 'No es un correo válido' } as const) : lectura;
   });
 
+  const valorDia = l.leer('valorDia', leerPesos);
+  if (valorDia !== undefined && valorDia.lessThanOrEqualTo(0)) l.falla('valorDia', 'El valor día debe ser mayor a cero');
+  const banco = l.texto('banco', 60);
+  const tipoCuenta = l.texto('tipoCuenta', 30);
+  // El número de cuenta puede venir como número de Excel: se toma como texto, sin tocarlo.
+  const numeroCuenta = l.leer('numeroCuenta', (celda) => {
+    const lectura = leerCodigo(celda);
+    return lectura.ok && lectura.valor.length > 40 ? ({ ok: false, mensaje: 'Máximo 40 caracteres' } as const) : lectura;
+  });
+
   if (l.errores.length > 0 || documento === undefined || nombres === undefined || apellidos === undefined || cargo === undefined || salarioBase === undefined || fechaIngreso === undefined) {
     return { datos: null, errores: l.errores };
   }
@@ -151,6 +166,10 @@ export function interpretarTrabajador(fila: FilaLeida): Interpretada<DatosTrabaj
       telefono,
       celular,
       email,
+      valorDia: valorDia?.toString(),
+      banco,
+      tipoCuenta,
+      numeroCuenta,
     },
     errores: [],
   };

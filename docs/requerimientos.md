@@ -548,7 +548,7 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 | RF-PER-21 | Liquidar la quincena por obra: un pago por trabajador, obra y período con días (enteros o medios días), horas extra con la tarifa digitada, devengado (costo de la obra) y neto pagado, en pesos enteros | Debe | 3 |
 | RF-PER-22 | Registrar el anticipo como novedad que resta del pago, igual que el descuento | Debe | 3 |
 | RF-PER-23 | Impedir un pago repetido del mismo trabajador en la misma obra y período, y avisar cuando los días de un trabajador en un período superen los días del período | Debería | 3 |
-| RF-PER-24 | Cargar desde Excel el historial de nómina desde septiembre de 2026 con un conversor que corre en el equipo del desarrollador y no imprime datos personales | Debería | 3 |
+| RF-PER-24 | Cargar desde Excel los trabajadores con su valor día y sus datos de pago (hoja Trabajadores del libro de SST, columnas opcionales Valor día, Banco, Tipo de cuenta y Número de cuenta; N1.7, hecho el 11/11/2026) y el historial de nómina desde septiembre de 2026 con un conversor que corre en el equipo del desarrollador y no imprime datos personales | Debería | 3 |
 
 **Reglas de negocio.**
 - El valor día del cargo es solo una sugerencia; el valor del pago es el del trabajador en ese momento y queda como foto.
