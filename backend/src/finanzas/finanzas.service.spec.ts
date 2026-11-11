@@ -30,6 +30,7 @@ function crearPrismaFalso() {
     // anular se hace en una transacción: usa el mismo falso de updateMany que la base "normal".
     movimientoFinanciero: { findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]), updateMany: tx.movimientoFinanciero.updateMany },
     venta: { findMany: vi.fn().mockResolvedValue([]) },
+    pagoNomina: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn((callback: (txArg: typeof tx) => unknown) => callback(tx)),
   };
   return { prisma, tx };
@@ -253,5 +254,61 @@ describe('FinanzasService.finanzasDeProyecto (RF-EGR-05, 06 y 08)', () => {
     expect(resultado.movimientos).toHaveLength(0);
     expect(resultado.resumen.totalIngresos.toString()).toBe('0');
     expect(resultado.resumen.saldoPorCobrar.toString()).toBe('70000000');
+  });
+});
+
+describe('FinanzasService: la nómina cuesta a su obra (CC-05, RF-PER-09 y RF-PER-10)', () => {
+  const pago = (cambios: object) => ({ proyectoId: 'p-1', fechaPago: new Date(2026, 9, 15), periodoInicio: new Date(2026, 9, 1), periodoFin: new Date(2026, 9, 15), valorDevengado: D('600000'), valorPagado: D('480000'), ...cambios });
+  const servicio = (prisma: object) => new FinanzasService(prisma as unknown as PrismaService, {} as StorageService, {} as ConfiguracionService);
+
+  it('en las finanzas de la obra, la nómina entra como UN gasto por quincena y a su costo (lo devengado), sin nombres', async () => {
+    const { prisma } = crearPrismaFalso();
+    prisma.pagoNomina.findMany.mockResolvedValue([pago({}), pago({ valorDevengado: D('400000'), valorPagado: D('400000') }), pago({ fechaPago: new Date(2026, 9, 31), periodoInicio: new Date(2026, 9, 16), periodoFin: new Date(2026, 9, 31) })]);
+
+    const resultado = await servicio(prisma).finanzasDeProyecto('p-1', {}, USUARIO);
+
+    const filas = resultado.movimientos.filter((f) => f.origen === 'NOMINA');
+    expect(filas).toHaveLength(2);
+    expect(filas.map((f) => f.valor.toString()).sort()).toEqual(['1000000', '600000']);
+    expect(filas.find((f) => f.valor.toString() === '1000000')?.descripcion).toBe('Nómina del 01/10/2026 al 15/10/2026 · 2 trabajadores');
+    expect(filas[0]).toMatchObject({ tipo: 'GASTO', categoria: 'Nómina', medioPago: null });
+    // La utilidad de la obra baja en lo que cuesta la nómina.
+    expect(resultado.resumen.egresos.toString()).toBe('1600000');
+    expect(resultado.resumen.utilidad.toString()).toBe('-1600000');
+    expect(prisma.pagoNomina.findMany.mock.calls[0][0].where).toMatchObject({ proyectoId: 'p-1' });
+  });
+
+  it('un pago anterior a CC-05 (sin devengado) cuesta lo que se pagó', async () => {
+    const { prisma } = crearPrismaFalso();
+    prisma.pagoNomina.findMany.mockResolvedValue([pago({ valorDevengado: null, valorPagado: D('750000') })]);
+    const resultado = await servicio(prisma).finanzasDeProyecto('p-1', {}, USUARIO);
+    expect(resultado.resumen.egresos.toString()).toBe('750000');
+  });
+
+  it('en el consolidado, cada pago cuenta en SU obra y a su costo; el de antes de CC-05, en general', async () => {
+    const base = crearPrismaFalso().prisma;
+    const prisma = { ...base, proyecto: { ...base.proyecto, findMany: vi.fn().mockResolvedValue([{ id: 'p-1', nombre: 'Obra Uno' }, { id: 'p-2', nombre: 'Obra Dos' }]) } };
+    prisma.pagoNomina.findMany.mockResolvedValue([
+      { proyectoId: 'p-1', fechaPago: new Date(2026, 9, 15), valorDevengado: D('600000'), valorPagado: D('480000') },
+      { proyectoId: 'p-2', fechaPago: new Date(2026, 9, 15), valorDevengado: D('300000'), valorPagado: D('300000') },
+      { proyectoId: null, fechaPago: new Date(2026, 9, 15), valorDevengado: null, valorPagado: D('100000') },
+    ]);
+
+    const consolidado = await servicio(prisma).consolidado({}, USUARIO);
+
+    expect(consolidado.gastos.toString()).toBe('1000000');
+    const porProyecto = (nombre: string) => consolidado.porProyecto.find((p) => p.nombre === nombre);
+    expect(porProyecto('Obra Uno')?.gastos.toString()).toBe('600000');
+    expect(porProyecto('Obra Dos')?.gastos.toString()).toBe('300000');
+  });
+
+  it('quien está limitado a proyectos solo cuenta la nómina de los suyos', async () => {
+    const base = crearPrismaFalso().prisma;
+    const prisma = { ...base, proyecto: { ...base.proyecto, findMany: vi.fn().mockResolvedValue([]) } };
+    await servicio(prisma).consolidado({}, { ...USUARIO, proyectoIds: ['p-1'] });
+    expect(prisma.pagoNomina.findMany.mock.calls[0][0].where).toEqual({ proyectoId: { in: ['p-1'] } });
+
+    await servicio(prisma).consolidado({}, { ...USUARIO, proyectoIds: null });
+    expect(prisma.pagoNomina.findMany.mock.calls[1][0].where).toEqual({});
   });
 });

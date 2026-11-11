@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { exigirProyecto, filtroLote, filtroMovimiento, filtroProyecto, filtroVenta, tieneAlcanceTotal } from '../auth/alcance.js';
+import { exigirProyecto, filtroLote, filtroMovimiento, filtroPagoNomina, filtroProyecto, filtroVenta, tieneAlcanceTotal } from '../auth/alcance.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { diaLocal, formatearDiaDDMMAAAA, hoyISO } from '../cierres-caja/periodo.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
@@ -9,6 +9,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoMovimiento, EstadoVenta, TipoMovimiento, TipoProyecto } from '../generated/prisma/enums.js';
 import { ComisionesService } from '../comisiones/comisiones.service.js';
 import { ETIQUETA_ESTADO_COMISION } from '../comisiones/reglas-comision.js';
+import { costoDelPago } from '../nomina/calculo-pago.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CATALOGO_REPORTES, definicionDe, type DefinicionReporte } from './catalogo.js';
@@ -18,6 +19,7 @@ import { construirEgresos, type EgresoParaReporte } from './constructores/egreso
 import { construirFlujoDeCaja, ETIQUETA_GRANULARIDAD, type Granularidad, type PartidaDeCaja } from './constructores/flujo-caja.js';
 import { construirInformeProyecto } from './constructores/informe-proyecto.js';
 import { construirInventario, ETIQUETA_ESTADO_LOTE } from './constructores/inventario.js';
+import { construirManoDeObra } from './constructores/mano-de-obra.js';
 import { construirMaquinariaPorEquipo } from './constructores/maquinaria.js';
 import { construirRecaudo } from './constructores/recaudo.js';
 import type { ConsultaReporteDto, ExportarReporteDto } from './dto/consulta-reporte.dto.js';
@@ -149,6 +151,8 @@ export class ReportesService {
         return this.informeProyecto(filtros, usuario);
       case 'maquinaria-equipos':
         return this.maquinaria(filtros, usuario);
+      case 'mano-de-obra':
+        return this.manoDeObra(filtros, usuario);
     }
   }
 
@@ -210,11 +214,16 @@ export class ReportesService {
     );
   }
 
-  // Los pagos de nómina son un gasto real de la empresa que no pertenece a ningún proyecto (igual que en el consolidado de
-  // caja): solo con alcance total y cuando el reporte no se limita a un proyecto o a una categoría.
+  // Los pagos de nómina son un gasto real de la empresa. Desde CC-05 cada pago lleva su obra: el reporte se puede limitar a un
+  // proyecto y quien está limitado a proyectos cuenta solo la nómina de los suyos. Los anteriores no tienen obra (general). Un
+  // reporte limitado a una categoría de gasto no los incluye. Se devuelve el costo (lo devengado) y lo pagado: el egreso de
+  // la obra es el costo; la caja se mueve por lo pagado.
   private async nomina(filtros: Filtros, usuario: UsuarioAutenticado, rango: Prisma.DateTimeFilter | undefined) {
-    if (!tieneAlcanceTotal(usuario) || filtros.proyectoId || filtros.categoriaId) return [];
-    return this.prisma.pagoNomina.findMany({ where: { fechaPago: rango }, select: { fechaPago: true, valorPagado: true } });
+    if (filtros.categoriaId) return [];
+    return this.prisma.pagoNomina.findMany({
+      where: { fechaPago: rango, proyectoId: filtros.proyectoId, AND: [filtroPagoNomina(usuario)] },
+      select: { fechaPago: true, valorPagado: true, valorDevengado: true, proyecto: { select: { nombre: true } } },
+    });
   }
 
   private async egresos(filtros: Filtros, usuario: UsuarioAutenticado): Promise<SeccionReporte[]> {
@@ -235,7 +244,7 @@ export class ReportesService {
     ]);
     const egresos: EgresoParaReporte[] = [
       ...movimientos.map((m) => ({ categoria: m.categoriaGasto?.nombre ?? 'Sin categoría', proyecto: m.proyecto?.nombre ?? null, valor: m.valor })),
-      ...pagosNomina.map((pago) => ({ categoria: 'Nómina', proyecto: null, valor: pago.valorPagado })),
+      ...pagosNomina.map((pago) => ({ categoria: 'Nómina', proyecto: pago.proyecto?.nombre ?? null, valor: costoDelPago(pago) })),
     ];
     return construirEgresos(egresos);
   }
@@ -303,7 +312,7 @@ export class ReportesService {
   private async informeProyecto(filtros: Filtros, usuario: UsuarioAutenticado): Promise<SeccionReporte[]> {
     const proyectoId = filtros.proyectoId!;
     const rango = this.rango(filtros);
-    const [empresa, lotes, ventas, abonosDelPeriodo, movimientos] = await Promise.all([
+    const [empresa, lotes, ventas, abonosDelPeriodo, movimientos, pagosNomina] = await Promise.all([
       this.configuracion.obtenerEmpresa(),
       this.prisma.lote.findMany({
         where: { proyectoId },
@@ -323,6 +332,11 @@ export class ReportesService {
         where: { estado: EstadoMovimiento.ACTIVO, proyectoId, fecha: rango, AND: [filtroMovimiento(usuario)] },
         select: { tipo: true, valor: true, categoriaGasto: { select: { nombre: true } }, proyecto: { select: { nombre: true } } },
       }),
+      // La nómina de la obra en el período (CC-05): entra como egreso de la categoría Nómina, a su costo.
+      this.prisma.pagoNomina.findMany({
+        where: { proyectoId, fechaPago: rango },
+        select: { valorDevengado: true, valorPagado: true, proyecto: { select: { nombre: true } } },
+      }),
     ]);
     const suma = (valores: { valor: Prisma.Decimal }[]) => valores.reduce((total, v) => total.plus(v.valor), new Prisma.Decimal(0));
     return construirInformeProyecto({
@@ -332,7 +346,8 @@ export class ReportesService {
       otrosIngresos: suma(movimientos.filter((m) => m.tipo === TipoMovimiento.INGRESO)),
       egresos: movimientos
         .filter((m) => m.tipo === TipoMovimiento.GASTO)
-        .map((m) => ({ categoria: m.categoriaGasto?.nombre ?? 'Sin categoría', proyecto: m.proyecto?.nombre ?? null, valor: m.valor })),
+        .map((m) => ({ categoria: m.categoriaGasto?.nombre ?? 'Sin categoría', proyecto: m.proyecto?.nombre ?? null, valor: m.valor }))
+        .concat(pagosNomina.map((pago) => ({ categoria: 'Nómina', proyecto: pago.proyecto?.nombre ?? null, valor: costoDelPago(pago) }))),
       ventasParaEdades: ventas.map((venta) => ({
         cliente: venta.cliente.nombre,
         proyecto: venta.lote.proyecto.nombre,
@@ -342,6 +357,39 @@ export class ReportesService {
       hoy: new Date(),
       mora: { tasaMoraMensual: empresa.tasaMoraMensual, diasGracia: empresa.diasGraciaMora },
     });
+  }
+
+  // Costo de mano de obra por obra y quincena (CC-05, RF-PER-10). Las fechas del filtro son las del pago.
+  private async manoDeObra(filtros: Filtros, usuario: UsuarioAutenticado): Promise<SeccionReporte[]> {
+    const pagos = await this.prisma.pagoNomina.findMany({
+      where: { fechaPago: this.rango(filtros), proyectoId: filtros.proyectoId, AND: [filtroPagoNomina(usuario)] },
+      select: {
+        periodoInicio: true,
+        periodoFin: true,
+        dias: true,
+        valorDia: true,
+        valorHorasExtra: true,
+        valorDevengado: true,
+        valorPagado: true,
+        trabajador: { select: { id: true, nombre: true, cargo: true } },
+        proyecto: { select: { nombre: true } },
+      },
+    });
+    return construirManoDeObra(
+      pagos.map((pago) => ({
+        proyecto: pago.proyecto?.nombre ?? null,
+        periodoInicio: diaLocal(pago.periodoInicio),
+        periodoFin: diaLocal(pago.periodoFin),
+        trabajadorId: pago.trabajador.id,
+        trabajador: pago.trabajador.nombre,
+        cargo: pago.trabajador.cargo,
+        dias: pago.dias,
+        valorDia: pago.valorDia,
+        valorHorasExtra: pago.valorHorasExtra,
+        devengado: costoDelPago(pago),
+        pagado: pago.valorPagado,
+      })),
+    );
   }
 
   // Utilidad por equipo en un rango de fechas (RF-MAQ-05).

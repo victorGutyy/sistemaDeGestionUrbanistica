@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { UsuarioAutenticado } from '../src/auth/usuario-autenticado.js';
 import type { LiquidarQuincenaDto } from '../src/nomina/dto/liquidar-quincena.dto.js';
+import { filasDeNomina } from '../src/finanzas/proyecto-finanzas.js';
+import { costoDelPago } from '../src/nomina/calculo-pago.js';
 import { liquidarQuincenaEnTx, prepararLiquidacion } from '../src/nomina/liquidar-quincena.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
@@ -113,6 +115,28 @@ describe('Liquidación de nómina por obra contra Postgres real (CC-05, RF-PER-2
       const suma = (id: string) => porObra.find((fila) => fila.proyectoId === id)?._sum.valorDevengado?.toString();
       expect(suma(e.obraA.id)).toBe('540000');
       expect(suma(e.obraB.id)).toBe('480000');
+    });
+  });
+
+  it('el costo de cada obra sale de lo devengado, no de lo pagado, con los datos como los guarda la base (RF-PER-09 y RF-PER-10)', async () => {
+    await enTransaccionRevertida(async (tx) => {
+      const e = await escenario(tx);
+      // Obra A: 10 días de Ana (600.000) con un anticipo de 100.000 -> se paga 500.000 pero la obra cuesta 600.000.
+      await ejecutar(tx, liquidacion(e.obraA.id, [{ trabajadorId: e.ana.id, dias: '10', novedades: [{ tipo: 'ANTICIPO', valor: '100000' }] }, { trabajadorId: e.beto.id, dias: '5' }]));
+      await ejecutar(tx, liquidacion(e.obraB.id, [{ trabajadorId: e.ana.id, dias: '3' }]));
+
+      const pagosA = await tx.pagoNomina.findMany({ where: { proyectoId: e.obraA.id }, select: { periodoInicio: true, periodoFin: true, fechaPago: true, valorDevengado: true, valorPagado: true } });
+      expect(pagosA.reduce((suma, p) => suma + Number(costoDelPago(p)), 0)).toBe(1_000_000); // 600.000 + 5 x 80.000
+      expect(pagosA.reduce((suma, p) => suma + Number(p.valorPagado), 0)).toBe(900_000); // lo que sale de caja
+
+      // En las finanzas de la obra, la nómina entra como UN gasto de la quincena, a su costo.
+      const filas = filasDeNomina(pagosA);
+      expect(filas).toHaveLength(1);
+      expect(filas[0].valor.toString()).toBe('1000000');
+      expect(filas[0].descripcion).toBe('Nómina del 01/03/2031 al 15/03/2031 · 2 trabajadores');
+
+      const pagosB = await tx.pagoNomina.findMany({ where: { proyectoId: e.obraB.id }, select: { periodoInicio: true, periodoFin: true, fechaPago: true, valorDevengado: true, valorPagado: true } });
+      expect(filasDeNomina(pagosB)[0].valor.toString()).toBe('180000');
     });
   });
 

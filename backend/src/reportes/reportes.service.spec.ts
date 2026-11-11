@@ -118,17 +118,52 @@ describe('ReportesService', () => {
       expect(reporte.secciones.find((s) => s.titulo === 'Detalle de abonos')?.filas[0]).toMatchObject({ recibo: 'RC-000001', lote: 'A-3', valor: '1000000' });
     });
 
-    it('los egresos suman la nómina como categoría Nómina, pero no cuando se limita a un proyecto o se tiene alcance restringido', async () => {
+    it('los egresos suman la nómina como categoría Nómina, a su costo (lo devengado) y en su obra', async () => {
       prisma.movimientoFinanciero.findMany.mockResolvedValue([{ valor: D(500_000), categoriaGasto: { nombre: 'Materiales' }, proyecto: { nombre: 'Proyecto Uno' } }]);
-      prisma.pagoNomina.findMany.mockResolvedValue([{ fechaPago: new Date(2026, 9, 5), valorPagado: D(2_000_000) }]);
+      prisma.pagoNomina.findMany.mockResolvedValue([
+        { fechaPago: new Date(2026, 9, 5), valorDevengado: D(2_000_000), valorPagado: D(1_800_000), proyecto: { nombre: 'Proyecto Uno' } },
+        { fechaPago: new Date(2026, 9, 5), valorDevengado: null, valorPagado: D(100_000), proyecto: null },
+      ]);
 
-      const total = await service.generar('egresos', {}, GERENTE);
-      expect(total.secciones[0].totales).toMatchObject({ total: '2500000' });
+      const reporte = await service.generar('egresos', {}, GERENTE);
+
+      expect(reporte.secciones[0].totales).toMatchObject({ total: '2600000' });
+      const nomina = reporte.secciones[0].filas.find((f) => f.nombre === 'Nómina');
+      expect(nomina).toMatchObject({ cantidad: 2, total: '2100000' });
+    });
+
+    it('la nómina se limita al proyecto del filtro, al alcance de quien pide y se omite si se filtra por otra categoría', async () => {
+      await service.generar('egresos', { proyectoId: UUID_PROYECTO }, GERENTE);
+      expect(prisma.pagoNomina.findMany.mock.calls[0][0].where).toMatchObject({ proyectoId: UUID_PROYECTO });
 
       prisma.pagoNomina.findMany.mockClear();
-      await service.generar('egresos', { proyectoId: UUID_PROYECTO }, GERENTE);
       await service.generar('egresos', {}, SOCIO);
+      expect(JSON.stringify(prisma.pagoNomina.findMany.mock.calls[0][0].where)).toContain('"proyectoId":{"in":');
+
+      prisma.pagoNomina.findMany.mockClear();
+      await service.generar('egresos', { categoriaId: '33333333-3333-4333-8333-333333333333' }, GERENTE);
       expect(prisma.pagoNomina.findMany).not.toHaveBeenCalled();
+    });
+
+    it('el flujo de caja cuenta lo PAGADO de la nómina (lo que sale de caja), no lo devengado', async () => {
+      prisma.pagoNomina.findMany.mockResolvedValue([{ fechaPago: new Date(2026, 9, 15), valorDevengado: D(600_000), valorPagado: D(480_000), proyecto: null }]);
+      const reporte = await service.generar('flujo-caja', { desde: '2026-10-01', hasta: '2026-10-31', granularidad: 'MES' }, GERENTE);
+      expect(reporte.secciones[0].filas[0]).toMatchObject({ egresos: '480000' });
+    });
+
+    it('el informe del proyecto incluye la nómina de la obra como egreso de la categoría Nómina', async () => {
+      prisma.pagoNomina.findMany.mockResolvedValue([{ valorDevengado: D(900_000), valorPagado: D(800_000), proyecto: { nombre: 'Proyecto Uno' } }]);
+      const informe = await service.generar('informe-proyecto', { proyectoId: UUID_PROYECTO, desde: '2026-10-01', hasta: '2026-10-31' }, GERENTE);
+      expect(JSON.stringify(informe.secciones)).toContain('Nómina');
+      expect(prisma.pagoNomina.findMany.mock.calls.at(-1)?.[0].where).toMatchObject({ proyectoId: UUID_PROYECTO });
+    });
+
+    it('el reporte de mano de obra pide permiso de nómina y no se ofrece a quien está limitado a proyectos', async () => {
+      const conNomina = { ...GERENTE, permisos: [...GERENTE.permisos, 'nomina.ver'] };
+      await expect(service.generar('mano-de-obra', {}, GERENTE)).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(service.generar('mano-de-obra', {}, { ...SOCIO, permisos: [...SOCIO.permisos, 'nomina.ver'] })).rejects.toBeInstanceOf(ForbiddenException);
+      const reporte = await service.generar('mano-de-obra', {}, conNomina);
+      expect(reporte.secciones.map((s) => s.titulo)).toEqual(['Costo de la mano de obra por obra', 'Costo por obra y quincena', 'Detalle por trabajador']);
     });
 
     it('el flujo de caja exige las fechas y trae todo lo anterior al rango para el saldo inicial', async () => {

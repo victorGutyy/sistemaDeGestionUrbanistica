@@ -43,6 +43,12 @@ export function filtroMovimiento(usuario: UsuarioAutenticado): Prisma.Movimiento
   return filtroProyectoId(usuario);
 }
 
+// Los pagos de nómina con obra pertenecen a un proyecto: quien está limitado a proyectos solo cuenta los de los suyos (y nunca los
+// anteriores a CC-05, que no tienen obra). Se usa para sumar el costo, nunca para mostrar a quién se le pagó.
+export function filtroPagoNomina(usuario: UsuarioAutenticado): Prisma.PagoNominaWhereInput {
+  return filtroProyectoId(usuario);
+}
+
 export function puedeVerProyecto(usuario: UsuarioAutenticado, proyectoId: string): boolean {
   return usuario.proyectoIds === null || usuario.proyectoIds.includes(proyectoId);
 }

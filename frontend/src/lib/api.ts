@@ -907,14 +907,15 @@ export function abrirSoporteMovimiento(id: string) {
 
 // Una línea del detalle de finanzas de un proyecto: un movimiento o el abono de un cliente.
 export interface FilaFinanzaProyecto {
-  origen: 'ABONO' | 'MOVIMIENTO'
+  // NOMINA: la nómina de la obra en una quincena, a su costo (CC-05); no es un movimiento que se pueda abrir.
+  origen: 'ABONO' | 'MOVIMIENTO' | 'NOMINA'
   id: string
   fecha: string
   tipo: TipoMovimiento
   categoria: string
   descripcion: string
   valor: string
-  medioPago: MedioPago
+  medioPago: MedioPago | null
   cuenta: string | null
   referencia: string | null
   tercero: string | null

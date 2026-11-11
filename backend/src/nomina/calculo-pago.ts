@@ -78,3 +78,10 @@ export function calcularPagoPorDias(entrada: EntradaPagoPorDias): ResultadoPagoP
   }
   return { valorDias, valorHorasExtra, valorDevengado, valorPagado };
 }
+
+// El costo que un pago de nómina carga a su obra (CC-05, RF-PER-09 y RF-PER-10): lo devengado (días más horas extra). El anticipo
+// y el descuento reducen lo que sale de caja, no lo que cuesta la obra. Un pago anterior a CC-05 no tiene devengado: su costo es lo
+// que se pagó.
+export function costoDelPago(pago: { valorDevengado: Prisma.Decimal | null; valorPagado: Prisma.Decimal }): Prisma.Decimal {
+  return pago.valorDevengado ?? pago.valorPagado;
+}

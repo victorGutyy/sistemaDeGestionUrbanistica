@@ -556,11 +556,12 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 - Los valores se redondean al peso más cercano (la mitad hacia arriba). Topes de digitación: 31 días y 300 horas extra por pago.
 - Los pagos anteriores a este cambio no se modifican: los campos nuevos son opcionales.
 - Los datos bancarios del trabajador los ve solo quien tiene permiso de nómina, nunca el contratista de SST.
+- **Costo por obra (RF-PER-09 y RF-PER-10).** El consolidado y las finanzas de cada obra cuentan la nómina a su costo (lo devengado), por obra; el informe del proyecto y el reporte de egresos también. La caja y el cierre de caja cuentan lo pagado, que es lo que sale de caja. El reporte "Costo de mano de obra por obra y quincena" (permiso `nomina.ver`, solo con alcance total) muestra el costo, lo descontado y lo pagado por obra, por obra y quincena y por trabajador, en pantalla, PDF y Excel. Quien está limitado a proyectos suma la nómina de los suyos, sin ver a quién se le pagó. Los pagos anteriores a CC-05 no tienen obra: aparecen como "General (sin proyecto)" y cuestan lo pagado.
 - El gerente y el administrador comparten el control de los cargos y sus valores día con el permiso de nómina (`nomina.gestionar`), desde Nómina → Cargos y valor día; Configuración sigue siendo solo del gerente. Cada cambio queda en la auditoría.
 
 **No se incluye.** Recibo de nómina en PDF (RF-PER-08), préstamos a trabajadores (CC-01), liquidación de prestaciones y seguridad social, y la nómina electrónica.
 
-**Fases.** N1.1 esquema y cálculo (hecho el 10/11/2026), N1.2 servicio y API (hecho el 10/11/2026), N1.3 cargos y ficha del trabajador (hecho el 10/11/2026), N1.4 pantalla de liquidación quincenal (hecho el 11/11/2026), N1.5 costo por proyecto en Finanzas, Flujo y Reportes, N1.6 verificación y despliegue, N2 conversor y carga del historial.
+**Fases.** N1.1 esquema y cálculo (hecho el 10/11/2026), N1.2 servicio y API (hecho el 10/11/2026), N1.3 cargos y ficha del trabajador (hecho el 10/11/2026), N1.4 pantalla de liquidación quincenal (hecho el 11/11/2026), N1.5 costo por proyecto en Finanzas, Flujo y Reportes (hecho el 11/11/2026), N1.6 verificación y despliegue, N2 conversor y carga del historial.
 
 **Puntos por confirmar derivados de este cambio:**
 
@@ -570,4 +571,5 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 | Catálogo final de cargos (¿topógrafo?) y si ingeniero, administrativo y SISO también se pagan por día | RF-PER-19 |
 | Tipo de proyecto de las obras (hoy solo Remodelación encaja) y cuáles se crean: las de la quincena del 1 al 15 de octubre de 2026 | RF-PER-03, RF-PER-21 |
 | Fecha y medio de pago de las quincenas del historial (el libro no los trae) | RF-PER-24 |
+| Cómo se maneja hoy el anticipo entregado antes de la quincena: el costo de la obra cuenta lo devengado completo, así que un anticipo que ya se registró como egreso aparte no debe contarse una segunda vez; y la caja solo ve lo pagado en la quincena, no el anticipo entregado antes | RF-PER-09, RF-PER-22 |
 | Si los trabajadores ya se cargaron por el módulo de SST o los crea el conversor | RF-PER-24 |

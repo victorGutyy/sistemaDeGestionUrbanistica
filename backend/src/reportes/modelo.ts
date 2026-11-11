@@ -31,7 +31,7 @@ export interface SeccionReporte {
   filasTotales?: number;
 }
 
-export type ClaveReporte = 'recaudo' | 'cartera-edades' | 'egresos' | 'inventario-lotes' | 'flujo-caja' | 'comisiones' | 'informe-proyecto' | 'maquinaria-equipos';
+export type ClaveReporte = 'recaudo' | 'cartera-edades' | 'egresos' | 'inventario-lotes' | 'flujo-caja' | 'comisiones' | 'informe-proyecto' | 'maquinaria-equipos' | 'mano-de-obra';
 
 // Los reportes del catálogo y los que arman otros módulos con este mismo modelo (novedades de ausentismo para la nómina y los
 // reportes de seguridad y salud en el trabajo).

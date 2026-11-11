@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { VistaReporte } from '../components/VistaReporte'
 import {
   exportarReporte,
@@ -33,6 +34,8 @@ function filtrosIniciales(reporte: DefinicionReporte): FiltrosReporte {
 
 // Reportes (RF-REP-04 a 11): se elige un reporte, se ponen los filtros y se ve en pantalla o se baja en PDF o Excel.
 export function ReportesPage() {
+  // /reportes?reporte=mano-de-obra abre la pantalla con ese reporte elegido (si el usuario puede pedirlo).
+  const [parametros] = useSearchParams()
   const [catalogo, setCatalogo] = useState<CatalogoReportes | null>(null)
   const [seleccionado, setSeleccionado] = useState<string | null>(null)
   const [filtros, setFiltros] = useState<FiltrosReporte>({})
@@ -45,12 +48,15 @@ export function ReportesPage() {
     obtenerCatalogoReportes()
       .then((datos) => {
         setCatalogo(datos)
-        if (datos.reportes[0]) {
-          setSeleccionado(datos.reportes[0].clave)
-          setFiltros(filtrosIniciales(datos.reportes[0]))
+        const inicial = datos.reportes.find((r) => r.clave === parametros.get('reporte')) ?? datos.reportes[0]
+        if (inicial) {
+          setSeleccionado(inicial.clave)
+          setFiltros(filtrosIniciales(inicial))
         }
       })
       .catch((err: Error) => setError(err.message))
+    // Solo debe correr al montar: el reporte inicial es el de la dirección con la que se abrió la pantalla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const definicion = useMemo(() => catalogo?.reportes.find((r) => r.clave === seleccionado) ?? null, [catalogo, seleccionado])

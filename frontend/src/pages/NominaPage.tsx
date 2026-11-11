@@ -31,6 +31,11 @@ export function NominaPage() {
               Seguridad y salud
             </Link>
           )}
+          {tiene(PERMISOS.REPORTES_VER) && (
+            <Link to="/reportes?reporte=mano-de-obra" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Costo por obra
+            </Link>
+          )}
           <Link to="/nomina/cargos" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cargos y valor día
           </Link>

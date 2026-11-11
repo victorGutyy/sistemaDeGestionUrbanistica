@@ -113,6 +113,15 @@ export const CATALOGO_REPORTES: DefinicionReporte[] = [
     permisosExtra: [PERMISOS.FINANZAS_VER],
     soloAlcanceTotal: false,
   },
+  {
+    clave: 'mano-de-obra',
+    titulo: 'Costo de mano de obra por obra y quincena',
+    descripcion: 'Lo que cuesta la nómina a cada obra (lo devengado), lo pagado y el detalle de cada trabajador, por quincena. Las fechas son las del pago.',
+    filtros: [DESDE, HASTA, PROYECTO],
+    permisosExtra: [PERMISOS.NOMINA_VER],
+    // Muestra cuánto ganó cada trabajador: solo para quien ve la nómina de toda la empresa.
+    soloAlcanceTotal: true,
+  },
 ];
 
 export function definicionDe(clave: string): DefinicionReporte | undefined {

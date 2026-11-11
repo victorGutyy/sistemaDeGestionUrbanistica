@@ -108,29 +108,37 @@ export function ProyectoFinanzasPage() {
           const anulado = fila.estado === 'ANULADO'
           const esGasto = fila.tipo === 'GASTO'
           const enlace = fila.origen === 'ABONO' && fila.ventaId ? `/ventas/${fila.ventaId}` : `/finanzas/movimientos/${fila.id}`
+          const contenido = (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className={`truncate font-medium ${anulado ? 'text-slate-500 line-through' : 'text-slate-900'}`}>{fila.descripcion}</p>
+              <p className="text-xs text-slate-500">
+                {formatearFecha(fila.fecha)} · {fila.categoria}
+                {fila.recibo ? ` · ${fila.recibo}` : ''}
+                {fila.cuenta ? ` · ${fila.cuenta}` : ''}
+                {fila.equipo ? ` · ${fila.equipo}` : ''}
+              </p>
+              {fila.registradoPor && <p className="text-xs text-slate-400">Registró {fila.registradoPor}</p>}
+            </div>
+            <div className="text-right">
+              <p className={`font-semibold ${anulado ? 'text-slate-400 line-through' : esGasto ? 'text-red-700' : 'text-green-700'}`}>
+                {esGasto ? '−' : '+'}
+                {formatearCOP(fila.valor)}
+              </p>
+              {anulado && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">ANULADO</span>}
+            </div>
+          </div>
+          )
           return (
             <li key={`${fila.origen}-${fila.id}`}>
-              <Link to={enlace} className={`block px-4 py-3 text-sm hover:bg-slate-50 ${anulado ? 'bg-red-50/60' : ''}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className={`truncate font-medium ${anulado ? 'text-slate-500 line-through' : 'text-slate-900'}`}>{fila.descripcion}</p>
-                    <p className="text-xs text-slate-500">
-                      {formatearFecha(fila.fecha)} · {fila.categoria}
-                      {fila.recibo ? ` · ${fila.recibo}` : ''}
-                      {fila.cuenta ? ` · ${fila.cuenta}` : ''}
-                      {fila.equipo ? ` · ${fila.equipo}` : ''}
-                    </p>
-                    {fila.registradoPor && <p className="text-xs text-slate-400">Registró {fila.registradoPor}</p>}
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${anulado ? 'text-slate-400 line-through' : esGasto ? 'text-red-700' : 'text-green-700'}`}>
-                      {esGasto ? '−' : '+'}
-                      {formatearCOP(fila.valor)}
-                    </p>
-                    {anulado && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">ANULADO</span>}
-                  </div>
-                </div>
-              </Link>
+              {fila.origen === 'NOMINA' ? (
+                // La nómina de la obra es un resumen por quincena: no hay un movimiento que abrir (el detalle está en Nómina).
+                <div className="block px-4 py-3 text-sm">{contenido}</div>
+              ) : (
+                <Link to={enlace} className={`block px-4 py-3 text-sm hover:bg-slate-50 ${anulado ? 'bg-red-50/60' : ''}`}>
+                  {contenido}
+                </Link>
+              )}
             </li>
           )
         })}

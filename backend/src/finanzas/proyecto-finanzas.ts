@@ -4,14 +4,15 @@ import type { EstadoMovimiento, MedioPago, TipoMovimiento } from '../generated/p
 // Una línea del detalle de finanzas de un proyecto (RF-EGR-08): puede ser un movimiento registrado a mano
 // o un abono de un cliente (que aparece como ingreso por venta de lotes, con su número de recibo).
 export interface FilaFinanza {
-  origen: 'ABONO' | 'MOVIMIENTO';
+  origen: 'ABONO' | 'MOVIMIENTO' | 'NOMINA';
   id: string;
   fecha: Date;
   tipo: TipoMovimiento;
   categoria: string;
   descripcion: string;
   valor: Prisma.Decimal;
-  medioPago: MedioPago;
+  // Null en la nómina: un mismo grupo de pagos puede haberse hecho por varios medios.
+  medioPago: MedioPago | null;
   cuenta: string | null;
   referencia: string | null;
   tercero: string | null;
@@ -45,6 +46,49 @@ interface VentaParaResumen {
 }
 
 const CERO = () => new Prisma.Decimal(0);
+
+export interface PagoNominaParaFila {
+  periodoInicio: Date;
+  periodoFin: Date;
+  fechaPago: Date;
+  valorDevengado: Prisma.Decimal | null;
+  valorPagado: Prisma.Decimal;
+}
+
+const dia = (fecha: Date) => `${String(fecha.getDate()).padStart(2, '0')}/${String(fecha.getMonth() + 1).padStart(2, '0')}/${fecha.getFullYear()}`;
+
+// La nómina de una obra entra a sus finanzas como un gasto por cada quincena y día de pago (no uno por trabajador): lo que cuesta la
+// obra se ve completo, sin mostrar cuánto ganó cada persona. El costo es lo devengado (CC-05).
+export function filasDeNomina(pagos: PagoNominaParaFila[]): FilaFinanza[] {
+  const grupos = new Map<string, { periodoInicio: Date; periodoFin: Date; fechaPago: Date; cantidad: number; valor: Prisma.Decimal }>();
+  for (const pago of pagos) {
+    const clave = `${pago.periodoInicio.getTime()}|${pago.periodoFin.getTime()}|${pago.fechaPago.getTime()}`;
+    const grupo = grupos.get(clave) ?? { periodoInicio: pago.periodoInicio, periodoFin: pago.periodoFin, fechaPago: pago.fechaPago, cantidad: 0, valor: CERO() };
+    grupo.cantidad += 1;
+    grupo.valor = grupo.valor.plus(pago.valorDevengado ?? pago.valorPagado);
+    grupos.set(clave, grupo);
+  }
+  return [...grupos.entries()].map(([clave, grupo]) => ({
+    origen: 'NOMINA' as const,
+    id: `nomina-${clave}`,
+    fecha: grupo.fechaPago,
+    tipo: 'GASTO' as TipoMovimiento,
+    categoria: 'Nómina',
+    descripcion: `Nómina del ${dia(grupo.periodoInicio)} al ${dia(grupo.periodoFin)} · ${grupo.cantidad} trabajador${grupo.cantidad === 1 ? '' : 'es'}`,
+    valor: grupo.valor,
+    medioPago: null,
+    cuenta: null,
+    referencia: null,
+    tercero: null,
+    numeroDocumento: null,
+    tieneSoporte: false,
+    registradoPor: null,
+    estado: 'ACTIVO' as EstadoMovimiento,
+    recibo: null,
+    ventaId: null,
+    equipo: null,
+  }));
+}
 
 // La utilidad de un proyecto es lo recaudado menos lo gastado (RF-EGR-05). Los movimientos y abonos
 // anulados se muestran en el detalle, pero no suman en ningún total.

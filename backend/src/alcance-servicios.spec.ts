@@ -229,10 +229,14 @@ describe('alcance por proyecto en los servicios', () => {
       await expect(crearFinanzas().finanzasDeProyecto('p-arboleda', {}, SOCIO)).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('el consolidado no incluye la nómina (no es de ningún proyecto) y filtra todo por alcance', async () => {
+    it('el consolidado cuenta la nómina solo de los proyectos del usuario (nunca la de toda la empresa, ni quién cobró) y filtra todo por alcance', async () => {
       await crearFinanzas().consolidado({}, SOCIO);
 
-      expect(prisma.pagoNomina.findMany).not.toHaveBeenCalled();
+      // CC-05: la nómina tiene obra. El socio suma el costo de la suya, con una consulta limitada a sus proyectos y sin datos de personas.
+      expect(prisma.pagoNomina.findMany).toHaveBeenCalledTimes(1);
+      const consulta = prisma.pagoNomina.findMany.mock.calls[0][0];
+      expect(consulta.where).toEqual({ proyectoId: { in: ['p-floresta'] } });
+      expect(Object.keys(consulta.select).sort()).toEqual(['fechaPago', 'proyectoId', 'valorDevengado', 'valorPagado']);
       expect(prisma.movimientoFinanciero.findMany).toHaveBeenCalledWith({
         where: expect.objectContaining({ proyectoId: { in: ['p-floresta'] } }),
       });

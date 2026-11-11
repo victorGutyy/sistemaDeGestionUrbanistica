@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { registrarAuditoria } from '../auditoria/auditoria.js';
 import { formatearCOP } from '../common/formato.util.js';
-import { exigirAlcanceTotal, exigirProyecto, filtroMovimiento, filtroProyecto, filtroVenta, tieneAlcanceTotal } from '../auth/alcance.js';
+import { exigirAlcanceTotal, exigirProyecto, filtroMovimiento, filtroPagoNomina, filtroProyecto, filtroVenta } from '../auth/alcance.js';
+import { costoDelPago } from '../nomina/calculo-pago.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { exigirFechaNoFutura, validarCuentaDestino } from '../abonos/validar-pago.js';
 import { parsearFechaLocal } from '../common/fecha.util.js';
@@ -18,7 +19,7 @@ import { AnularMovimientoDto } from './dto/anular-movimiento.dto.js';
 import { CrearMovimientoDto } from './dto/crear-movimiento.dto.js';
 import { FiltroPeriodoDto } from './dto/filtro-periodo.dto.js';
 import { ListarMovimientosQueryDto } from './dto/listar-movimientos-query.dto.js';
-import { resumirFinanzasProyecto, type FilaFinanza } from './proyecto-finanzas.js';
+import { filasDeNomina, resumirFinanzasProyecto, type FilaFinanza } from './proyecto-finanzas.js';
 
 function construirRangoFechas(filtro: FiltroPeriodoDto): Prisma.DateTimeFilter | undefined {
   if (!filtro.desde && !filtro.hasta) {
@@ -221,8 +222,8 @@ export class FinanzasService {
         // Un abono anulado no entra a la caja (su recibo se conserva, pero el dinero se revirtió).
         include: { lote: true, abonos: { where: { estado: EstadoAbono.ACTIVO } } },
       }),
-      // La nómina no pertenece a ningún proyecto: con alcance restringido no se incluye.
-      tieneAlcanceTotal(usuario) ? this.prisma.pagoNomina.findMany() : Promise.resolve([]),
+      // Con alcance restringido solo cuenta la nómina de sus proyectos (la anterior a CC-05 no tiene obra y no se incluye).
+      this.prisma.pagoNomina.findMany({ where: filtroPagoNomina(usuario), select: { proyectoId: true, fechaPago: true, valorDevengado: true, valorPagado: true } }),
       this.prisma.proyecto.findMany({ where: filtroProyecto(usuario), select: { id: true, nombre: true } }),
     ]);
 
@@ -237,14 +238,13 @@ export class FinanzasService {
       }
     }
 
-    // Los pagos de nómina son un gasto real de la empresa, igual que un
-    // MovimientoFinanciero tipo GASTO, pero viven en su propia tabla
-    // (ver Nomina) y no están ligados a ningún proyecto.
+    // Los pagos de nómina son un gasto real de la empresa, igual que un MovimientoFinanciero tipo GASTO, pero viven en su propia
+    // tabla. Desde CC-05 cada pago lleva su obra y cuesta lo devengado; los anteriores no tienen obra y cuestan lo pagado.
     const movimientos = [
       ...movimientosRegistrados,
       ...pagosNomina
         .filter((pago) => fechaEnRango(pago.fechaPago, filtro))
-        .map((pago) => ({ tipo: TipoMovimiento.GASTO, valor: pago.valorPagado, proyectoId: null })),
+        .map((pago) => ({ tipo: TipoMovimiento.GASTO, valor: costoDelPago(pago), proyectoId: pago.proyectoId })),
     ];
 
     return calcularConsolidado({ movimientos, abonos, proyectos });
@@ -259,7 +259,7 @@ export class FinanzasService {
       throw new NotFoundException(`No existe el proyecto ${proyectoId}`);
     }
 
-    const [movimientos, ventas] = await Promise.all([
+    const [movimientos, ventas, pagosNomina] = await Promise.all([
       this.prisma.movimientoFinanciero.findMany({
         where: { proyectoId, fecha: construirRangoFechas(filtro) },
         include: INCLUIR_MOVIMIENTO,
@@ -277,6 +277,11 @@ export class FinanzasService {
             },
           },
         },
+      }),
+      // La nómina de la obra en el período (CC-05): entra como gasto por quincena, sin decir cuánto ganó cada persona.
+      this.prisma.pagoNomina.findMany({
+        where: { proyectoId, fechaPago: construirRangoFechas(filtro) },
+        select: { periodoInicio: true, periodoFin: true, fechaPago: true, valorDevengado: true, valorPagado: true },
       }),
     ]);
 
@@ -326,6 +331,7 @@ export class FinanzasService {
         });
       }
     }
+    filas.push(...filasDeNomina(pagosNomina));
     filas.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
 
     // Lo vendido y lo que falta cobrar se miran sobre toda la vida del proyecto, no solo sobre el período.
