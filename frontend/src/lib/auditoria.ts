@@ -26,6 +26,15 @@ const NOMBRES_CAMPO: Record<string, string> = {
   logoRuta: 'Logo',
   motivoSinSoporte: 'Motivo de no tener soporte',
   conSoporte: 'Con soporte',
+  valorDia: 'Valor día',
+  valorHoraExtra: 'Valor de la hora extra',
+  valorHorasExtra: 'Valor de las horas extra',
+  valorDevengado: 'Devengado (costo de la obra)',
+  horasExtra: 'Horas extra',
+  dias: 'Días trabajados',
+  numeroCuenta: 'Número de cuenta',
+  tipoCuenta: 'Tipo de cuenta',
+  cargoNominaId: 'Cargo de nómina',
 }
 
 // Campos que son dinero (pesos): se muestran como $1.234.567.
@@ -45,6 +54,10 @@ const CAMPOS_DINERO = new Set([
   'salidas',
   'salarioBase',
   'valorPagado',
+  'valorDia',
+  'valorHoraExtra',
+  'valorHorasExtra',
+  'valorDevengado',
   'valorDevolver',
   'valorRetener',
   'valorCompra',

@@ -17,6 +17,7 @@ const ETIQUETA_NOVEDAD: Record<string, string> = {
   HORAS_EXTRA: 'Horas extra',
   DESCUENTO: 'Descuento',
   INCAPACIDAD: 'Incapacidad',
+  ANTICIPO: 'Anticipo',
 }
 
 export function TrabajadorDetallePage() {
@@ -80,8 +81,11 @@ export function TrabajadorDetallePage() {
 
       <Seccion titulo="Datos del trabajador">
         <DatosPersonales trabajador={trabajador} />
-        <dl className="mt-3 border-t border-slate-100 pt-3">
+        <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
           <Dato etiqueta="Salario base">{formatearCOP(trabajador.salarioBase)}</Dato>
+          <Dato etiqueta="Valor día">{trabajador.valorDia ? formatearCOP(trabajador.valorDia) : 'Sin definir (no se puede liquidar por días)'}</Dato>
+          <Dato etiqueta="Banco">{trabajador.banco ?? '—'}</Dato>
+          <Dato etiqueta="Cuenta">{[trabajador.tipoCuenta, trabajador.numeroCuenta].filter(Boolean).join(' · ') || '—'}</Dato>
         </dl>
         {puedeGestionar && (
           <div className="mt-4 border-t border-slate-100 pt-4">

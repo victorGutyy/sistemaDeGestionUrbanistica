@@ -42,6 +42,7 @@ import { RecuperarPasswordPage } from './pages/RecuperarPasswordPage'
 import { RestablecerPasswordPage } from './pages/RestablecerPasswordPage'
 import { LoteDetallePage } from './pages/LoteDetallePage'
 import { MovimientoDetallePage } from './pages/MovimientoDetallePage'
+import { CargosNominaPage } from './pages/CargosNominaPage'
 import { NominaPage } from './pages/NominaPage'
 import { ProyectoDetallePage } from './pages/ProyectoDetallePage'
 import { ProyectoFinanzasPage } from './pages/ProyectoFinanzasPage'
@@ -126,6 +127,7 @@ function App() {
 
               <Route element={<ProtectedRoute permiso={PERMISOS.NOMINA_VER} />}>
                 <Route path="/nomina" element={<NominaPage />} />
+                <Route path="/nomina/cargos" element={<CargosNominaPage />} />
                 <Route path="/trabajadores/nuevo" element={<RegistrarTrabajadorPage />} />
                 <Route path="/trabajadores/:id/pagos/nuevo" element={<RegistrarPagoNominaPage />} />
                 <Route path="/trabajadores/:id/editar" element={<EditarTrabajadorPage />} />

@@ -31,6 +31,9 @@ export function NominaPage() {
               Seguridad y salud
             </Link>
           )}
+          <Link to="/nomina/cargos" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Cargos y valor día
+          </Link>
           {tiene(PERMISOS.NOMINA_GESTIONAR) && (
             <Link
               to="/trabajadores/nuevo"
@@ -53,13 +56,14 @@ export function NominaPage() {
               <th className="px-4 py-3 font-medium">Nombre</th>
               <th className="px-4 py-3 font-medium">Cargo</th>
               <th className="px-4 py-3 font-medium">Salario base</th>
+              <th className="px-4 py-3 font-medium">Valor día</th>
               <th className="px-4 py-3 font-medium">Estado</th>
             </tr>
           </thead>
           <tbody>
             {!cargando && trabajadores.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
                   Todavía no hay trabajadores registrados.
                 </td>
               </tr>
@@ -74,6 +78,7 @@ export function NominaPage() {
                 </td>
                 <td className="px-4 py-3">{trabajador.cargo}</td>
                 <td className="px-4 py-3">{formatearCOP(trabajador.salarioBase)}</td>
+                <td className="px-4 py-3">{trabajador.valorDia ? formatearCOP(trabajador.valorDia) : <span className="text-slate-400">—</span>}</td>
                 <td className="px-4 py-3">{trabajador.estado === 'ACTIVO' ? 'Activo' : 'Retirado'}</td>
               </tr>
             ))}

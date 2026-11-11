@@ -1409,7 +1409,7 @@ export function obtenerConsolidadoCaja(filtro?: { desde?: string; hasta?: string
 }
 
 export type EstadoTrabajador = 'ACTIVO' | 'INACTIVO'
-export type TipoNovedad = 'HORAS_EXTRA' | 'DESCUENTO' | 'INCAPACIDAD'
+export type TipoNovedad = 'HORAS_EXTRA' | 'DESCUENTO' | 'INCAPACIDAD' | 'ANTICIPO'
 
 export type TipoContrato = 'OBRA_LABOR' | 'TERMINO_FIJO' | 'TERMINO_INDEFINIDO' | 'PRESTACION_SERVICIOS'
 export type SexoTrabajador = 'FEMENINO' | 'MASCULINO' | 'OTRO'
@@ -1442,6 +1442,34 @@ export interface DatosTrabajador {
 
 export interface Trabajador extends DatosTrabajador {
   salarioBase: string
+  // CC-05: pago por día. El valor día es el del trabajador (el del cargo solo lo sugiere) y los datos de pago son sensibles:
+  // solo llegan a quien tiene permiso de nómina.
+  cargoNominaId: string | null
+  valorDia: string | null
+  banco: string | null
+  tipoCuenta: string | null
+  numeroCuenta: string | null
+}
+
+// Cargo de nómina (CC-05): catálogo con un valor día sugerido, que administra el gerente.
+export interface CargoNomina {
+  id: string
+  nombre: string
+  valorDia: string
+  activo: boolean
+}
+
+// Sin `todos` solo salen los activos (los que se ofrecen en los formularios); la pantalla de cargos pide todos.
+export function listarCargosNomina(todos = false) {
+  return solicitar<CargoNomina[]>(`/nomina/cargos${todos ? '?todos=true' : ''}`)
+}
+
+export function crearCargoNomina(payload: { nombre: string; valorDia: string }) {
+  return solicitar<CargoNomina>('/nomina/cargos', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function actualizarCargoNomina(id: string, payload: { nombre?: string; valorDia?: string; activo?: boolean }) {
+  return solicitar<CargoNomina>(`/nomina/cargos/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
 export interface CrearTrabajadorPayload {
@@ -1461,9 +1489,15 @@ export interface CrearTrabajadorPayload {
   telefono?: string
   celular?: string
   email?: string
+  cargoNominaId?: string
+  // Pesos enteros, como texto.
+  valorDia?: string
+  banco?: string
+  tipoCuenta?: string
+  numeroCuenta?: string
 }
 
-// Solo se cambia lo que se envía; en nombres, apellidos, área, teléfono, celular y correo un texto vacío borra el dato.
+// Solo se cambia lo que se envía; en nombres, apellidos, área, teléfono, celular, correo, banco, tipo y número de cuenta un texto vacío borra el dato.
 export type ActualizarTrabajadorPayload = Partial<Omit<CrearTrabajadorPayload, 'documento'>>
 
 export function actualizarTrabajador(id: string, payload: ActualizarTrabajadorPayload) {

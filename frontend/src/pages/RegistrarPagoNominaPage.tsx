@@ -201,6 +201,7 @@ export function RegistrarPagoNominaPage() {
                   <option value="HORAS_EXTRA">Horas extra</option>
                   <option value="DESCUENTO">Descuento</option>
                   <option value="INCAPACIDAD">Incapacidad</option>
+                  <option value="ANTICIPO">Anticipo</option>
                 </select>
                 <input
                   required

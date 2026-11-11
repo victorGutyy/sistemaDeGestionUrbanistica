@@ -1,6 +1,6 @@
-import { IsBoolean, IsDecimal, IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsBoolean, IsDecimal, IsEmail, IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { SexoTrabajador, TipoContrato, TipoDocumento } from '../../generated/prisma/enums.js';
-import { FORMATO_FECHA } from './crear-trabajador.dto.js';
+import { FORMATO_FECHA, FORMATO_PESOS } from './crear-trabajador.dto.js';
 
 // Solo se cambia lo que se envía. En nombres, apellidos, área, teléfono, celular y correo, un texto vacío borra el dato.
 // El número de documento no se edita: es la identidad del trabajador.
@@ -66,6 +66,30 @@ export class ActualizarTrabajadorDto {
   @ValidateIf((dto: ActualizarTrabajadorDto) => Boolean(dto.email))
   @IsEmail()
   email?: string;
+
+  // CC-05: pago por día. En banco, tipo y número de cuenta, un texto vacío borra el dato.
+  @IsOptional()
+  @IsUUID()
+  cargoNominaId?: string;
+
+  @IsOptional()
+  @Matches(FORMATO_PESOS, { message: 'valorDia debe ser un valor en pesos enteros' })
+  valorDia?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  banco?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  tipoCuenta?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  numeroCuenta?: string;
 }
 
 export class RetirarTrabajadorDto {

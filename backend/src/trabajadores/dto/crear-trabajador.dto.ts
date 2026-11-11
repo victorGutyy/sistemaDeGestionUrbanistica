@@ -1,7 +1,8 @@
-import { IsDecimal, IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsDecimal, IsEmail, IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 import { SexoTrabajador, TipoContrato, TipoDocumento } from '../../generated/prisma/enums.js';
 
 export const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+export const FORMATO_PESOS = /^\d{1,12}$/;
 
 export class CrearTrabajadorDto {
   // Nombre completo. Si se omite, se arma con nombres y apellidos (RF-PER-17).
@@ -70,4 +71,31 @@ export class CrearTrabajadorDto {
   @IsOptional()
   @IsEmail()
   email?: string;
+
+  // CC-05: pago por día. El cargo del catálogo solo sugiere el valor día; si se omite el valor y hay cargo, se usa el sugerido.
+  @IsOptional()
+  @IsUUID()
+  cargoNominaId?: string;
+
+  // Valor del día de trabajo en pesos enteros.
+  @IsOptional()
+  @Matches(FORMATO_PESOS, { message: 'valorDia debe ser un valor en pesos enteros' })
+  valorDia?: string;
+
+  // Datos para pagarle. Texto libre porque cada banco los nombra distinto.
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  banco?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  tipoCuenta?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  numeroCuenta?: string;
 }
+

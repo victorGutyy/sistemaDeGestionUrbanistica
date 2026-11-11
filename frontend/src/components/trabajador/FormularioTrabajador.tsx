@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
-import type { ActualizarTrabajadorPayload, CrearTrabajadorPayload, SexoTrabajador, TipoContrato, TipoDocumento, Trabajador } from '../../lib/api'
-import { fechaParaInput, hoyEnBogota } from '../../lib/formato'
+import { useEffect, useState, type FormEvent } from 'react'
+import { listarCargosNomina, type ActualizarTrabajadorPayload, type CargoNomina, type CrearTrabajadorPayload, type SexoTrabajador, type TipoContrato, type TipoDocumento, type Trabajador } from '../../lib/api'
+import { fechaParaInput, formatearCOP, hoyEnBogota } from '../../lib/formato'
 import { ETIQUETA_SEXO, ETIQUETA_TIPO_CONTRATO, ETIQUETA_TIPO_DOCUMENTO_IDENTIDAD, pesosATexto, TIPOS_DOCUMENTO_IDENTIDAD } from '../../lib/seguridadSocial'
 import { Aviso, CLASE_BOTON, CLASE_INPUT, Campo } from '../formulario'
 
@@ -27,8 +27,25 @@ export function FormularioTrabajador(props: Props) {
   const [celular, setCelular] = useState(inicial?.celular ?? '')
   const [telefono, setTelefono] = useState(inicial?.telefono ?? '')
   const [email, setEmail] = useState(inicial?.email ?? '')
+  // CC-05: pago por día. El valor día es del trabajador; el del cargo solo lo sugiere.
+  const [valorDia, setValorDia] = useState(inicial?.valorDia ? String(Number(inicial.valorDia)) : '')
+  const [banco, setBanco] = useState(inicial?.banco ?? '')
+  const [tipoCuenta, setTipoCuenta] = useState(inicial?.tipoCuenta ?? '')
+  const [numeroCuenta, setNumeroCuenta] = useState(inicial?.numeroCuenta ?? '')
+  const [cargos, setCargos] = useState<CargoNomina[]>([])
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // El catálogo de cargos ayuda, pero no es obligatorio: si no carga, el cargo se escribe a mano como antes.
+  useEffect(() => {
+    listarCargosNomina()
+      .then(setCargos)
+      .catch(() => setCargos([]))
+  }, [])
+
+  const normalizar = (texto: string) => texto.trim().toLowerCase()
+  const cargoElegido = cargos.find((c) => normalizar(c.nombre) === normalizar(cargo)) ?? null
+  const diasValor = Number(valorDia) || 0
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -53,6 +70,11 @@ export function FormularioTrabajador(props: Props) {
           telefono: telefono.trim() || undefined,
           celular: celular.trim() || undefined,
           email: email.trim() || undefined,
+          cargoNominaId: cargoElegido?.id,
+          valorDia: valorDia || undefined,
+          banco: banco.trim() || undefined,
+          tipoCuenta: tipoCuenta.trim() || undefined,
+          numeroCuenta: numeroCuenta.trim() || undefined,
         })
       } else {
         // En la edición un texto vacío borra el dato. El nombre completo solo se envía si la persona lo cambió: si no,
@@ -72,6 +94,11 @@ export function FormularioTrabajador(props: Props) {
           telefono: telefono.trim(),
           celular: celular.trim(),
           email: email.trim(),
+          ...(cargoElegido && cargoElegido.id !== props.trabajador.cargoNominaId ? { cargoNominaId: cargoElegido.id } : {}),
+          ...(valorDia ? { valorDia } : {}),
+          banco: banco.trim(),
+          tipoCuenta: tipoCuenta.trim(),
+          numeroCuenta: numeroCuenta.trim(),
         })
       }
     } catch (err) {
@@ -124,8 +151,13 @@ export function FormularioTrabajador(props: Props) {
             ))}
           </select>
         </Campo>
-        <Campo id="cargo" etiqueta="Cargo">
-          <input id="cargo" required minLength={2} value={cargo} onChange={(e) => setCargo(e.target.value)} className={CLASE_INPUT} />
+        <Campo id="cargo" etiqueta="Cargo" ayuda={cargos.length > 0 ? 'Elige uno de la lista o escribe otro.' : undefined}>
+          <input id="cargo" required minLength={2} list="cargos-nomina" value={cargo} onChange={(e) => setCargo(e.target.value)} className={CLASE_INPUT} />
+          <datalist id="cargos-nomina">
+            {cargos.map((c) => (
+              <option key={c.id} value={c.nombre} />
+            ))}
+          </datalist>
         </Campo>
         <Campo id="area" etiqueta="Área" ayuda="Por ejemplo: obra civil, administrativa.">
           <input id="area" maxLength={80} value={area} onChange={(e) => setArea(e.target.value)} className={CLASE_INPUT} />
@@ -142,9 +174,50 @@ export function FormularioTrabajador(props: Props) {
         <Campo id="fechaIngreso" etiqueta="Fecha de ingreso">
           <input id="fechaIngreso" required type="date" value={fechaIngreso} onChange={(e) => setFechaIngreso(e.target.value)} className={CLASE_INPUT} />
         </Campo>
-        <Campo id="salarioBase" etiqueta="Salario base">
+        <Campo id="salarioBase" etiqueta="Salario base" ayuda={diasValor > 0 && Number(salarioBase) !== diasValor * 30 ? `El valor día por 30 es ${formatearCOP(diasValor * 30)}.` : undefined}>
           <input id="salarioBase" required inputMode="decimal" value={salarioBase} onChange={(e) => setSalarioBase(e.target.value)} className={CLASE_INPUT} />
+          {diasValor > 0 && Number(salarioBase) !== diasValor * 30 && (
+            <button type="button" onClick={() => setSalarioBase(String(diasValor * 30))} className="mt-1 text-xs font-medium text-blue-700 underline">
+              Usar el valor día por 30
+            </button>
+          )}
         </Campo>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-slate-200 p-3">
+        <div>
+          <p className="text-sm font-medium text-slate-800">Pago por día</p>
+          <p className="text-xs text-slate-500">Con el valor día se liquida cada quincena por obra. Cada pago conserva el valor con que se liquidó, así que cambiarlo aquí no altera lo ya pagado.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Campo id="valorDia" etiqueta="Valor día (pesos)">
+            <input id="valorDia" inputMode="numeric" value={valorDia} onChange={(e) => setValorDia(e.target.value.replace(/\D/g, ''))} className={CLASE_INPUT} />
+            {diasValor > 0 && (
+              <p className="mt-1 text-xs text-slate-500">
+                {formatearCOP(diasValor * 15)} por quincena de 15 días · {formatearCOP(diasValor * 30)} al mes
+              </p>
+            )}
+            {cargoElegido && Number(cargoElegido.valorDia) !== diasValor && (
+              <p className="mt-1 text-xs text-slate-500">
+                Sugerido para {cargoElegido.nombre}: {formatearCOP(cargoElegido.valorDia)}.{' '}
+                <button type="button" onClick={() => setValorDia(String(Number(cargoElegido.valorDia)))} className="font-medium text-blue-700 underline">
+                  Usar el sugerido
+                </button>
+              </p>
+            )}
+          </Campo>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Campo id="banco" etiqueta="Banco (opcional)">
+            <input id="banco" maxLength={60} value={banco} onChange={(e) => setBanco(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+          <Campo id="tipoCuenta" etiqueta="Tipo de cuenta (opcional)" ayuda="Por ejemplo: ahorros, corriente.">
+            <input id="tipoCuenta" maxLength={30} value={tipoCuenta} onChange={(e) => setTipoCuenta(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+          <Campo id="numeroCuenta" etiqueta="Número de cuenta (opcional)">
+            <input id="numeroCuenta" inputMode="numeric" maxLength={40} autoComplete="off" value={numeroCuenta} onChange={(e) => setNumeroCuenta(e.target.value)} className={CLASE_INPUT} />
+          </Campo>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

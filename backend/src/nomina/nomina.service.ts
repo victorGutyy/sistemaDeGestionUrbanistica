@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { validarCuentaDestino } from '../abonos/validar-pago.js';
 import { registrarAuditoria } from '../auditoria/auditoria.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
@@ -9,6 +9,7 @@ import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { calcularValorPagado } from './calculo-pago.js';
+import { ActualizarCargoNominaDto, CrearCargoNominaDto } from './dto/cargo-nomina.dto.js';
 import { CrearPagoNominaDto } from './dto/crear-pago-nomina.dto.js';
 import type { LiquidarQuincenaDto } from './dto/liquidar-quincena.dto.js';
 import { liquidarQuincenaEnTx, prepararLiquidacion } from './liquidar-quincena.js';
@@ -85,6 +86,78 @@ export class NominaService {
     const cuentaId = await validarCuentaDestino(this.prisma, dto.medioPago, dto.cuentaId, 'de donde salió el dinero');
     const liquidacion = prepararLiquidacion(dto, cuentaId);
     return this.prisma.$transaction((tx) => liquidarQuincenaEnTx(tx, liquidacion, usuario));
+  }
+
+  // ---------- Cargos de nómina (CC-05, RF-PER-19) ----------
+  // Los administran el gerente y el administrador (permiso de nómina): el administrador es quien liquida la nómina y debe
+  // poder ajustar los valores sin esperar al gerente. Se desactivan en vez de borrarse. El valor día es una sugerencia
+  // para el trabajador; los pagos ya hechos no cambian porque guardan su propia foto del valor.
+
+  // Para los formularios del trabajador y la liquidación solo hacen falta los activos; la pantalla de administración pide todos.
+  listarCargos(todos = false) {
+    return this.prisma.cargoNomina.findMany({ where: todos ? undefined : { activo: true }, orderBy: { nombre: 'asc' } });
+  }
+
+  async crearCargo(dto: CrearCargoNominaDto, usuario: UsuarioAutenticado) {
+    const nombre = dto.nombre.trim();
+    const valorDia = this.exigirValorDia(dto.valorDia);
+    await this.exigirNombreDeCargoLibre(nombre);
+    return this.prisma.$transaction(async (tx) => {
+      const cargo = await tx.cargoNomina.create({ data: { nombre, valorDia } });
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'CONFIGURACION_CARGO_NOMINA',
+        entidad: 'CONFIGURACION',
+        entidadId: cargo.id,
+        resumen: `Creó el cargo de nómina "${cargo.nombre}" con valor día sugerido de ${formatearCOP(cargo.valorDia)}`,
+        despues: { nombre: cargo.nombre, valorDia: cargo.valorDia, activo: cargo.activo },
+      });
+      return cargo;
+    });
+  }
+
+  async actualizarCargo(id: string, dto: ActualizarCargoNominaDto, usuario: UsuarioAutenticado) {
+    const cargo = await this.prisma.cargoNomina.findUnique({ where: { id } });
+    if (!cargo) {
+      throw new NotFoundException(`No existe el cargo de nómina ${id}`);
+    }
+    const nombre = dto.nombre?.trim();
+    if (nombre !== undefined && nombre !== cargo.nombre) {
+      await this.exigirNombreDeCargoLibre(nombre, id);
+    }
+    const valorDia = dto.valorDia === undefined ? undefined : this.exigirValorDia(dto.valorDia);
+    return this.prisma.$transaction(async (tx) => {
+      const actualizado = await tx.cargoNomina.update({ where: { id }, data: { nombre, valorDia, activo: dto.activo } });
+      const cambios: string[] = [];
+      if (nombre !== undefined && nombre !== cargo.nombre) cambios.push('el nombre');
+      if (valorDia !== undefined && !valorDia.equals(cargo.valorDia)) cambios.push(`el valor día sugerido (de ${formatearCOP(cargo.valorDia)} a ${formatearCOP(actualizado.valorDia)})`);
+      if (dto.activo !== undefined && dto.activo !== cargo.activo) cambios.push(actualizado.activo ? 'lo activó' : 'lo desactivó');
+      await registrarAuditoria(tx, {
+        usuario,
+        accion: 'CONFIGURACION_CARGO_NOMINA',
+        entidad: 'CONFIGURACION',
+        entidadId: id,
+        resumen: `Cambió el cargo de nómina "${cargo.nombre}"${cambios.length ? `: ${cambios.join(', ')}` : ''}`,
+        antes: { nombre: cargo.nombre, valorDia: cargo.valorDia, activo: cargo.activo },
+        despues: { nombre: actualizado.nombre, valorDia: actualizado.valorDia, activo: actualizado.activo },
+      });
+      return actualizado;
+    });
+  }
+
+  private exigirValorDia(texto: string): Prisma.Decimal {
+    const valor = new Prisma.Decimal(texto);
+    if (valor.lessThanOrEqualTo(0)) {
+      throw new BadRequestException('El valor día debe ser mayor a cero');
+    }
+    return valor;
+  }
+
+  private async exigirNombreDeCargoLibre(nombre: string, ignorarId?: string) {
+    const existente = await this.prisma.cargoNomina.findFirst({ where: { nombre: { equals: nombre, mode: 'insensitive' } } });
+    if (existente && existente.id !== ignorarId) {
+      throw new ConflictException(`Ya existe el cargo "${existente.nombre}"`);
+    }
   }
 
   listarPagos(filtros: { trabajadorId?: string; proyectoId?: string; periodoInicio?: string; periodoFin?: string } = {}) {

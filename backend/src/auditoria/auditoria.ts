@@ -95,6 +95,7 @@ export const ACCIONES_AUDITORIA = {
   EQUIPO_BAJA: 'Dio de baja un equipo',
   EQUIPO_REACTIVAR: 'Reactivó un equipo',
   CONFIGURACION_TIPO_EQUIPO: 'Cambió un tipo de equipo',
+  CONFIGURACION_CARGO_NOMINA: 'Cambió un cargo de nómina',
   COMISION_GENERAR: 'Generó la comisión de una venta',
   COMISION_PAGAR: 'Pagó una comisión',
   COMISION_ANULAR: 'Anuló una comisión',

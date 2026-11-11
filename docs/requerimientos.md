@@ -543,7 +543,7 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 
 | ID | Requerimiento | Prioridad | Etapa |
 |---|---|---|---|
-| RF-PER-19 | Mantener un catálogo de cargos de nómina (auxiliar, práctico, maestro, oficial, SISO, ingeniero, administrativo y los que la empresa defina) con un valor día sugerido, editable, que se desactiva y no se borra | Debe | 3 |
+| RF-PER-19 | Mantener un catálogo de cargos de nómina (auxiliar, práctico, maestro, oficial, SISO, ingeniero, administrativo y los que la empresa defina) con un valor día sugerido, editable, que se desactiva y no se borra; lo administran el gerente y el administrador, que es quien liquida la nómina | Debe | 3 |
 | RF-PER-20 | Guardar en el trabajador su valor día vigente (precargado desde su cargo y ajustable, porque cambia con el tiempo y no depende de la obra) y sus datos de pago (banco, tipo y número de cuenta); cada pago conserva una foto del valor con que se liquidó | Debe | 3 |
 | RF-PER-21 | Liquidar la quincena por obra: un pago por trabajador, obra y período con días (enteros o medios días), horas extra con la tarifa digitada, devengado (costo de la obra) y neto pagado, en pesos enteros | Debe | 3 |
 | RF-PER-22 | Registrar el anticipo como novedad que resta del pago, igual que el descuento | Debe | 3 |
@@ -556,10 +556,11 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 - Los valores se redondean al peso más cercano (la mitad hacia arriba). Topes de digitación: 31 días y 300 horas extra por pago.
 - Los pagos anteriores a este cambio no se modifican: los campos nuevos son opcionales.
 - Los datos bancarios del trabajador los ve solo quien tiene permiso de nómina, nunca el contratista de SST.
+- El gerente y el administrador comparten el control de los cargos y sus valores día con el permiso de nómina (`nomina.gestionar`), desde Nómina → Cargos y valor día; Configuración sigue siendo solo del gerente. Cada cambio queda en la auditoría.
 
 **No se incluye.** Recibo de nómina en PDF (RF-PER-08), préstamos a trabajadores (CC-01), liquidación de prestaciones y seguridad social, y la nómina electrónica.
 
-**Fases.** N1.1 esquema y cálculo (hecho el 10/11/2026), N1.2 servicio y API (hecho el 10/11/2026), N1.3 cargos y ficha del trabajador, N1.4 pantalla de liquidación quincenal, N1.5 costo por proyecto en Finanzas, Flujo y Reportes, N1.6 verificación y despliegue, N2 conversor y carga del historial.
+**Fases.** N1.1 esquema y cálculo (hecho el 10/11/2026), N1.2 servicio y API (hecho el 10/11/2026), N1.3 cargos y ficha del trabajador (hecho el 10/11/2026), N1.4 pantalla de liquidación quincenal, N1.5 costo por proyecto en Finanzas, Flujo y Reportes, N1.6 verificación y despliegue, N2 conversor y carga del historial.
 
 **Puntos por confirmar derivados de este cambio:**
 

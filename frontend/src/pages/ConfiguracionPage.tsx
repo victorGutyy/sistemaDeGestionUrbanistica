@@ -980,6 +980,11 @@ export function ConfiguracionPage() {
         actualizar={actualizarCategoriaIngreso}
       />
       <SeccionTiposEquipo tipos={config.tiposEquipo} onCambio={(tiposEquipo) => setConfig({ ...config, tiposEquipo })} />
+      <Seccion titulo="Cargos de nómina" descripcion="Los cargos y su valor día sugerido los administran el gerente y el administrador desde Nómina, porque es quien liquida cada quincena.">
+        <Link to="/nomina/cargos" className={CLASE_BOTON}>
+          Ver cargos de nómina
+        </Link>
+      </Seccion>
       <Seccion titulo="Seguridad social" descripcion="Parámetros legales de cada año (salario mínimo, auxilio de transporte, incapacidades), entidades (EPS, pensión, cesantías, ARL, cajas) y clases de riesgo de la ARL.">
         <Link to="/configuracion/seguridad-social" className={CLASE_BOTON}>
           Administrar seguridad social

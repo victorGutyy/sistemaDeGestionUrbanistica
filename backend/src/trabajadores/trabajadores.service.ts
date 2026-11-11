@@ -26,6 +26,11 @@ const CAMPOS_AUDITADOS = [
   'telefono',
   'celular',
   'email',
+  'cargoNominaId',
+  'valorDia',
+  'banco',
+  'tipoCuenta',
+  'numeroCuenta',
 ] as const;
 
 const ETIQUETA_CAMPO: Record<(typeof CAMPOS_AUDITADOS)[number], string> = {
@@ -43,7 +48,39 @@ const ETIQUETA_CAMPO: Record<(typeof CAMPOS_AUDITADOS)[number], string> = {
   telefono: 'teléfono',
   celular: 'celular',
   email: 'correo',
+  cargoNominaId: 'cargo de nómina',
+  valorDia: 'valor día',
+  banco: 'banco',
+  tipoCuenta: 'tipo de cuenta',
+  numeroCuenta: 'número de cuenta',
 };
+
+// El número de cuenta es un dato sensible: en la auditoría solo quedan sus últimos 4 dígitos.
+const enmascararCuenta = (numero: string | null | undefined) => (numero ? `••••${numero.slice(-4)}` : null);
+function ocultarCuenta<T extends { numeroCuenta?: string | null }>(datos: T | undefined): T | undefined {
+  return datos && 'numeroCuenta' in datos ? { ...datos, numeroCuenta: enmascararCuenta(datos.numeroCuenta) } : datos;
+}
+
+// El valor día del trabajador: pesos enteros mayores a cero.
+function exigirValorDiaValido(texto: string): Prisma.Decimal {
+  const valor = new Prisma.Decimal(texto);
+  if (valor.lessThanOrEqualTo(0)) {
+    throw new BadRequestException('El valor día debe ser mayor a cero');
+  }
+  return valor;
+}
+
+// El cargo de nómina debe existir y estar activo para asignarse a un trabajador.
+async function exigirCargoNominaActivo(db: Pick<Prisma.TransactionClient, 'cargoNomina'>, id: string) {
+  const cargo = await db.cargoNomina.findUnique({ where: { id } });
+  if (!cargo) {
+    throw new NotFoundException(`No existe el cargo de nómina ${id}`);
+  }
+  if (!cargo.activo) {
+    throw new BadRequestException(`El cargo "${cargo.nombre}" está desactivado: elige otro`);
+  }
+  return cargo;
+}
 
 // Lo que se puede entregar de un trabajador a quien NO ve salarios ni pagos (el contratista SST).
 export const CAMPOS_BASICOS = {
@@ -120,6 +157,10 @@ export class TrabajadoresService {
     }
     const fechaNacimiento = dto.fechaNacimiento ? this.exigirNacimientoValido(dto.fechaNacimiento) : undefined;
 
+    // CC-05: el cargo del catálogo sugiere el valor día; el que se escriba manda.
+    const cargoNomina = dto.cargoNominaId ? await exigirCargoNominaActivo(db, dto.cargoNominaId) : null;
+    const valorDia = dto.valorDia ? exigirValorDiaValido(dto.valorDia) : (cargoNomina?.valorDia ?? undefined);
+
     const trabajador = await db.trabajador.create({
       data: {
         nombre,
@@ -137,6 +178,11 @@ export class TrabajadoresService {
         telefono: textoOpcional(dto.telefono),
         celular: textoOpcional(dto.celular),
         email: textoOpcional(dto.email),
+        cargoNominaId: cargoNomina?.id,
+        valorDia,
+        banco: textoOpcional(dto.banco),
+        tipoCuenta: textoOpcional(dto.tipoCuenta),
+        numeroCuenta: textoOpcional(dto.numeroCuenta),
       },
     });
     await registrarAuditoria(db, {
@@ -145,7 +191,7 @@ export class TrabajadoresService {
       entidad: 'TRABAJADOR',
       entidadId: trabajador.id,
       resumen: `Creó al trabajador ${trabajador.nombre} (${trabajador.cargo})`,
-      despues: soloCampos(trabajador, ['nombre', 'documento', 'tipoDocumento', 'cargo', 'tipoContrato', 'salarioBase', 'fechaIngreso', 'estado']),
+      despues: soloCampos(trabajador, ['nombre', 'documento', 'tipoDocumento', 'cargo', 'tipoContrato', 'salarioBase', 'valorDia', 'cargoNominaId', 'fechaIngreso', 'estado']),
     });
     return trabajador;
   }
@@ -172,9 +218,17 @@ export class TrabajadoresService {
     if (dto.sexo !== undefined && dto.sexo !== actual.sexo) cambios.sexo = dto.sexo;
     if (dto.cargo !== undefined && dto.cargo.trim() !== actual.cargo) cambios.cargo = dto.cargo.trim();
     if (dto.tipoContrato !== undefined && dto.tipoContrato !== actual.tipoContrato) cambios.tipoContrato = dto.tipoContrato;
-    for (const campo of ['area', 'telefono', 'celular', 'email'] as const) {
+    for (const campo of ['area', 'telefono', 'celular', 'email', 'banco', 'tipoCuenta', 'numeroCuenta'] as const) {
       const nuevo = textoOpcional(dto[campo]);
       if (nuevo !== undefined && nuevo !== actual[campo]) cambios[campo] = nuevo;
+    }
+    if (dto.cargoNominaId !== undefined && dto.cargoNominaId !== actual.cargoNominaId) {
+      await exigirCargoNominaActivo(this.prisma, dto.cargoNominaId);
+      cambios.cargoNominaId = dto.cargoNominaId;
+    }
+    if (dto.valorDia !== undefined) {
+      const valorDia = exigirValorDiaValido(dto.valorDia);
+      if (actual.valorDia === null || !valorDia.equals(actual.valorDia)) cambios.valorDia = valorDia;
     }
     if (dto.salarioBase !== undefined && !new Prisma.Decimal(dto.salarioBase).equals(actual.salarioBase)) {
       cambios.salarioBase = new Prisma.Decimal(dto.salarioBase);
@@ -203,8 +257,8 @@ export class TrabajadoresService {
         entidad: 'TRABAJADOR',
         entidadId: id,
         resumen: `Editó al trabajador ${actualizado.nombre} (documento ${actualizado.documento}): ${cambiados.map((campo) => ETIQUETA_CAMPO[campo]).join(', ')}`,
-        antes: soloCampos(actual, cambiados),
-        despues: soloCampos(actualizado, cambiados),
+        antes: ocultarCuenta(soloCampos(actual, cambiados)),
+        despues: ocultarCuenta(soloCampos(actualizado, cambiados)),
       });
       return actualizado;
     });
