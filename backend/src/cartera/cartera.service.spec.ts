@@ -9,7 +9,7 @@ const D = (valor: number) => new Prisma.Decimal(valor);
 const dentroDe = (dias: number) => new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + dias);
 
 function servicio(cuotas: object[]) {
-  const prisma = { proyecto: { findMany: vi.fn().mockResolvedValue([{ id: 'p1', nombre: 'Proyecto Uno', lotes: [{ ventas: [{ cuotas }] }] }]) } };
+  const prisma = { proyecto: { findMany: vi.fn().mockResolvedValue([{ id: 'p1', nombre: 'Proyecto Uno', lotes: [{ ventas: [{ cuotas, acuerdosPago: [] }] }] }]) } };
   const configuracion = { obtenerEmpresa: vi.fn().mockResolvedValue({ tasaMoraMensual: null, diasGraciaMora: 0, diasSemaforoAmarillo: 5 }) };
   return new CarteraService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService);
 }
@@ -43,7 +43,7 @@ describe('CarteraService.reportePorProyecto', () => {
 
 describe('CarteraService.listarPorCliente', () => {
   it('marca por venta si está en mora, para elegir entre aviso de mora y recordatorio', async () => {
-    const venta = (id: string, cuotas: object[]) => ({ id, cuotas, lote: { numero: `L-${id}`, proyecto: { nombre: 'Proyecto Uno' } } });
+    const venta = (id: string, cuotas: object[], acuerdosPago: object[] = []) => ({ id, cuotas, acuerdosPago, lote: { numero: `L-${id}`, proyecto: { nombre: 'Proyecto Uno' } } });
     const prisma = {
       cliente: {
         findMany: vi.fn().mockResolvedValue([
@@ -60,5 +60,49 @@ describe('CarteraService.listarPorCliente', () => {
       ['v-mora', true],
       ['v-dia', false],
     ]);
+  });
+
+  describe('acuerdo de pago vigente (CC-07)', () => {
+    const acuerdo = { motivo: 'Acuerdo de prueba', desde: dentroDe(-40), hastaPrevista: null, finalizadoEn: null };
+    const venta = (id: string, acuerdosPago: object[]) => ({
+      id,
+      acuerdosPago,
+      cuotas: [cuota(-10, 1_000_000)],
+      lote: { numero: `L-${id}`, proyecto: { nombre: 'Proyecto Uno' } },
+    });
+    // Tasa de 3 % mensual: $1.000 por día sobre $1.000.000.
+    const servicioConTasa = (ventas: object[]) => {
+      const prisma = { cliente: { findMany: vi.fn().mockResolvedValue([{ id: 'c1', nombre: 'Ana', documento: '1', ventas }]) } };
+      const configuracion = { obtenerEmpresa: vi.fn().mockResolvedValue({ tasaMoraMensual: D(3), diasGraciaMora: 0, diasSemaforoAmarillo: 5 }) };
+      return new CarteraService(prisma as unknown as PrismaService, configuracion as unknown as ConfiguracionService);
+    };
+
+    it('sin acuerdo cobra el interés; con acuerdo vigente no, pero la deuda y la mora siguen iguales', async () => {
+      const [fila] = await servicioConTasa([venta('v-normal', [])]).listarPorCliente(usuarioDePrueba());
+      expect(fila.interesMora.toNumber()).toBe(10_000);
+      expect(fila.saldoVencido.toNumber()).toBe(1_000_000);
+
+      const [conAcuerdo] = await servicioConTasa([venta('v-acuerdo', [acuerdo])]).listarPorCliente(usuarioDePrueba());
+      expect(conAcuerdo.interesMora.toNumber()).toBe(0);
+      expect(conAcuerdo.saldoVencido.toNumber()).toBe(1_000_000);
+      expect(conAcuerdo.ventas[0]).toMatchObject({ enMora: true, acuerdoVigente: true });
+    });
+
+    it('el acuerdo de una venta no exime el interés de otra del mismo cliente', async () => {
+      const [fila] = await servicioConTasa([venta('v-acuerdo', [acuerdo]), venta('v-normal', [])]).listarPorCliente(usuarioDePrueba());
+      expect(fila.interesMora.toNumber()).toBe(10_000);
+      expect(fila.ventas.map((v) => [v.id, v.acuerdoVigente])).toEqual([
+        ['v-acuerdo', true],
+        ['v-normal', false],
+      ]);
+    });
+
+    it('un acuerdo ya terminado deja de eximir los días posteriores a su fin', async () => {
+      // Cuota vencida hace 10 días; acuerdo hasta hace 6 días (inclusive): quedan 6 días con interés.
+      const terminado = { motivo: 'Acuerdo de prueba', desde: dentroDe(-40), hastaPrevista: dentroDe(-6), finalizadoEn: null };
+      const [fila] = await servicioConTasa([venta('v-fin', [terminado])]).listarPorCliente(usuarioDePrueba());
+      expect(fila.interesMora.toNumber()).toBe(6_000);
+      expect(fila.ventas[0].acuerdoVigente).toBe(false);
+    });
   });
 });

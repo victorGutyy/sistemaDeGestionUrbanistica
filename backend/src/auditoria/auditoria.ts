@@ -34,6 +34,7 @@ export const ENTIDADES_AUDITORIA = {
   TIPO_AUSENTISMO: 'Tipo de ausentismo',
   DIAGNOSTICO_CIE10: 'Diagnóstico CIE-10 (catálogo)',
   AUSENTISMO: 'Ausentismo (incapacidad o licencia)',
+  ACUERDO_PAGO: 'Acuerdo de pago de una venta',
 } as const;
 
 export type EntidadAuditoria = keyof typeof ENTIDADES_AUDITORIA;
@@ -131,6 +132,8 @@ export const ACCIONES_AUDITORIA = {
   AUSENTISMO_NOVEDADES_EXPORTAR: 'Descargó las novedades de ausentismo para la nómina',
   AUSENTISMO_DIAGNOSTICO_CONSULTAR: 'Consultó un dato de salud de un ausentismo (diagnóstico o certificado)',
   SST_REPORTE_EXPORTAR: 'Descargó un reporte de seguridad y salud en el trabajo',
+  ACUERDO_PAGO_CREAR: 'Registró un acuerdo de pago',
+  ACUERDO_PAGO_FINALIZAR: 'Finalizó un acuerdo de pago',
 } as const;
 
 export type AccionAuditoria = keyof typeof ACCIONES_AUDITORIA;

@@ -115,6 +115,7 @@ export class ClientesService {
           include: {
             lote: { select: { id: true, numero: true, proyecto: { select: { nombre: true } }, manzana: { select: { nombre: true } } } },
             cuotas: { include: { aplicaciones: APLICACIONES_ACTIVAS } },
+            acuerdosPago: true,
             abonos: {
               select: {
                 id: true,

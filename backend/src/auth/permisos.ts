@@ -38,6 +38,7 @@ export const PERMISOS = {
   EXPORTACION_COMPLETA: 'exportacion.completa', // exportar todos los datos a Excel (solo gerente)
   EQUIPOS_GESTIONAR: 'equipos.gestionar', // registrar y editar equipos de maquinaria
   EQUIPOS_BAJA: 'equipos.baja', // dar de baja o reactivar un equipo (solo gerente)
+  ACUERDOS_GESTIONAR: 'acuerdos.gestionar', // registrar y finalizar acuerdos de pago de una venta (pausan avisos y el interés de mora)
   COMISIONES_VER: 'comisiones.ver', // ver las comisiones de venta y su reporte
   COMISIONES_PAGAR: 'comisiones.pagar', // pagar una comisión (crea su egreso)
   COMISIONES_ANULAR: 'comisiones.anular', // anular una comisión, pendiente o pagada (solo gerente)

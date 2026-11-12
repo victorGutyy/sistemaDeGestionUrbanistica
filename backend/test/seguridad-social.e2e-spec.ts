@@ -279,11 +279,11 @@ describe('Seguridad social contra Postgres real (RF-CFG-13, RF-CFG-14, RF-PER-04
     });
   });
 
-  it('los diagnósticos los tienen solo el gerente y el contratista SST; los valores, el gerente y el administrador', async () => {
+  it('los diagnósticos los tienen solo el gerente y el contratista SST; los valores, el gerente, el administrador y el soporte técnico (CC-06)', async () => {
     const roles = await prisma.rolUsuario.findMany({ select: { clave: true, permisos: true } });
     const quienTiene = (permiso: string) => roles.filter((r) => r.permisos.includes(permiso)).map((r) => r.clave).sort();
     expect(quienTiene('sst.diagnosticos_ver')).toEqual(['CONTRATISTA_SST', 'GERENTE']);
-    expect(quienTiene('sst.valores_ver')).toEqual(['ADMINISTRADOR', 'GERENTE']);
-    expect(quienTiene('sst.ver')).toEqual(['ADMINISTRADOR', 'CONTRATISTA_SST', 'GERENTE']);
+    expect(quienTiene('sst.valores_ver')).toEqual(['ADMINISTRADOR', 'GERENTE', 'SOPORTE_TECNICO']);
+    expect(quienTiene('sst.ver')).toEqual(['ADMINISTRADOR', 'CONTRATISTA_SST', 'GERENTE', 'SOPORTE_TECNICO']);
   });
 });

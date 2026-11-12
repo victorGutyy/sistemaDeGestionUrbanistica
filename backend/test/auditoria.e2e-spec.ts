@@ -72,8 +72,8 @@ describe('Auditoría contra Postgres real (RF-AUD-03)', () => {
     });
   });
 
-  it('solo el gerente tiene el permiso de consulta de la auditoría', async () => {
+  it('solo el gerente y el soporte técnico (solo lectura, CC-06) tienen el permiso de consulta de la auditoría', async () => {
     const roles = await prisma.rolUsuario.findMany({ select: { clave: true, permisos: true } });
-    expect(roles.filter((r) => r.permisos.includes('auditoria.ver')).map((r) => r.clave)).toEqual(['GERENTE']);
+    expect(roles.filter((r) => r.permisos.includes('auditoria.ver')).map((r) => r.clave).sort()).toEqual(['GERENTE', 'SOPORTE_TECNICO']);
   });
 });

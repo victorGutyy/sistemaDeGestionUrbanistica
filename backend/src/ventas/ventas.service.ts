@@ -4,6 +4,7 @@ import { crearAbonoEnTx, type ContextoRecibo } from '../abonos/crear-abono-tx.js
 import { exigirFechaNoFutura, validarCuentaDestino } from '../abonos/validar-pago.js';
 import { registrarAuditoria, soloCampos } from '../auditoria/auditoria.js';
 import { exigirProyecto, filtroCliente, filtroVenta } from '../auth/alcance.js';
+import { cuotasConAcuerdos, estadoDelAcuerdo } from '../cartera/acuerdos-pago.js';
 import { resumirCartera } from '../cartera/cartera-venta.js';
 import { datosDeAutorizacion } from '../clientes/autorizacion.js';
 import { PERMISOS } from '../auth/permisos.js';
@@ -354,6 +355,8 @@ export class VentasService {
             anuladoPor: { select: { nombre: true } },
           },
         },
+        // Acuerdos de pago (CC-07): historial completo, el más reciente primero.
+        acuerdosPago: { orderBy: [{ desde: 'desc' }, { createdAt: 'desc' }], include: { creadoPor: { select: { nombre: true } }, finalizadoPor: { select: { nombre: true } } } },
         cliente: true,
         lote: { include: { proyecto: true, manzana: true } },
         vendedor: true,
@@ -377,10 +380,12 @@ export class VentasService {
     const empresa = await this.configuracion.obtenerEmpresa();
     const cartera =
       venta.estado === EstadoVenta.ACTIVA
-        ? resumirCartera(venta.cuotas, new Date(), { tasaMoraMensual: empresa.tasaMoraMensual, diasGracia: empresa.diasGraciaMora }, empresa.diasSemaforoAmarillo)
+        ? resumirCartera(cuotasConAcuerdos(venta.cuotas, venta.acuerdosPago), new Date(), { tasaMoraMensual: empresa.tasaMoraMensual, diasGracia: empresa.diasGraciaMora }, empresa.diasSemaforoAmarillo)
         : null;
+    const hoy = new Date();
     return {
       ...venta,
+      acuerdosPago: venta.acuerdosPago.map((acuerdo) => ({ ...acuerdo, estado: estadoDelAcuerdo(acuerdo, hoy) })),
       cuotas: venta.cuotas.map(({ aplicaciones, ...cuota }) => ({
         ...cuota,
         pagado: aplicaciones.reduce((total, aplicacion) => total.plus(aplicacion.valor), new Prisma.Decimal(0)),

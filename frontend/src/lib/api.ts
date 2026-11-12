@@ -416,6 +416,8 @@ export interface VentaFicha {
     cuotasPendientes: number
     proximaCuota: { numero: number; fechaVencimiento: string; valor: string } | null
   } | null
+  // El acuerdo de pago vigente hoy, si lo hay (CC-07).
+  acuerdoVigente: { motivo: string; desde: string; hastaPrevista: string | null } | null
   cuotas: CuotaFicha[]
   abonos: AbonoFicha[]
 }
@@ -608,6 +610,40 @@ export interface Venta {
   abonos?: Abono[]
   // Solo viene en la respuesta de obtenerVenta (GET /ventas/:id), no al crear.
   estadoCuenta?: EstadoCuenta
+  // Acuerdos de pago (CC-07), el más reciente primero. Solo viene en obtenerVenta.
+  acuerdosPago?: AcuerdoPago[]
+}
+
+export type EstadoAcuerdoPago = 'PROGRAMADO' | 'VIGENTE' | 'FINALIZADO'
+
+// Acuerdo de pago de una venta (CC-07): mientras está vigente no se envían avisos y no se causa interés de mora.
+export interface AcuerdoPago {
+  id: string
+  ventaId: string
+  motivo: string
+  desde: string
+  // Último día del acuerdo, si ya se sabe.
+  hastaPrevista: string | null
+  finalizadoEn: string | null
+  motivoFin: string | null
+  estado: EstadoAcuerdoPago
+  creadoPor: { nombre: string }
+  finalizadoPor: { nombre: string } | null
+  createdAt: string
+}
+
+export interface CrearAcuerdoPagoPayload {
+  motivo: string
+  desde?: string
+  hasta?: string
+}
+
+export function crearAcuerdoPago(ventaId: string, datos: CrearAcuerdoPagoPayload) {
+  return solicitar<AcuerdoPago>(`/ventas/${ventaId}/acuerdos`, { method: 'POST', body: JSON.stringify(datos) })
+}
+
+export function finalizarAcuerdoPago(ventaId: string, acuerdoId: string, motivo?: string) {
+  return solicitar<AcuerdoPago>(`/ventas/${ventaId}/acuerdos/${acuerdoId}/finalizar`, { method: 'POST', body: JSON.stringify({ motivo }) })
 }
 
 export function listarVentas(estado?: EstadoVenta) {
@@ -802,6 +838,8 @@ export interface VentaDeCartera {
   nombreProyecto: string
   // La venta tiene cuotas vencidas: el aviso por WhatsApp es de mora; si no, es un recordatorio.
   enMora: boolean
+  // Tiene un acuerdo de pago vigente (CC-07): no recibe avisos automáticos ni causa interés de mora.
+  acuerdoVigente: boolean
 }
 
 export interface FilaCartera {

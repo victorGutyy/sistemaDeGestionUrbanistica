@@ -12,6 +12,7 @@ import { RolesGuard } from './auth/roles.guard.js';
 import { CarteraModule } from './cartera/cartera.module.js';
 import { CierresCajaModule } from './cierres-caja/cierres-caja.module.js';
 import { ClientesModule } from './clientes/clientes.module.js';
+import { AcuerdosPagoModule } from './acuerdos-pago/acuerdos-pago.module.js';
 import { ComisionesModule } from './comisiones/comisiones.module.js';
 import { ConfiguracionModule } from './configuracion/configuracion.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
@@ -60,6 +61,7 @@ import { VentasModule } from './ventas/ventas.module.js';
     ExportacionModule,
     EquiposModule,
     ComisionesModule,
+    AcuerdosPagoModule,
     ReportesModule,
     TrabajadoresModule,
     SeguridadSocialModule,

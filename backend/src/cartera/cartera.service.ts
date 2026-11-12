@@ -5,6 +5,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { EstadoAbono, EstadoVenta } from '../generated/prisma/enums.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { cuotasConAcuerdos, estadoDelAcuerdo } from './acuerdos-pago.js';
 import { resumirCartera } from './cartera-venta.js';
 import { calcularDiasHastaVencer, evaluarCuotaPendiente, type ParametrosMora } from './mora.js';
 
@@ -37,7 +38,7 @@ export class CarteraService {
         ventas: {
           // Un cliente con ventas en varios proyectos solo muestra las del alcance del usuario.
           where: { estado: EstadoVenta.ACTIVA, ...filtroVenta(usuario) },
-          include: { cuotas: { include: { aplicaciones: APLICACIONES_ACTIVAS } }, lote: { include: { proyecto: true } } },
+          include: { cuotas: { include: { aplicaciones: APLICACIONES_ACTIVAS } }, acuerdosPago: true, lote: { include: { proyecto: true } } },
         },
       },
       orderBy: { nombre: 'asc' },
@@ -49,7 +50,7 @@ export class CarteraService {
       .filter((cliente) => cliente.ventas.length > 0)
       .map((cliente) => {
         const resumen = resumirCartera(
-          cliente.ventas.flatMap((venta) => venta.cuotas),
+          cliente.ventas.flatMap((venta) => cuotasConAcuerdos(venta.cuotas, venta.acuerdosPago)),
           hoy,
           mora,
           diasAlertaAmarilla,
@@ -68,7 +69,9 @@ export class CarteraService {
             id: venta.id,
             numeroLote: venta.lote.numero,
             nombreProyecto: venta.lote.proyecto.nombre,
-            enMora: resumirCartera(venta.cuotas, hoy, mora, diasAlertaAmarilla).cuotasVencidas > 0,
+            enMora: resumirCartera(cuotasConAcuerdos(venta.cuotas, venta.acuerdosPago), hoy, mora, diasAlertaAmarilla).cuotasVencidas > 0,
+            // Acuerdo de pago vigente (CC-07): la venta no recibe avisos ni causa interés de mora.
+            acuerdoVigente: venta.acuerdosPago.some((acuerdo) => estadoDelAcuerdo(acuerdo, hoy) === 'VIGENTE'),
           })),
         };
       });
@@ -83,7 +86,7 @@ export class CarteraService {
           include: {
             ventas: {
               where: { estado: EstadoVenta.ACTIVA },
-              include: { cuotas: { include: { aplicaciones: APLICACIONES_ACTIVAS } } },
+              include: { cuotas: { include: { aplicaciones: APLICACIONES_ACTIVAS } }, acuerdosPago: true },
             },
           },
         },
@@ -106,7 +109,7 @@ export class CarteraService {
 
       for (const lote of proyecto.lotes) {
         for (const venta of lote.ventas) {
-          for (const cuota of venta.cuotas) {
+          for (const cuota of cuotasConAcuerdos(venta.cuotas, venta.acuerdosPago)) {
             const evaluacion = evaluarCuotaPendiente(cuota, cuota.aplicaciones, hoy, mora);
             if (!evaluacion) continue;
 

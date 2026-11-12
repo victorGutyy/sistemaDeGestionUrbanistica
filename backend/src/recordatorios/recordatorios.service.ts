@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { hayAcuerdoVigente, periodosDeAcuerdos } from '../cartera/acuerdos-pago.js';
 import { evaluarCuotaPendiente, type ParametrosMora } from '../cartera/mora.js';
 import { ZONA_HORARIA } from '../common/zona-horaria.js';
 import { ConfiguracionService } from '../configuracion/configuracion.service.js';
@@ -75,6 +76,7 @@ export class RecordatoriosService {
       include: {
         cliente: true,
         lote: { include: { proyecto: true } },
+        acuerdosPago: true,
         cuotas: { where: { estado: { not: EstadoCuota.PAGADA } }, include: { aplicaciones: APLICACIONES_ACTIVAS } },
       },
     });
@@ -82,6 +84,9 @@ export class RecordatoriosService {
     const conteo: ConteoEnvios = { enviados: 0, fallidos: 0, omitidos: 0 };
 
     for (const venta of ventas) {
+      // Acuerdo de pago vigente (CC-07): la venta no recibe recordatorios. No se reclama ninguna cuota: al terminar el
+      // acuerdo, las que toquen se avisan con normalidad.
+      if (hayAcuerdoVigente(periodosDeAcuerdos(venta.acuerdosPago), hoy)) continue;
       for (const cuota of venta.cuotas) {
         if (!necesitaRecordatorio(cuota, empresa.diasAntesRecordatorio, hoy)) continue;
 
@@ -149,6 +154,7 @@ export class RecordatoriosService {
       include: {
         cliente: true,
         lote: { include: { proyecto: true } },
+        acuerdosPago: true,
         cuotas: { where: { estado: { not: EstadoCuota.PAGADA } }, include: { aplicaciones: APLICACIONES_ACTIVAS } },
       },
     });
@@ -164,6 +170,8 @@ export class RecordatoriosService {
     const conteo: ConteoEnvios = { enviados: 0, fallidos: 0, omitidos: 0 };
 
     for (const venta of ventas) {
+      // Acuerdo de pago vigente (CC-07): la venta no recibe avisos de mora.
+      if (hayAcuerdoVigente(periodosDeAcuerdos(venta.acuerdosPago), hoy)) continue;
       const vencidas = venta.cuotas
         .map((cuota) => ({ cuota, evaluacion: evaluarCuotaPendiente(cuota, cuota.aplicaciones, hoy, parametrosMora) }))
         .filter((fila) => fila.evaluacion?.vencida && cuotaParaAvisoDeMora(fila.evaluacion.diasAtraso, empresa.diasGraciaMora));

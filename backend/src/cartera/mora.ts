@@ -1,5 +1,6 @@
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota } from '../generated/prisma/enums.js';
+import { diasCubiertosPorAcuerdos, type PeriodoSinInteres } from './acuerdos-pago.js';
 
 export type Semaforo = 'VERDE' | 'AMARILLO' | 'ROJO';
 
@@ -54,9 +55,11 @@ export interface ParametrosMora {
 // cuando la cuota ya está PAGADA — ahí no hay nada que reportar.
 //
 // "Vencida" depende solo de la fecha de vencimiento. Los días de gracia
-// únicamente retrasan el interés: solo se cobran los días que pasan de la gracia.
+// únicamente retrasan el interés: solo se cobran los días que pasan de la gracia. Los días cubiertos por un acuerdo de
+// pago de la venta (CC-07) tampoco causan interés, pero sí cuentan como atraso.
 export function evaluarCuotaPendiente(
-  cuota: { estado: EstadoCuota; fechaVencimiento: Date; valor: Prisma.Decimal },
+  // periodosSinInteres: los acuerdos de pago de la venta de la cuota (CC-07); los días que cubren no causan interés.
+  cuota: { estado: EstadoCuota; fechaVencimiento: Date; valor: Prisma.Decimal; periodosSinInteres?: PeriodoSinInteres[] },
   abonos: { valor: Prisma.Decimal }[],
   hoy: Date,
   { tasaMoraMensual, diasGracia }: ParametrosMora,
@@ -69,7 +72,8 @@ export function evaluarCuotaPendiente(
   const vencida = diasAtraso > 0;
   const saldo = calcularSaldoCuota(cuota.valor, abonos);
 
-  const diasConInteres = Math.max(0, diasAtraso - diasGracia);
+  const diasExentos = cuota.periodosSinInteres ? diasCubiertosPorAcuerdos(cuota.fechaVencimiento, diasGracia, hoy, cuota.periodosSinInteres) : 0;
+  const diasConInteres = Math.max(0, diasAtraso - diasGracia - diasExentos);
   const interesMora =
     vencida && tasaMoraMensual ? calcularInteresMora(saldo, diasConInteres, tasaMoraMensual) : new Prisma.Decimal(0);
 

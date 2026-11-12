@@ -1,3 +1,4 @@
+import { cuotasConAcuerdos, estadoDelAcuerdo, type AcuerdoDePago } from '../cartera/acuerdos-pago.js';
 import { resumirCartera } from '../cartera/cartera-venta.js';
 import { evaluarCuotaPendiente, type ParametrosMora, type Semaforo } from '../cartera/mora.js';
 import { Prisma } from '../generated/prisma/client.js';
@@ -39,6 +40,8 @@ export interface VentaCruda {
     // Solo lo aplicado por abonos ACTIVOS.
     aplicaciones: { valor: Prisma.Decimal }[];
   }[];
+  // Acuerdos de pago de la venta (CC-07): mientras uno está vigente no se avisa y no se causa interés de mora.
+  acuerdosPago?: (AcuerdoDePago & { motivo: string })[];
   abonos: {
     id: string;
     fecha: Date;
@@ -84,6 +87,8 @@ export interface VentaDeEstadoCuenta {
     proximaCuota: { numero: number; fechaVencimiento: Date; valor: Prisma.Decimal } | null;
   } | null;
   cuotas: CuotaDeEstadoCuenta[];
+  // El acuerdo de pago vigente hoy, si lo hay (CC-07).
+  acuerdoVigente: { motivo: string; desde: Date; hastaPrevista: Date | null } | null;
   abonos: VentaCruda['abonos'];
 }
 
@@ -117,7 +122,9 @@ export function construirEstadoCuentaCliente(
   const ventas = ventasCrudas.map((venta): VentaDeEstadoCuenta => {
     const vigente = venta.estado === EstadoVenta.ACTIVA;
     const pagado = suma(venta.abonos.filter((abono) => abono.estado === EstadoAbono.ACTIVO).map((abono) => abono.valor));
-    const cuotasConPagado = venta.cuotas
+    const acuerdos = venta.acuerdosPago ?? [];
+    const vigenteHoy = acuerdos.find((acuerdo) => estadoDelAcuerdo(acuerdo, opciones.hoy) === 'VIGENTE') ?? null;
+    const cuotasConPagado = cuotasConAcuerdos(venta.cuotas, acuerdos)
       .slice()
       .sort((a, b) => a.numero - b.numero)
       .map((cuota) => ({ ...cuota, pagado: suma(cuota.aplicaciones.map((aplicacion) => aplicacion.valor)) }));
@@ -165,6 +172,7 @@ export function construirEstadoCuentaCliente(
           }
         : null,
       cuotas,
+      acuerdoVigente: vigente && vigenteHoy ? { motivo: vigenteHoy.motivo, desde: vigenteHoy.desde, hastaPrevista: vigenteHoy.hastaPrevista } : null,
       abonos: venta.abonos.slice().sort((a, b) => a.fecha.getTime() - b.fecha.getTime()),
     };
   });
@@ -172,7 +180,7 @@ export function construirEstadoCuentaCliente(
   // Los totales y el semáforo del cliente salen de TODAS sus cuotas vigentes juntas (el peor semáforo manda).
   const cuotasVigentes = ventasCrudas
     .filter((venta) => venta.estado === EstadoVenta.ACTIVA)
-    .flatMap((venta) => venta.cuotas);
+    .flatMap((venta) => cuotasConAcuerdos(venta.cuotas, venta.acuerdosPago ?? []));
   const carteraTotal = resumirCartera(cuotasVigentes, opciones.hoy, opciones.mora, opciones.diasAlertaAmarilla);
   const vigentes = ventas.filter((venta) => venta.vigente);
   const totalVendido = suma(vigentes.map((venta) => venta.valorTotal));

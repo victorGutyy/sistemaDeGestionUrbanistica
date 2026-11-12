@@ -4,6 +4,7 @@ import { BotonCorreoRecibo, BotonWhatsApp } from '../components/BotonesAviso'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
 import { EtiquetaVerificacion } from '../components/EtiquetaVerificacion'
 import { HistorialAvisos } from '../components/HistorialAvisos'
+import { TarjetaAcuerdoPago } from '../components/TarjetaAcuerdoPago'
 import { TarjetaComision } from '../components/TarjetaComision'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
@@ -379,11 +380,20 @@ Motivo (queda registrado):`,
             <p className="mt-1 text-slate-700">
               Interés de mora (informativo): <span className="font-medium">{estadoCuenta.cartera.moraConfigurada ? formatearCOP(estadoCuenta.cartera.interesMora) : 'sin tasa de mora definida'}</span>
               {!estadoCuenta.cartera.moraConfigurada && ' — el gerente la define en Configuración.'}
+              {venta.acuerdosPago?.some((acuerdo) => acuerdo.estado === 'VIGENTE') && ' — sin interés mientras dure el acuerdo de pago.'}
             </p>
           )}
           {Number(estadoCuenta.cartera.saldoPorVencer) > 0 && <p className="mt-1 text-xs text-slate-500">Por vencer: {formatearCOP(estadoCuenta.cartera.saldoPorVencer)}</p>}
         </div>
       )}
+
+      <TarjetaAcuerdoPago
+        ventaId={venta.id}
+        acuerdos={venta.acuerdosPago ?? []}
+        puedeGestionar={tiene(PERMISOS.ACUERDOS_GESTIONAR)}
+        admiteAcuerdo={venta.estado === 'ACTIVA' && venta.formaPago === 'FINANCIADO'}
+        onCambio={() => setRecarga((n) => n + 1)}
+      />
 
       {venta.cuotas.length > 0 && (
         <ul className="mt-6 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">

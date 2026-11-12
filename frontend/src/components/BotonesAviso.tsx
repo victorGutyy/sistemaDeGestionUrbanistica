@@ -16,12 +16,14 @@ interface PropsWhatsApp {
   etiqueta?: string
   // "boton" para botones de formulario, "enlace" para listas compactas.
   estilo?: 'boton' | 'enlace'
+  // La venta tiene un acuerdo de pago vigente (CC-07): se pide confirmar antes de avisarle al cliente.
+  acuerdoVigente?: boolean
 }
 
 // Abre WhatsApp con el mensaje listo (RF-NOT-04). La ventana se abre en el mismo clic, antes de pedir el mensaje al
 // servidor, porque el navegador bloquea las ventanas que se abren después de esperar una respuesta. El sistema no
 // envía nada: la persona revisa el texto y lo manda.
-export function BotonWhatsApp({ tipo, ventaId, abonoId, cuotaId, etiqueta = 'WhatsApp', estilo = 'boton' }: PropsWhatsApp) {
+export function BotonWhatsApp({ tipo, ventaId, abonoId, cuotaId, etiqueta = 'WhatsApp', estilo = 'boton', acuerdoVigente = false }: PropsWhatsApp) {
   const { tiene } = useAuth()
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,6 +32,8 @@ export function BotonWhatsApp({ tipo, ventaId, abonoId, cuotaId, etiqueta = 'Wha
 
   async function abrir() {
     setError(null)
+    // El recibo de un abono es una confirmación y no se frena; un aviso de cuotas sí: la venta tiene un arreglo con el cliente.
+    if (acuerdoVigente && tipo !== 'RECIBO' && !window.confirm('Esta venta tiene un acuerdo de pago vigente: no se envían avisos automáticos. ¿Quieres avisarle al cliente de todas formas?')) return
     setOcupado(true)
     const ventana = window.open('', '_blank')
     try {

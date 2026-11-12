@@ -224,6 +224,8 @@ model Usuario {
   equiposDadosDeBaja          Equipo[]                 @relation("EquiposDadosDeBaja")
   comisionesPagadas           Comision[]               @relation("ComisionesPagadas")
   comisionesAnuladas          Comision[]               @relation("ComisionesAnuladas")
+  acuerdosPagoCreados         AcuerdoPago[]            @relation("AcuerdosPagoCreados")
+  acuerdosPagoFinalizados     AcuerdoPago[]            @relation("AcuerdosPagoFinalizados")
   notificaciones              Notificacion[]
   abonosVerificados           Abono[]                  @relation("AbonosVerificados")
   recuperacionesPassword      RecuperacionPassword[]
@@ -514,6 +516,7 @@ model Venta {
   separacion        Separacion?
   comision          Comision?
   notificaciones    Notificacion[]
+  acuerdosPago      AcuerdoPago[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -540,6 +543,32 @@ model Cuota {
   updatedAt             DateTime          @updatedAt
 
   @@unique([ventaId, numero])
+}
+
+// Acuerdo de pago de una venta (CC-07): arreglo con el cliente (p. ej. dejar algunas cuotas para el final). Mientras
+// está vigente se pausan los recordatorios y los avisos de mora y NO se causa interés de mora; la deuda, los días de
+// atraso y el semáforo siguen siendo reales. Al terminar, el interés vuelve a contarse solo desde ese día. El
+// acuerdo no se borra: se finaliza, y queda como historial.
+model AcuerdoPago {
+  id              String    @id @default(uuid())
+  ventaId         String
+  venta           Venta     @relation(fields: [ventaId], references: [id])
+  motivo          String
+  // Primer día del acuerdo (día de calendario, hora de Bogotá).
+  desde           DateTime
+  // Último día del acuerdo, si ya se sabe (opcional). Al día siguiente se reanuda todo solo.
+  hastaPrevista   DateTime?
+  // Cuándo se finalizó a mano; desde ese día se reanuda todo.
+  finalizadoEn    DateTime?
+  motivoFin       String?
+  creadoPorId     String
+  creadoPor       Usuario   @relation("AcuerdosPagoCreados", fields: [creadoPorId], references: [id])
+  finalizadoPorId String?
+  finalizadoPor   Usuario?  @relation("AcuerdosPagoFinalizados", fields: [finalizadoPorId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([ventaId])
 }
 
 // Un pago del cliente sobre una Venta. Si se financió, normalmente se

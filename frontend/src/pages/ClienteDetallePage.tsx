@@ -59,6 +59,13 @@ function TarjetaVenta({ venta, puedeAbonar }: { venta: VentaFicha; puedeAbonar: 
         )}
       </dl>
 
+      {venta.acuerdoVigente && (
+        <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <span className="font-medium">Acuerdo de pago vigente</span> desde el {formatearFecha(venta.acuerdoVigente.desde)}
+          {venta.acuerdoVigente.hastaPrevista ? ` hasta el ${formatearFecha(venta.acuerdoVigente.hastaPrevista)}` : ''}: sin avisos ni interés de mora. {venta.acuerdoVigente.motivo}
+        </p>
+      )}
+
       {cartera && (
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
           <span className={`rounded-full px-2 py-0.5 font-medium ${ESTILO_SEMAFORO[cartera.semaforo]}`}>{ETIQUETA_SEMAFORO[cartera.semaforo]}</span>
@@ -86,6 +93,7 @@ function TarjetaVenta({ venta, puedeAbonar }: { venta: VentaFicha; puedeAbonar: 
         </Link>
         {venta.vigente && cartera && (cartera.cuotasVencidas > 0 || cartera.proximaCuota) && (
           <BotonWhatsApp
+            acuerdoVigente={venta.acuerdoVigente !== null}
             tipo={cartera.cuotasVencidas > 0 ? 'MORA' : 'RECORDATORIO'}
             ventaId={venta.id}
             etiqueta={cartera.cuotasVencidas > 0 ? 'Avisar mora por WhatsApp' : 'Recordar cuota por WhatsApp'}

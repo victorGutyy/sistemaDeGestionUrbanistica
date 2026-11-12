@@ -1,3 +1,4 @@
+import type { PeriodoSinInteres } from '../../cartera/acuerdos-pago.js';
 import { evaluarCuotaPendiente, type ParametrosMora } from '../../cartera/mora.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import type { EstadoCuota } from '../../generated/prisma/enums.js';
@@ -13,6 +14,8 @@ export interface VentaParaEdades {
     valor: Prisma.Decimal;
     // Solo lo aplicado por abonos vigentes.
     abonado: { valor: Prisma.Decimal }[];
+    // Acuerdos de pago de la venta (CC-07): los días que cubren no causan interés.
+    periodosSinInteres?: PeriodoSinInteres[];
   }[];
 }
 

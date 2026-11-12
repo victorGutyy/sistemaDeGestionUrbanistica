@@ -13,6 +13,7 @@ import { costoDelPago } from '../nomina/calculo-pago.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CATALOGO_REPORTES, definicionDe, type DefinicionReporte } from './catalogo.js';
+import { periodosDeAcuerdos } from '../cartera/acuerdos-pago.js';
 import { construirCarteraPorEdades } from './constructores/cartera-edades.js';
 import { construirComisiones } from './constructores/comisiones.js';
 import { construirEgresos, type EgresoParaReporte } from './constructores/egresos.js';
@@ -199,6 +200,7 @@ export class ReportesService {
           cliente: { select: { nombre: true } },
           lote: { select: { numero: true, manzana: { select: { nombre: true } }, proyecto: { select: { nombre: true } } } },
           cuotas: { include: { aplicaciones: { where: { abono: { estado: EstadoAbono.ACTIVO } }, select: { valor: true } } } },
+          acuerdosPago: true,
         },
       }),
     ]);
@@ -207,7 +209,7 @@ export class ReportesService {
         cliente: venta.cliente.nombre,
         proyecto: venta.lote.proyecto.nombre,
         lote: venta.lote.manzana ? `${venta.lote.manzana.nombre}-${venta.lote.numero}` : venta.lote.numero,
-        cuotas: venta.cuotas.map((cuota) => ({ estado: cuota.estado, fechaVencimiento: cuota.fechaVencimiento, valor: cuota.valor, abonado: cuota.aplicaciones })),
+        cuotas: venta.cuotas.map((cuota) => ({ estado: cuota.estado, fechaVencimiento: cuota.fechaVencimiento, valor: cuota.valor, abonado: cuota.aplicaciones, periodosSinInteres: periodosDeAcuerdos(venta.acuerdosPago) })),
       })),
       new Date(),
       { tasaMoraMensual: empresa.tasaMoraMensual, diasGracia: empresa.diasGraciaMora },
@@ -325,6 +327,7 @@ export class ReportesService {
           lote: { select: { numero: true, manzana: { select: { nombre: true } }, proyecto: { select: { nombre: true } } } },
           abonos: { where: { estado: EstadoAbono.ACTIVO }, select: { valor: true } },
           cuotas: { include: { aplicaciones: { where: { abono: { estado: EstadoAbono.ACTIVO } }, select: { valor: true } } } },
+          acuerdosPago: true,
         },
       }),
       this.prisma.abono.findMany({ where: { estado: EstadoAbono.ACTIVO, fecha: rango, venta: { lote: { proyectoId } } }, select: { valor: true } }),
@@ -352,7 +355,7 @@ export class ReportesService {
         cliente: venta.cliente.nombre,
         proyecto: venta.lote.proyecto.nombre,
         lote: venta.lote.manzana ? `${venta.lote.manzana.nombre}-${venta.lote.numero}` : venta.lote.numero,
-        cuotas: venta.cuotas.map((cuota) => ({ estado: cuota.estado, fechaVencimiento: cuota.fechaVencimiento, valor: cuota.valor, abonado: cuota.aplicaciones })),
+        cuotas: venta.cuotas.map((cuota) => ({ estado: cuota.estado, fechaVencimiento: cuota.fechaVencimiento, valor: cuota.valor, abonado: cuota.aplicaciones, periodosSinInteres: periodosDeAcuerdos(venta.acuerdosPago) })),
       })),
       hoy: new Date(),
       mora: { tasaMoraMensual: empresa.tasaMoraMensual, diasGracia: empresa.diasGraciaMora },

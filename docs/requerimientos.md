@@ -589,3 +589,30 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 - La cuenta la crea el gerente desde Usuarios, a nombre y correo del desarrollador, de modo que cada acción queda a su nombre.
 - **Excepciones a otros requerimientos (por decisión del desarrollador):** este rol consulta la auditoría (RF-AUD-02, que la daba solo al gerente) y ve los valores liquidados de ausentismo (RF-USR-11, que los daba por defecto al gerente y al administrador). No cambia lo que ve ningún otro rol.
 - Los datos bancarios de los trabajadores (`nomina.ver`) los ve este rol; ocultarlos exigiría un permiso nuevo y no se construyó. Las pruebas de desarrollo se hacen con la base de demostración.
+
+### CC-07 · 12 de noviembre de 2026 · Acuerdos de pago por venta (pausa de avisos y de interés de mora)
+
+**Origen.** Algunos clientes tienen arreglos de palabra con la empresa (por ejemplo, pagar algunas cuotas al final) y el sistema les enviaba los mismos recordatorios y avisos de mora que a todos. El cliente pidió un mecanismo para respetar el acuerdo y poder dejar fuera de los avisos a una venta o a varias. Decisiones del 12/11/2026: el acuerdo es **por venta**, lo manejan el **gerente y el administrador**, **no se cobra interés de mora mientras dure** y **entra dentro del presupuesto** (sin cotización adicional).
+
+| ID | Requerimiento | Prioridad | Etapa |
+|---|---|---|---|
+| RF-CAR-07 | Registrar un acuerdo de pago en una venta financiada activa, con motivo obligatorio, fecha de inicio, fecha final opcional y su historial; se finaliza (no se borra) y solo lo manejan el gerente y el administrador (permiso `acuerdos.gestionar`), con auditoría de quién, cuándo y qué | Debe | 2 |
+| RF-NOT-08 | Mientras una venta tenga un acuerdo de pago vigente, no se envían los recordatorios ni los avisos de mora automáticos de esa venta (las demás ventas del cliente siguen igual); el botón de WhatsApp pide confirmar antes de avisar | Debe | 2 |
+| RF-CAR-08 | Mientras el acuerdo esté vigente no se causa interés de mora; la deuda, los días de atraso y el semáforo siguen siendo reales, y al terminar el acuerdo el interés vuelve a contarse solo desde ese día, sin efecto retroactivo | Debe | 2 |
+
+**Reglas de negocio.**
+- El último día previsto cuenta como parte del acuerdo: al día siguiente se reanudan los avisos y el interés. Si se finaliza a mano, se reanuda ese mismo día.
+- Una venta no puede tener dos acuerdos que se monten en las mismas fechas.
+- La pausa y el interés en cero se ven en Cartera, el panel, la ficha del cliente, el estado de cuenta, el detalle de la venta y los reportes de cartera por edades e informe del proyecto. La venta lleva la etiqueta "Acuerdo vigente" con su motivo.
+- El recibo de un abono sigue enviándose: es una confirmación, no un aviso de cobro.
+- Un acuerdo se guarda con su historial; la base de datos impide borrarlo o cambiarle el motivo, el inicio o la fecha final.
+- Un acuerdo no cambia lo que se debe ni cuándo vence cada cuota: solo pausa los avisos y el interés.
+
+**No se incluye.** Acuerdos por cliente (se hacen venta por venta; una acción masiva queda pendiente), cambiar el plan de cuotas o su fecha de vencimiento por el acuerdo, y adjuntar el documento del acuerdo (solo el motivo escrito).
+
+**Puntos por confirmar derivados de este cambio:**
+
+| Punto | Requerimientos afectados |
+|---|---|
+| Si al terminar un acuerdo las cuotas que se dejaron "para el final" deben moverse de fecha (hoy siguen con su fecha original y quedan en mora real mientras no se paguen) | RF-CAR-07, RF-CAR-08 |
+| Si conviene pausar varias ventas a la vez desde Cartera (acción masiva) | RF-CAR-07 |

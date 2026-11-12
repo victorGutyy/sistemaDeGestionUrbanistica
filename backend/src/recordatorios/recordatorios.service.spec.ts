@@ -45,15 +45,22 @@ function cuotaQueVenceEn(dias: number, extra: Partial<{ id: string; numero: numb
   };
 }
 
-function venta(cuotas: ReturnType<typeof cuotaQueVenceEn>[], email: string | null = 'cliente@test.com', id = 'venta-1') {
+type AcuerdoFalso = { motivo: string; desde: Date; hastaPrevista: Date | null; finalizadoEn: Date | null };
+
+function venta(cuotas: ReturnType<typeof cuotaQueVenceEn>[], email: string | null = 'cliente@test.com', id = 'venta-1', acuerdosPago: AcuerdoFalso[] = []) {
   return {
     id,
     clienteId: `cliente-${id}`,
     cliente: { email, nombre: 'Ana' },
     lote: { numero: 'L-1', proyecto: { nombre: 'Proyecto Test' } },
     cuotas,
+    acuerdosPago,
   };
 }
+
+// Acuerdo de pago (CC-07) abierto desde hace 30 días, o ya terminado hace 10.
+const ACUERDO_VIGENTE: AcuerdoFalso = { motivo: 'Acuerdo de prueba', desde: enDias(-30), hastaPrevista: null, finalizadoEn: null };
+const ACUERDO_TERMINADO: AcuerdoFalso = { motivo: 'Acuerdo de prueba', desde: enDias(-30), hastaPrevista: enDias(-10), finalizadoEn: null };
 
 describe('RecordatoriosService', () => {
   let prisma: ReturnType<typeof crearPrismaFalso>;
@@ -168,6 +175,45 @@ describe('RecordatoriosService', () => {
 
       const { html } = notificaciones.enviarCorreo.mock.calls[0][0] as { html: string };
       expect(html).toContain('Empresa de Prueba');
+    });
+  });
+
+  describe('acuerdo de pago vigente (CC-07)', () => {
+    it('no envía recordatorios ni reclama cuotas de una venta con acuerdo vigente', async () => {
+      prisma.venta.findMany.mockResolvedValue([venta([cuotaQueVenceEn(2)], 'cliente@test.com', 'venta-1', [ACUERDO_VIGENTE])]);
+
+      const resultado = await service.enviarRecordatoriosPendientes();
+
+      expect(prisma.cuota.updateMany).not.toHaveBeenCalled();
+      expect(notificaciones.enviarCorreo).not.toHaveBeenCalled();
+      expect(resultado).toEqual({ enviados: 0, fallidos: 0, omitidos: 0 });
+    });
+
+    it('no avisa de mora a una venta con acuerdo vigente', async () => {
+      prisma.venta.findMany.mockResolvedValue([venta([cuotaQueVenceEn(-5)], 'cliente@test.com', 'venta-1', [ACUERDO_VIGENTE])]);
+
+      const resultado = await service.enviarAvisosMora();
+
+      expect(notificaciones.enviarCorreo).not.toHaveBeenCalled();
+      expect(resultado).toEqual({ enviados: 0, fallidos: 0, omitidos: 0 });
+    });
+
+    it('con el acuerdo ya terminado vuelve a avisar', async () => {
+      prisma.venta.findMany.mockResolvedValue([venta([cuotaQueVenceEn(-5)], 'cliente@test.com', 'venta-1', [ACUERDO_TERMINADO])]);
+
+      expect((await service.enviarAvisosMora()).enviados).toBe(1);
+    });
+
+    it('el acuerdo de una venta no frena los avisos de las demás', async () => {
+      prisma.venta.findMany.mockResolvedValue([
+        venta([cuotaQueVenceEn(-5, { id: 'a' })], 'a@test.com', 'venta-con-acuerdo', [ACUERDO_VIGENTE]),
+        venta([cuotaQueVenceEn(-5, { id: 'b' })], 'b@test.com', 'venta-normal'),
+      ]);
+
+      const resultado = await service.enviarAvisosMora();
+
+      expect(resultado.enviados).toBe(1);
+      expect(notificaciones.enviarCorreo).toHaveBeenCalledWith(expect.objectContaining({ ventaId: 'venta-normal' }));
     });
   });
 

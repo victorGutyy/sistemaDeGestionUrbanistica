@@ -64,6 +64,11 @@ describe('catálogo de permisos y roles del sistema', () => {
     expect(rol('CONSULTA').permisos.some((p) => p.startsWith('caja.'))).toBe(false);
   });
 
+  it('los acuerdos de pago (CC-07) los manejan el gerente y el administrador, y nadie más', () => {
+    const quienes = ROLES_SISTEMA.filter((r) => (r.permisos as string[]).includes(PERMISOS.ACUERDOS_GESTIONAR)).map((r) => r.clave);
+    expect(quienes.sort()).toEqual(['ADMINISTRADOR', CLAVE_GERENTE].sort());
+  });
+
   it('solo el gerente y el soporte técnico (solo lectura, CC-06) consultan la auditoría (RF-AUD-02)', () => {
     expect(ROLES_SISTEMA.filter((r) => r.permisos.includes(PERMISOS.AUDITORIA_VER)).map((r) => r.clave).sort()).toEqual([CLAVE_GERENTE, CLAVE_SOPORTE_TECNICO].sort());
   });

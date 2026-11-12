@@ -37,6 +37,7 @@ export const PERMISOS = {
   EQUIPOS_BAJA: 'equipos.baja',
   COMISIONES_VER: 'comisiones.ver',
   COMISIONES_PAGAR: 'comisiones.pagar',
+  ACUERDOS_GESTIONAR: 'acuerdos.gestionar',
   COMISIONES_ANULAR: 'comisiones.anular',
   REPORTES_VER: 'reportes.ver',
   NOTIFICACIONES_VER: 'notificaciones.ver',

@@ -111,7 +111,13 @@ export function CarteraPage() {
                         <Link to={`/ventas/${venta.id}`} className="text-sm font-medium text-blue-600 hover:underline">
                           Lote {venta.numeroLote} ({venta.nombreProyecto})
                         </Link>
+                        {venta.acuerdoVigente && (
+                          <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" title="Sin avisos ni interés de mora mientras dure el acuerdo">
+                            Acuerdo vigente
+                          </span>
+                        )}
                         <BotonWhatsApp
+                          acuerdoVigente={venta.acuerdoVigente}
                           tipo={venta.enMora ? 'MORA' : 'RECORDATORIO'}
                           ventaId={venta.id}
                           estilo="enlace"
