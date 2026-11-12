@@ -407,6 +407,59 @@ describe('VentasService.crear', () => {
     });
   });
 
+  describe('fechas de las cuotas una por una (CC-08)', () => {
+    // Contrato real de ejemplo: $54.000.000; cuota inicial $16.200.000 pagada el 13/01/2026; 2 cuotas de $18.900.000 el
+    // 15/08/2026 y el 15/12/2026 (no son meses consecutivos).
+    const CONTRATO: DatosVenta = {
+      ...BASE_FINANCIADA,
+      valorTotal: '54000000',
+      cuotaInicial: '16200000',
+      numeroCuotas: 2,
+      fechaVenta: '2026-01-13',
+      fechasCuotas: ['2026-08-15', '2026-12-15'],
+    };
+    const fecha = (c: { fechaVencimiento: Date }) => `${c.fechaVencimiento.getFullYear()}-${String(c.fechaVencimiento.getMonth() + 1).padStart(2, '0')}-${String(c.fechaVencimiento.getDate()).padStart(2, '0')}`;
+
+    it('cada cuota toma su fecha y la venta guarda las fechas elegidas', async () => {
+      await service.crear(CONTRATO, USUARIO);
+      const { data: cuotas } = tx.cuota.createMany.mock.calls[0][0] as { data: { fechaVencimiento: Date; valor: Prisma.Decimal }[] };
+      expect(cuotas.map(fecha)).toEqual(['2026-08-15', '2026-12-15']);
+      expect(cuotas.map((c) => c.valor.toString())).toEqual(['18900000', '18900000']);
+      expect(tx.venta.create.mock.calls[0][0].data.fechasCuotas).toEqual(['2026-08-15', '2026-12-15']);
+      expect(auditoriaDe(tx.registroAuditoria.create, 'VENTA_CREAR').despues).toMatchObject({ fechasCuotas: ['2026-08-15', '2026-12-15'] });
+    });
+
+    it('con la cuota inicial recibida el día del contrato, el abono es de la cuota inicial completa', async () => {
+      await service.crear({ ...CONTRATO, cuotaInicialRecibida: true, medioPago: MedioPago.EFECTIVO }, USUARIO);
+      expect(vi.mocked(crearAbonoEnTx).mock.calls[0][1].valor.toString()).toBe('16200000');
+    });
+
+    it('rechaza fechas en cantidad distinta a las cuotas, fuera de orden o anteriores a la venta', async () => {
+      await expect(service.crear({ ...CONTRATO, fechasCuotas: ['2026-08-15'] }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.crear({ ...CONTRATO, fechasCuotas: ['2026-12-15', '2026-08-15'] }, USUARIO)).rejects.toThrow(/van en orden/);
+      await expect(service.crear({ ...CONTRATO, fechasCuotas: ['2025-12-01', '2026-12-15'] }, USUARIO)).rejects.toThrow(/antes de la fecha de la venta/);
+    });
+
+    it('no se combina con la fecha de la primera cuota ni sirve en una venta de contado', async () => {
+      await expect(service.crear({ ...CONTRATO, fechaPrimeraCuota: '2026-08-15' }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.crear({ ...BASE_CONTADO, fechasCuotas: ['2026-08-15'] }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('una venta con excepción pendiente conserva las fechas para cuando se apruebe', async () => {
+      // Más cuotas que el máximo configurado: queda pendiente de aprobación, sin plan todavía.
+      const fechas = Array.from({ length: 13 }, (_, i) => `2026-${String(2 + i > 12 ? 12 : 2 + i).padStart(2, '0')}-20`);
+      await service.crear({ ...CONTRATO, numeroCuotas: 13, fechasCuotas: fechas, motivoExcepcion: 'Contrato a 13 cuotas' }, USUARIO);
+      expect(tx.venta.create.mock.calls[0][0].data.fechasCuotas).toEqual(fechas);
+    });
+
+    it('la vista previa acepta las fechas elegidas y las valida igual', async () => {
+      const vista = await service.vistaPreviaPlan({ valorTotal: '54000000', cuotaInicial: '16200000', numeroCuotas: 2, fechaVenta: '2026-01-13', fechasCuotas: ['2026-08-15', '2026-12-15'] });
+      expect(vista.cuotas.map(fecha)).toEqual(['2026-08-15', '2026-12-15']);
+      expect(vista.totalCuotas.toString()).toBe('37800000');
+      await expect(service.vistaPreviaPlan({ valorTotal: '54000000', cuotaInicial: '16200000', numeroCuotas: 2, fechasCuotas: ['2026-12-15', '2026-08-15'] })).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
   describe('vista previa del plan (CC-08)', () => {
     it('devuelve el mismo plan que se guardaría, con el total de las cuotas', async () => {
       const vista = await service.vistaPreviaPlan({ valorTotal: '55000000', cuotaInicial: '16500000', numeroCuotas: 12, fechaVenta: '2026-11-12', fechaLimiteCuotaInicial: '2026-12-28', fechaPrimeraCuota: '2027-02-05' });

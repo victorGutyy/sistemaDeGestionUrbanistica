@@ -495,6 +495,10 @@ model Venta {
   // Fecha de la primera cuota mensual cuando el contrato la fija (p. ej. "a partir de febrero, los 5 de cada mes"); las
   // demás caen el mismo día de cada mes siguiente. Sin valor, la primera cuota vence un mes después de la fecha de venta.
   fechaPrimeraCuota DateTime?
+  // Fechas de cada cuota mensual (numero 1, 2, 3…) cuando el contrato las fija una por una, como lista de textos YYYY-MM-DD.
+  // Sin valor, las fechas salen de fechaPrimeraCuota (o de la fecha de venta). Se guarda porque una venta con excepción crea
+  // su plan al aprobarse, no al registrarse.
+  fechasCuotas Json?
   estado            EstadoVenta            @default(ACTIVA)
   // Quién registró la venta (nulo en ventas anteriores al control por usuario).
   registradaPorId   String?

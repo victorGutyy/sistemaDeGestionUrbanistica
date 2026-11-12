@@ -84,6 +84,8 @@ export function RegistrarVentaPage() {
   // cuota puede tener una fecha fija; las demás caen el mismo día de cada mes.
   const [valorRecibido, setValorRecibido] = useState('')
   const [fechaPrimeraCuota, setFechaPrimeraCuota] = useState('')
+  // Fechas de las cuotas elegidas una por una (null = las de la regla de siempre).
+  const [fechasManuales, setFechasManuales] = useState<string[] | null>(null)
   const [motivoExcepcion, setMotivoExcepcion] = useState('')
 
   useEffect(() => {
@@ -120,6 +122,11 @@ export function RegistrarVentaPage() {
     const lote = lotes.find((l) => l.id === id)
     if (lote) setValorTotal(String(Math.round(Number(lote.valorVenta))))
   }
+
+  // Si cambia el número de cuotas (o la forma de pago), las fechas elegidas una por una ya no corresponden: se vuelve a la regla.
+  useEffect(() => {
+    setFechasManuales(null)
+  }, [numeroCuotas, formaPago])
 
   // ---- Cálculos para mostrar en pantalla (el servidor repite y valida todo) ----
   const financiado = formaPago === 'FINANCIADO'
@@ -189,7 +196,8 @@ export function RegistrarVentaPage() {
           ? {
               numeroCuotas: cuotasNum,
               cuotaInicial: cuotaInicialValor,
-              fechaPrimeraCuota: fechaPrimeraCuota || undefined,
+              fechaPrimeraCuota: fechasManuales ? undefined : fechaPrimeraCuota || undefined,
+              fechasCuotas: fechasManuales ?? undefined,
             }
           : {}),
         fechaVenta,
@@ -407,7 +415,8 @@ export function RegistrarVentaPage() {
                 <input id="fechaPrimeraCuota" type="date" min={fechaVenta} value={fechaPrimeraCuota} onChange={(e) => setFechaPrimeraCuota(e.target.value)} className={CLASE_INPUT} />
                 <p className="mt-1 text-xs text-slate-500">
                   Si el contrato dice, por ejemplo, “a partir de febrero, los 5 de cada mes”, escribe esa fecha: las demás cuotas caen el mismo día de cada mes. Si la dejas
-                  vacía, la primera vence un mes después de la fecha de venta.
+                  vacía, la primera vence un mes después de la fecha de venta. Si las fechas no siguen un mes tras otro, usa “Poner las fechas una por una” en el plan de
+                  abajo.
                 </p>
               </div>
             </div>
@@ -421,7 +430,7 @@ export function RegistrarVentaPage() {
                   : ' (sin interés)'}
               </p>
             )}
-            <VistaPreviaPlan condiciones={condicionesDelPlan} recibidoHoy={recibidoHoy} />
+            <VistaPreviaPlan condiciones={condicionesDelPlan} recibidoHoy={recibidoHoy} fechasManuales={fechasManuales} onFechasManualesChange={setFechasManuales} />
           </div>
         )}
 

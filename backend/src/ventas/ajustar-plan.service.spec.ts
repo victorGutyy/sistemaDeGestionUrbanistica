@@ -87,6 +87,17 @@ describe('AjustarPlanService', () => {
     expect(tx.cuota.update).not.toHaveBeenCalled();
   });
 
+  it('con las fechas de cada cuota mueve solo esa cuota a su fecha y la audita', async () => {
+    const { servicio, tx } = montar();
+    // La cuota 2 pasa al 15/12/2027, aunque no sea el mes siguiente a la 1; las demás quedan como están.
+    const r = await servicio.ajustar('v-1', { motivo: MOTIVO, fechasCuotas: [{ numero: 3, fecha: '2027-03-15' }] }, usuarioDePrueba());
+    expect(r.cambios.map((c) => c.numero)).toEqual([3]);
+    expect(tx.cuota.update).toHaveBeenCalledTimes(1);
+    expect(tx.cuota.update.mock.calls[0][0]).toMatchObject({ where: { id: 'c3' } });
+    expect(tx.cuota.update.mock.calls[0][0].data.fechaVencimiento).toEqual(d(2027, 3, 15));
+    expect(tx.registroAuditoria.create.mock.calls[0][0].data.despues.fechas).toEqual([{ numero: 3, fecha: '2027-03-15' }]);
+  });
+
   it('un error de las reglas (por ejemplo, nada que cambiar) llega como solicitud inválida y no guarda nada', async () => {
     const { servicio, tx } = montar();
     await expect(servicio.ajustar('v-1', { motivo: MOTIVO, fechaCuotaInicial: '2026-11-12' }, usuarioDePrueba())).rejects.toBeInstanceOf(BadRequestException);

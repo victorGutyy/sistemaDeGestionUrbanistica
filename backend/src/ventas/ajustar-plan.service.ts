@@ -38,6 +38,7 @@ export class AjustarPlanService {
         cambios = calcularReprogramacion(cuotas, {
           fechaCuotaInicial: dto.fechaCuotaInicial ? parsearFechaLocal(dto.fechaCuotaInicial) : null,
           fechaPrimeraCuotaPendiente: dto.fechaPrimeraCuotaPendiente ? parsearFechaLocal(dto.fechaPrimeraCuotaPendiente) : null,
+          fechasPorCuota: dto.fechasCuotas?.map((f) => ({ numero: f.numero, fecha: parsearFechaLocal(f.fecha) })) ?? null,
         });
       } catch (error) {
         if (error instanceof ReprogramacionInvalida) throw new BadRequestException(error.message);

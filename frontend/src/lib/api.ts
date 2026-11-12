@@ -520,6 +520,8 @@ export interface CrearVentaPayload {
   valorCuotaInicialRecibido?: string
   // Fecha de la primera cuota mensual, si el contrato la fija; las demás caen el mismo día de cada mes (CC-08).
   fechaPrimeraCuota?: string
+  // Una fecha por cada cuota (la 1.ª primero), si el contrato las fija una por una. No se combina con fechaPrimeraCuota.
+  fechasCuotas?: string[]
   medioPago?: MedioPago
   cuentaDestinoId?: string
   referencia?: string
@@ -699,6 +701,7 @@ export interface VistaPreviaPlanPayload {
   fechaVenta?: string
   fechaLimiteCuotaInicial?: string
   fechaPrimeraCuota?: string
+  fechasCuotas?: string[]
 }
 
 export interface VistaPreviaPlan {
@@ -717,6 +720,8 @@ export interface AjustarPlanPayload {
   motivo: string
   fechaCuotaInicial?: string
   fechaPrimeraCuotaPendiente?: string
+  // La fecha de cada cuota que se quiere mover (solo cuotas sin pagar). No se combina con fechaPrimeraCuotaPendiente.
+  fechasCuotas?: { numero: number; fecha: string }[]
   soloVistaPrevia?: boolean
 }
 

@@ -25,6 +25,8 @@ export interface ReprogramacionPedida {
   fechaCuotaInicial?: Date | null;
   /** Fecha de la primera cuota pendiente (numero >= 1); las siguientes caen el mismo día de cada mes. */
   fechaPrimeraCuotaPendiente?: Date | null;
+  /** Fecha de cada cuota que se quiere mover (numero >= 1), cuando el contrato las fija una por una. No se combina con la anterior. */
+  fechasPorCuota?: { numero: number; fecha: Date }[] | null;
 }
 
 export class ReprogramacionInvalida extends Error {}
@@ -33,8 +35,12 @@ const mismoDia = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.
 const dia = (fecha: Date) => new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
 
 export function calcularReprogramacion(cuotas: CuotaDelPlan[], pedida: ReprogramacionPedida): CambioDeFecha[] {
-  if (!pedida.fechaCuotaInicial && !pedida.fechaPrimeraCuotaPendiente) {
-    throw new ReprogramacionInvalida('Indica la nueva fecha de la cuota inicial o la de la primera cuota pendiente');
+  const porCuota = pedida.fechasPorCuota?.length ? pedida.fechasPorCuota : null;
+  if (!pedida.fechaCuotaInicial && !pedida.fechaPrimeraCuotaPendiente && !porCuota) {
+    throw new ReprogramacionInvalida('Indica la nueva fecha de la cuota inicial, la de la primera cuota pendiente o las fechas de las cuotas');
+  }
+  if (pedida.fechaPrimeraCuotaPendiente && porCuota) {
+    throw new ReprogramacionInvalida('Envía las fechas de las cuotas una por una o la fecha de la primera cuota pendiente, no las dos');
   }
   const cambios: CambioDeFecha[] = [];
 
@@ -63,6 +69,32 @@ export function calcularReprogramacion(cuotas: CuotaDelPlan[], pedida: Reprogram
       if (!mismoDia(cuota.fechaVencimiento, despues)) {
         cambios.push({ cuotaId: cuota.id, numero: cuota.numero, antes: cuota.fechaVencimiento, despues });
       }
+    }
+  }
+
+  if (porCuota) {
+    const mensuales = cuotas.filter((c) => c.numero >= 1).sort((a, b) => a.numero - b.numero);
+    const nuevas = new Map<number, Date>();
+    for (const { numero, fecha } of porCuota) {
+      if (nuevas.has(numero)) throw new ReprogramacionInvalida(`La cuota ${numero} viene repetida`);
+      const cuota = mensuales.find((c) => c.numero === numero);
+      if (!cuota) throw new ReprogramacionInvalida(`No existe la cuota ${numero}`);
+      if (cuota.estado === EstadoCuota.PAGADA) throw new ReprogramacionInvalida(`La cuota ${numero} ya está pagada: no se le cambia la fecha`);
+      if (Number.isNaN(fecha.getTime())) throw new ReprogramacionInvalida(`La fecha de la cuota ${numero} no es válida`);
+      nuevas.set(numero, dia(fecha));
+    }
+    // El plan resultante (con lo pagado como está) tiene que seguir en orden: cada cuota vence igual o después que la anterior.
+    let anterior: { numero: number; fecha: Date } | null = null;
+    for (const cuota of mensuales) {
+      const fecha = nuevas.get(cuota.numero) ?? dia(cuota.fechaVencimiento);
+      if (anterior && fecha.getTime() < anterior.fecha.getTime()) {
+        throw new ReprogramacionInvalida(`La cuota ${cuota.numero} no puede vencer antes que la cuota ${anterior.numero}: las fechas van en orden`);
+      }
+      anterior = { numero: cuota.numero, fecha };
+    }
+    for (const [numero, despues] of nuevas) {
+      const cuota = mensuales.find((c) => c.numero === numero)!;
+      if (!mismoDia(cuota.fechaVencimiento, despues)) cambios.push({ cuotaId: cuota.id, numero, antes: cuota.fechaVencimiento, despues });
     }
   }
 

@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsDecimal,
   IsEnum,
@@ -95,6 +97,14 @@ export class CrearVentaDto {
   @IsOptional()
   @Matches(FECHA, { message: 'fechaPrimeraCuota debe tener el formato YYYY-MM-DD' })
   fechaPrimeraCuota?: string;
+
+  // Una fecha por cada cuota (la 1.ª primero), cuando el contrato las fija una por una (p. ej. "15 de agosto y 15 de
+  // diciembre"). Debe traer exactamente numeroCuotas fechas, en orden. No se combina con fechaPrimeraCuota.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(240)
+  @Matches(FECHA, { each: true, message: 'Cada fecha de fechasCuotas debe tener el formato YYYY-MM-DD' })
+  fechasCuotas?: string[];
 
   @IsOptional()
   @IsEnum(MedioPago)

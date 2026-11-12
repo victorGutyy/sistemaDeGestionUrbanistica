@@ -18,6 +18,33 @@ export interface ParametrosPlanDePagos {
    * día de cada mes siguiente. Sin ella, la cuota n vence n meses después de la fecha de venta.
    */
   fechaPrimeraCuota?: Date | null;
+  /**
+   * Una fecha por cada cuota (la 1.ª en el índice 0), cuando el contrato las fija una por una (p. ej. "15 de agosto y 15 de
+   * diciembre"). Tiene que traer exactamente numeroCuotas fechas, en orden. Si viene, manda sobre fechaPrimeraCuota.
+   */
+  fechasCuotas?: Date[] | null;
+}
+
+export class FechasDeCuotasInvalidas extends Error {}
+
+const dia = (f: Date) => new Date(f.getFullYear(), f.getMonth(), f.getDate());
+
+/**
+ * Las fechas de las cuotas elegidas una por una: la cantidad exacta, en orden (puede haber dos el mismo día) y ninguna anterior
+ * a la fecha de la venta. Lanza FechasDeCuotasInvalidas con un mensaje para mostrar a la persona.
+ */
+export function validarFechasDeCuotas(fechas: Date[], numeroCuotas: number, fechaVenta: Date): void {
+  if (fechas.length !== numeroCuotas) {
+    throw new FechasDeCuotasInvalidas(`Hacen falta ${numeroCuotas} fechas (una por cuota) y llegaron ${fechas.length}`);
+  }
+  const limite = dia(fechaVenta).getTime();
+  fechas.forEach((fecha, i) => {
+    if (Number.isNaN(fecha.getTime())) throw new FechasDeCuotasInvalidas(`La fecha de la cuota ${i + 1} no es válida`);
+    if (dia(fecha).getTime() < limite) throw new FechasDeCuotasInvalidas(`La cuota ${i + 1} no puede vencer antes de la fecha de la venta`);
+    if (i > 0 && dia(fecha).getTime() < dia(fechas[i - 1]).getTime()) {
+      throw new FechasDeCuotasInvalidas(`La cuota ${i + 1} no puede vencer antes que la cuota ${i}: las fechas van en orden`);
+    }
+  });
 }
 
 // Interés simple sobre saldo inicial: el capital financiado se reparte en
@@ -25,7 +52,8 @@ export interface ParametrosPlanDePagos {
 // sobre ese saldo inicial (no sobre el saldo que va quedando) y se suma
 // igual a cada cuota. Es el método que ya usan en el Excel actual.
 export function generarPlanDePagos(params: ParametrosPlanDePagos): CuotaPlanificada[] {
-  const { valorTotal, cuotaInicial, numeroCuotas, tasaInteres, fechaVenta, fechaPrimeraCuota } = params;
+  const { valorTotal, cuotaInicial, numeroCuotas, tasaInteres, fechaVenta, fechaPrimeraCuota, fechasCuotas } = params;
+  if (fechasCuotas) validarFechasDeCuotas(fechasCuotas, numeroCuotas, fechaVenta);
 
   if (numeroCuotas <= 0) {
     throw new Error('numeroCuotas debe ser mayor a cero para generar un plan de pagos');
@@ -54,7 +82,11 @@ export function generarPlanDePagos(params: ParametrosPlanDePagos): CuotaPlanific
     cuotas.push({
       numero,
       // Cada fecha se calcula desde la base (no desde la anterior): así un día 31 vuelve a 31 en los meses que lo tienen.
-      fechaVencimiento: fechaPrimeraCuota ? sumarMeses(fechaPrimeraCuota, numero - 1) : sumarMeses(fechaVenta, numero),
+      fechaVencimiento: fechasCuotas
+        ? dia(fechasCuotas[numero - 1])
+        : fechaPrimeraCuota
+          ? sumarMeses(fechaPrimeraCuota, numero - 1)
+          : sumarMeses(fechaVenta, numero),
       valor: capitalDeEstaCuota.plus(interesPorCuota),
     });
   }

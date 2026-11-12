@@ -78,3 +78,47 @@ describe('reprogramar las fechas de un plan de pagos (CC-08)', () => {
     expect(iso(cambios[0].despues)).toBe('2027-02-05');
   });
 });
+
+describe('reprogramar con la fecha de cada cuota (CC-08)', () => {
+  // Contrato de dos cuotas: la 1 ya pagada (15/08/2026) y la 2 pendiente; se mueve la 2 al 15/12/2026.
+  const dos = (estados: Partial<Record<number, EstadoCuota>> = {}): CuotaDelPlan[] => [
+    { id: 'c0', numero: 0, fechaVencimiento: d(2026, 1, 13), estado: EstadoCuota.PAGADA },
+    { id: 'c1', numero: 1, fechaVencimiento: d(2026, 8, 15), estado: estados[1] ?? EstadoCuota.PAGADA },
+    { id: 'c2', numero: 2, fechaVencimiento: d(2026, 9, 15), estado: estados[2] ?? EstadoCuota.PENDIENTE },
+  ];
+
+  it('mueve solo la cuota pedida a su fecha, aunque no sea el mes siguiente', () => {
+    const cambios = calcularReprogramacion(dos(), { fechasPorCuota: [{ numero: 2, fecha: d(2026, 12, 15) }] });
+    expect(cambios).toHaveLength(1);
+    expect(cambios[0]).toMatchObject({ cuotaId: 'c2', numero: 2 });
+    expect(iso(cambios[0].despues)).toBe('2026-12-15');
+  });
+
+  it('puede mover varias cuotas a la vez, cada una a su fecha', () => {
+    const cambios = calcularReprogramacion(plan(), { fechasPorCuota: [{ numero: 1, fecha: d(2027, 1, 10) }, { numero: 6, fecha: d(2027, 9, 30) }] });
+    expect(cambios.map((c) => [c.numero, iso(c.despues)])).toEqual([[1, '2027-01-10'], [6, '2027-09-30']]);
+  });
+
+  it('una cuota pagada no se mueve', () => {
+    expect(() => calcularReprogramacion(dos(), { fechasPorCuota: [{ numero: 1, fecha: d(2026, 9, 1) }] })).toThrow(/ya está pagada/);
+  });
+
+  it('el plan resultante tiene que seguir en orden, contando las cuotas pagadas', () => {
+    // La cuota 2 no puede quedar antes que la 1, que ya está pagada y vence el 15/08.
+    expect(() => calcularReprogramacion(dos(), { fechasPorCuota: [{ numero: 2, fecha: d(2026, 7, 1) }] })).toThrow(/van en orden/);
+    // Ni una cuota intermedia pasar de la siguiente.
+    expect(() => calcularReprogramacion(plan(), { fechasPorCuota: [{ numero: 1, fecha: d(2028, 1, 1) }] })).toThrow(/van en orden/);
+  });
+
+  it('rechaza cuotas inexistentes, repetidas o mezclar con la fecha de la primera pendiente', () => {
+    expect(() => calcularReprogramacion(dos(), { fechasPorCuota: [{ numero: 9, fecha: d(2026, 12, 15) }] })).toThrow(/No existe la cuota 9/);
+    expect(() => calcularReprogramacion(plan(), { fechasPorCuota: [{ numero: 2, fecha: d(2027, 1, 1) }, { numero: 2, fecha: d(2027, 2, 1) }] })).toThrow(/repetida/);
+    expect(() => calcularReprogramacion(plan(), { fechaPrimeraCuotaPendiente: d(2027, 2, 5), fechasPorCuota: [{ numero: 2, fecha: d(2027, 3, 1) }] })).toThrow(ReprogramacionInvalida);
+  });
+
+  it('rechaza si no cambia nada y se puede combinar con la fecha límite de la cuota inicial', () => {
+    expect(() => calcularReprogramacion(dos(), { fechasPorCuota: [{ numero: 2, fecha: d(2026, 9, 15) }] })).toThrow(/nada que cambiar/);
+    const cambios = calcularReprogramacion(plan(), { fechaCuotaInicial: d(2026, 12, 28), fechasPorCuota: [{ numero: 1, fecha: d(2027, 1, 10) }] });
+    expect(cambios.map((c) => c.numero)).toEqual([0, 1]);
+  });
+});

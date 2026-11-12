@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { ajustarPlanDePagos, type Cuota, type RespuestaAjustarPlan } from '../lib/api'
-import { formatearFecha } from '../lib/formato'
+import { fechaParaInput, formatearFecha } from '../lib/formato'
 import { etiquetaCuota } from '../lib/ventas'
 import { Aviso, CLASE_BOTON, CLASE_BOTON_SECUNDARIO, CLASE_INPUT, Campo } from './formulario'
 
@@ -20,6 +20,8 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
   const [motivo, setMotivo] = useState('')
   const [fechaInicial, setFechaInicial] = useState('')
   const [fechaPrimera, setFechaPrimera] = useState('')
+  // Fecha de cada cuota pendiente elegida una por una (null = se usa la fecha de la primera pendiente).
+  const [porCuota, setPorCuota] = useState<Record<number, string> | null>(null)
   const [vista, setVista] = useState<RespuestaAjustarPlan | null>(null)
   const [trabajando, setTrabajando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,17 +33,26 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
   const primeraPendiente = cuotas.filter((c) => c.numero >= 1 && c.estado !== 'PAGADA').sort((a, b) => a.numero - b.numero)[0]
   if (!inicialEditable && !primeraPendiente) return null
 
+  const pendientes = cuotas.filter((c) => c.numero >= 1 && c.estado !== 'PAGADA').sort((a, b) => a.numero - b.numero)
+
   const datos = () => ({
     motivo: motivo.trim(),
     fechaCuotaInicial: inicialEditable && fechaInicial ? fechaInicial : undefined,
-    fechaPrimeraCuotaPendiente: primeraPendiente && fechaPrimera ? fechaPrimera : undefined,
+    fechaPrimeraCuotaPendiente: !porCuota && primeraPendiente && fechaPrimera ? fechaPrimera : undefined,
+    fechasCuotas: porCuota ? pendientes.map((c) => ({ numero: c.numero, fecha: porCuota[c.numero] })).filter((f) => f.fecha) : undefined,
   })
+
+  function alternarPorCuota(activar: boolean) {
+    setVista(null)
+    setPorCuota(activar ? Object.fromEntries(pendientes.map((c) => [c.numero, fechaParaInput(c.fechaVencimiento)])) : null)
+  }
 
   function cerrar() {
     setAbierto(false)
     setMotivo('')
     setFechaInicial('')
     setFechaPrimera('')
+    setPorCuota(null)
     setVista(null)
     setError(null)
   }
@@ -118,7 +129,7 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
                 <input id="ajuste-inicial" type="date" value={fechaInicial} onChange={(e) => alCambiar(setFechaInicial)(e.target.value)} className={CLASE_INPUT} />
               </Campo>
             )}
-            {primeraPendiente && (
+            {primeraPendiente && !porCuota && (
               <Campo
                 id="ajuste-primera"
                 etiqueta={`Fecha de la primera cuota pendiente (${etiquetaCuota(primeraPendiente.numero)})`}
@@ -128,6 +139,37 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
               </Campo>
             )}
           </div>
+
+          {primeraPendiente && (
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={porCuota !== null} onChange={(e) => alternarPorCuota(e.target.checked)} />
+              Poner la fecha de cada cuota una por una
+            </label>
+          )}
+          {porCuota && (
+            <div className="rounded-md border border-slate-200 bg-white">
+              <p className="border-b border-slate-100 px-3 py-2 text-xs text-slate-500">
+                Solo aparecen las cuotas que faltan por pagar. Cambia la fecha de las que lo necesiten; las fechas deben ir en orden.
+              </p>
+              <ul className="max-h-64 divide-y divide-slate-100 overflow-y-auto text-sm">
+                {pendientes.map((cuota) => (
+                  <li key={cuota.numero} className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5">
+                    <span className="text-slate-800">{etiquetaCuota(cuota.numero)}</span>
+                    <input
+                      type="date"
+                      aria-label={`Fecha de la ${etiquetaCuota(cuota.numero)}`}
+                      value={porCuota[cuota.numero] ?? ''}
+                      onChange={(e) => {
+                        setVista(null)
+                        setPorCuota({ ...porCuota, [cuota.numero]: e.target.value })
+                      }}
+                      className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {vista && (
             <div className="rounded-md border border-blue-200 bg-white">
@@ -146,7 +188,7 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
           )}
 
           <div className="flex flex-wrap gap-2">
-            <button type="submit" disabled={trabajando || (!fechaInicial && !fechaPrimera)} className={vista ? CLASE_BOTON_SECUNDARIO : CLASE_BOTON}>
+            <button type="submit" disabled={trabajando || (!fechaInicial && !fechaPrimera && !porCuota)} className={vista ? CLASE_BOTON_SECUNDARIO : CLASE_BOTON}>
               {trabajando && !vista ? 'Calculando...' : 'Ver cambios'}
             </button>
             {vista && (

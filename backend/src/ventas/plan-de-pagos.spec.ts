@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
-import { generarPlanDePagos } from './plan-de-pagos.js';
+import { FechasDeCuotasInvalidas, generarPlanDePagos } from './plan-de-pagos.js';
 
 // Compara por fecha calendario local, no por instante UTC: `toISOString()`
 // desplaza la fecha un día en zonas horarias negativas (p.ej. América/Bogotá).
@@ -163,5 +163,53 @@ describe('generarPlanDePagos con fecha de la primera cuota', () => {
       fechaPrimeraCuota: null,
     });
     expect(cuotas.map((c) => formatearFechaLocal(c.fechaVencimiento))).toEqual(['2026-02-15', '2026-03-15', '2026-04-15']);
+  });
+});
+
+describe('generarPlanDePagos con las fechas elegidas una por una', () => {
+  // Contrato real de ejemplo: $54.000.000; cuota inicial $16.200.000; 2 cuotas de $18.900.000 el 15/08/2026 y el 15/12/2026.
+  const plan = (fechas: Date[]) =>
+    generarPlanDePagos({
+      valorTotal: D('54000000'),
+      cuotaInicial: D('16200000'),
+      numeroCuotas: 2,
+      tasaInteres: null,
+      fechaVenta: new Date(2026, 0, 13),
+      fechasCuotas: fechas,
+    });
+
+  it('cada cuota toma su fecha, aunque no sean meses consecutivos', () => {
+    const cuotas = plan([new Date(2026, 7, 15), new Date(2026, 11, 15)]);
+    expect(cuotas.map((c) => formatearFechaLocal(c.fechaVencimiento))).toEqual(['2026-08-15', '2026-12-15']);
+    expect(cuotas.map((c) => c.valor.toString())).toEqual(['18900000', '18900000']);
+  });
+
+  it('manda sobre la fecha de la primera cuota si vienen las dos', () => {
+    const cuotas = generarPlanDePagos({
+      valorTotal: D('54000000'),
+      cuotaInicial: D('16200000'),
+      numeroCuotas: 2,
+      tasaInteres: null,
+      fechaVenta: new Date(2026, 0, 13),
+      fechaPrimeraCuota: new Date(2026, 7, 15),
+      fechasCuotas: [new Date(2026, 7, 15), new Date(2026, 11, 15)],
+    });
+    expect(formatearFechaLocal(cuotas[1].fechaVencimiento)).toBe('2026-12-15');
+  });
+
+  it('exige exactamente una fecha por cuota', () => {
+    expect(() => plan([new Date(2026, 7, 15)])).toThrow(FechasDeCuotasInvalidas);
+    expect(() => plan([new Date(2026, 7, 15), new Date(2026, 9, 15), new Date(2026, 11, 15)])).toThrow(/Hacen falta 2 fechas/);
+  });
+
+  it('rechaza fechas fuera de orden, anteriores a la venta o inválidas', () => {
+    expect(() => plan([new Date(2026, 11, 15), new Date(2026, 7, 15)])).toThrow(/van en orden/);
+    expect(() => plan([new Date(2025, 11, 1), new Date(2026, 11, 15)])).toThrow(/antes de la fecha de la venta/);
+    expect(() => plan([new Date('no es una fecha'), new Date(2026, 11, 15)])).toThrow(/no es válida/);
+  });
+
+  it('permite dos cuotas el mismo día y la hora no cuenta', () => {
+    const cuotas = plan([new Date(2026, 7, 15, 23, 59), new Date(2026, 7, 15, 1, 0)]);
+    expect(cuotas.map((c) => formatearFechaLocal(c.fechaVencimiento))).toEqual(['2026-08-15', '2026-08-15']);
   });
 });

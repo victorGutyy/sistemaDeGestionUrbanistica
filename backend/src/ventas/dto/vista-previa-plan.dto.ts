@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, Matches, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsInt, IsOptional, Matches, Min } from 'class-validator';
 
 const SOLO_PESOS = /^\d{1,12}$/;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -26,4 +26,11 @@ export class VistaPreviaPlanDto {
   @IsOptional()
   @Matches(FECHA, { message: 'fechaPrimeraCuota debe tener el formato YYYY-MM-DD' })
   fechaPrimeraCuota?: string;
+
+  // Una fecha por cada cuota, si el contrato las fija una por una.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(240)
+  @Matches(FECHA, { each: true, message: 'Cada fecha de fechasCuotas debe tener el formato YYYY-MM-DD' })
+  fechasCuotas?: string[];
 }

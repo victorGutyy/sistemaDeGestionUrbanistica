@@ -28,7 +28,7 @@ import { CrearVentaDto } from './dto/crear-venta.dto.js';
 import { DesistirVentaDto } from './dto/desistir-venta.dto.js';
 import { calcularEstadoCuenta } from './estado-cuenta.js';
 import { VistaPreviaPlanDto } from './dto/vista-previa-plan.dto.js';
-import { generarPlanDePagos } from './plan-de-pagos.js';
+import { FechasDeCuotasInvalidas, generarPlanDePagos, validarFechasDeCuotas } from './plan-de-pagos.js';
 import { calcularCuotaInicial, evaluarExcepcion, type ParametrosVenta } from './reglas-venta.js';
 
 const ESTADOS_VIGENTES = [EstadoVenta.PENDIENTE_APROBACION, EstadoVenta.ACTIVA];
@@ -43,6 +43,22 @@ interface DatosParaCuotas {
   fechaVenta: Date;
   fechaCuotaInicial: Date | null;
   fechaPrimeraCuota: Date | null;
+  fechasCuotas: Prisma.JsonValue | null;
+}
+
+// Las fechas guardadas en la venta (lista de textos YYYY-MM-DD) como fechas; null si no hay.
+function fechasDeJson(valor: Prisma.JsonValue | null | undefined): Date[] | null {
+  return Array.isArray(valor) ? valor.map((texto) => parsearFechaLocal(String(texto))) : null;
+}
+
+// Valida las fechas elegidas una por una y devuelve el error como solicitud inválida.
+function exigirFechasDeCuotas(fechas: Date[], numeroCuotas: number, fechaVenta: Date): void {
+  try {
+    validarFechasDeCuotas(fechas, numeroCuotas, fechaVenta);
+  } catch (error) {
+    if (error instanceof FechasDeCuotasInvalidas) throw new BadRequestException(error.message);
+    throw error;
+  }
 }
 
 @Injectable()
@@ -157,6 +173,16 @@ export class VentasService {
         throw new BadRequestException('La primera cuota no puede ser anterior a la fecha de la venta');
       }
     }
+    const fechasCuotas = dto.fechasCuotas ? dto.fechasCuotas.map(parsearFechaLocal) : null;
+    if (fechasCuotas) {
+      if (dto.formaPago !== FormaPago.FINANCIADO) {
+        throw new BadRequestException('Solo una venta financiada tiene cuotas: las fechas de las cuotas no aplican');
+      }
+      if (dto.fechaPrimeraCuota) {
+        throw new BadRequestException('Envía las fechas de las cuotas una por una o la fecha de la primera cuota, no las dos');
+      }
+      exigirFechasDeCuotas(fechasCuotas, numeroCuotas ?? 0, fechaVenta);
+    }
     const tasaInteres =
       dto.formaPago === FormaPago.FINANCIADO && parametros.tasaFinanciacionMensual.greaterThan(0)
         ? parametros.tasaFinanciacionMensual
@@ -221,6 +247,7 @@ export class VentasService {
           fechaVenta,
           fechaCuotaInicial,
           fechaPrimeraCuota,
+          ...(fechasCuotas ? { fechasCuotas: fechasCuotas.map(formatearFechaISO) } : {}),
           estado: pendiente ? EstadoVenta.PENDIENTE_APROBACION : EstadoVenta.ACTIVA,
           registradaPorId: usuario.id,
           esExcepcion: evaluacion.esExcepcion,
@@ -278,6 +305,7 @@ export class VentasService {
           cuotaInicialRecibida: Boolean(dto.cuotaInicialRecibida && !pendiente),
           ...(dto.cuotaInicialRecibida && !pendiente ? { valorRecibidoDeLaCuotaInicial: valorRecibido.toString() } : {}),
           ...(fechaPrimeraCuota ? { fechaPrimeraCuota: formatearFechaISO(fechaPrimeraCuota) } : {}),
+          ...(fechasCuotas ? { fechasCuotas: fechasCuotas.map(formatearFechaISO) } : {}),
         },
       });
 
@@ -308,8 +336,13 @@ export class VentasService {
     if (fechaPrimeraCuota && fechaPrimeraCuota.getTime() < parsearFechaLocal(formatearFechaISO(fechaVenta)).getTime()) {
       throw new BadRequestException('La primera cuota no puede ser anterior a la fecha de la venta');
     }
+    const fechasCuotas = dto.fechasCuotas ? dto.fechasCuotas.map(parsearFechaLocal) : null;
+    if (fechasCuotas) {
+      if (dto.fechaPrimeraCuota) throw new BadRequestException('Envía las fechas de las cuotas una por una o la fecha de la primera cuota, no las dos');
+      exigirFechasDeCuotas(fechasCuotas, dto.numeroCuotas, fechaVenta);
+    }
     const tasaInteres = parametros.tasaFinanciacionMensual.greaterThan(0) ? parametros.tasaFinanciacionMensual : null;
-    const cuotas = generarPlanDePagos({ valorTotal, cuotaInicial, numeroCuotas: dto.numeroCuotas, tasaInteres, fechaVenta, fechaPrimeraCuota });
+    const cuotas = generarPlanDePagos({ valorTotal, cuotaInicial, numeroCuotas: dto.numeroCuotas, tasaInteres, fechaVenta, fechaPrimeraCuota, fechasCuotas });
     const totalCuotas = cuotas.reduce((suma, cuota) => suma.plus(cuota.valor), new Prisma.Decimal(0));
     return {
       cuotaInicial: cuotaInicial.greaterThan(0)
@@ -718,6 +751,7 @@ export class VentasService {
         tasaInteres: venta.tasaInteres,
         fechaVenta: venta.fechaVenta,
         fechaPrimeraCuota: venta.fechaPrimeraCuota,
+        fechasCuotas: fechasDeJson(venta.fechasCuotas),
       });
 
       await tx.cuota.createMany({
