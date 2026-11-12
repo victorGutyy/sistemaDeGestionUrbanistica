@@ -380,7 +380,7 @@ Motivo (queda registrado):`,
             <p className="mt-1 text-slate-700">
               Interés de mora (informativo): <span className="font-medium">{estadoCuenta.cartera.moraConfigurada ? formatearCOP(estadoCuenta.cartera.interesMora) : 'sin tasa de mora definida'}</span>
               {!estadoCuenta.cartera.moraConfigurada && ' — el gerente la define en Configuración.'}
-              {venta.acuerdosPago?.some((acuerdo) => acuerdo.estado === 'VIGENTE') && ' — sin interés mientras dure el acuerdo de pago.'}
+              {venta.acuerdosPago?.some((acuerdo) => acuerdo.estado === 'VIGENTE') && ' — el interés no crece mientras dure el acuerdo de pago.'}
             </p>
           )}
           {Number(estadoCuenta.cartera.saldoPorVencer) > 0 && <p className="mt-1 text-xs text-slate-500">Por vencer: {formatearCOP(estadoCuenta.cartera.saldoPorVencer)}</p>}

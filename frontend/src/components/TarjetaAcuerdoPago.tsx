@@ -123,7 +123,7 @@ export function TarjetaAcuerdoPago({ ventaId, acuerdos, puedeGestionar, admiteAc
           <p className="mt-1 text-xs opacity-80">
             Registrado por {activo.creadoPor.nombre}.{' '}
             {activo.estado === 'VIGENTE'
-              ? 'Mientras dure: no se envían recordatorios ni avisos de mora y no se causa interés de mora. La deuda y los días de atraso siguen contándose.'
+              ? 'Mientras dure: no se envían recordatorios ni avisos de mora y el interés de mora no crece. La deuda y los días de atraso siguen contándose.'
               : 'Empieza más adelante: hasta entonces la venta sigue con sus avisos normales.'}
           </p>
           {puedeGestionar && formulario === null && (

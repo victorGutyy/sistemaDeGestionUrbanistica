@@ -62,7 +62,7 @@ function TarjetaVenta({ venta, puedeAbonar }: { venta: VentaFicha; puedeAbonar: 
       {venta.acuerdoVigente && (
         <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           <span className="font-medium">Acuerdo de pago vigente</span> desde el {formatearFecha(venta.acuerdoVigente.desde)}
-          {venta.acuerdoVigente.hastaPrevista ? ` hasta el ${formatearFecha(venta.acuerdoVigente.hastaPrevista)}` : ''}: sin avisos ni interés de mora. {venta.acuerdoVigente.motivo}
+          {venta.acuerdoVigente.hastaPrevista ? ` hasta el ${formatearFecha(venta.acuerdoVigente.hastaPrevista)}` : ''}: sin avisos y sin que crezca el interés de mora. {venta.acuerdoVigente.motivo}
         </p>
       )}
 

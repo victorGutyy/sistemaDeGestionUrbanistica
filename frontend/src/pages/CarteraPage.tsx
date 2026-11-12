@@ -112,7 +112,7 @@ export function CarteraPage() {
                           Lote {venta.numeroLote} ({venta.nombreProyecto})
                         </Link>
                         {venta.acuerdoVigente && (
-                          <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" title="Sin avisos ni interés de mora mientras dure el acuerdo">
+                          <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800" title="Sin avisos y sin que crezca el interés de mora mientras dure el acuerdo">
                             Acuerdo vigente
                           </span>
                         )}

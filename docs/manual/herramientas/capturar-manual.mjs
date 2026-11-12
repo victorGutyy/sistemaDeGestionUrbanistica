@@ -354,8 +354,15 @@ const capitulos = [
       { t: 'Ya se recibió el pago completo', n: 2, r: 'Marca si el cliente pagó todo hoy: el sistema emite el recibo.' },
       { t: 'Registrar venta', n: 3, r: 'Guarda la venta.' },
     ] });
-    await foto('venta-financiada', 'Venta financiada: cuota inicial y plazo', { alto: 1100, antes: async () => { await nav.clicTexto('Financiado'); await nav.esperarCarga(600); }, marcas: [
+    await foto('venta-financiada', 'Venta financiada: cuota inicial libre y plazo', { alto: 1250, antes: async () => {
+      await nav.clicTexto('Financiado');
+      await nav.esperarCarga(600);
+      await fijar('#cuotaInicialValor', '14000000');
+    }, marcas: [
       { t: 'Financiado', n: 1, r: 'Forma de pago: financiada por la empresa.' },
+      { campo: 'Cuota inicial (pesos)', n: 2, r: 'Escribe cuánto paga el cliente de cuota inicial, en pesos. Es el valor que acuerden: no hay un mínimo.' },
+      { t: 'Usar la sugerida', n: 3, r: 'Llena el campo con el valor sugerido (el porcentaje que configuró el gerente).' },
+      { campo: 'Número de cuotas', n: 4, r: 'El resto se reparte en cuotas iguales, sin interés.' },
     ] });
     await foto('venta-comprador-nuevo', 'Registrar la venta a un cliente que todavía no existe', { alto: 1000, antes: async () => { await nav.clicTexto('Cliente nuevo'); await nav.esperarCarga(500); }, marcas: [
       { t: 'Cliente nuevo', n: 1, r: 'Crea al comprador en el mismo formulario.' },
@@ -469,6 +476,45 @@ const capitulos = [
     ] });
   }),
 
+  cap('acuerdos', async () => {
+    const cartera = await llamar('/cartera');
+    const fila = cartera.find((f) => f.ventas.some((v) => v.acuerdoVigente));
+    const venta = fila.ventas.find((v) => v.acuerdoVigente);
+    await ir('/ventas/' + venta.id, 2200);
+    await foto('acuerdo-vigente', 'Venta con un acuerdo de pago vigente', { alto: 780, marcas: [
+      { t: 'Interés de mora (informativo)', n: 1, tag: 'P', r: 'Mientras dura el acuerdo no se causa interés de mora; la deuda y los días de atraso siguen contándose.' },
+      { t: 'Acuerdo de pago', n: 2, tag: 'H2', r: 'El acuerdo vigente, con sus fechas y su motivo.' },
+      { t: 'Finalizar acuerdo', n: 3, tag: 'BUTTON', r: 'Termina el acuerdo: desde hoy se reanudan los avisos y el interés.' },
+    ] });
+    // Formulario para registrar uno nuevo, en otra venta financiada sin acuerdo.
+    await ir('/ventas');
+    const otra = await enlaceDe('main a', 'Mz. B · Lote 1');
+    await ir(otra, 2200);
+    await foto('acuerdo-formulario', 'Registrar un acuerdo de pago', {
+      antes: async () => {
+        await nav.clicTexto('Registrar acuerdo', 'button');
+        await pausa(500);
+        await fijar('#acuerdo-motivo', 'Acuerdo verbal: las últimas 3 cuotas se pagan al final del plan');
+        await fijar('#acuerdo-hasta', '2027-03-31');
+      },
+      desplazar: 'Acuerdo de pago', alto: 620, marcas: [
+        { campo: '¿Qué se acordó con el cliente?', n: 1, r: 'Escribe el acuerdo con claridad: queda como constancia para quien revise después.' },
+        { campo: 'Desde', n: 2, r: 'El primer día del acuerdo (hoy, por defecto).' },
+        { campo: 'Hasta (opcional)', n: 3, r: 'El último día. Al día siguiente se reanudan los avisos y el interés. Sin fecha, sigue hasta que lo finalices.' },
+        { t: 'Registrar acuerdo', n: 4, tag: 'BUTTON', r: 'Guarda el acuerdo; el sistema pide confirmar antes.' },
+      ],
+    });
+    await ir('/cartera', 2000);
+    await foto('cartera-acuerdo', 'Cartera: una venta con acuerdo vigente', { desplazar: 'Acuerdo vigente', alto: 900, marcas: [
+      { t: 'Acuerdo vigente', n: 1, tag: 'SPAN', r: 'Esta venta no recibe avisos ni causa interés de mora mientras dure el acuerdo.' },
+      { t: 'WhatsApp: mora', n: 2, r: 'El mensaje manual sigue disponible, pero el sistema pide confirmar antes de avisar.' },
+    ] });
+    await ir('/clientes/' + fila.cliente.id, 2000);
+    await foto('cliente-acuerdo', 'Ficha de un cliente con un acuerdo de pago', { alto: 1100, marcas: [
+      { t: 'Acuerdo de pago vigente', n: 1, tag: 'SPAN', caja: true, r: 'Aviso con las fechas y el motivo del acuerdo.' },
+    ] });
+  }),
+
   cap('finanzas', async () => {
     await ir('/finanzas', 2000);
     await foto('finanzas-lista', 'Finanzas: resumen de caja', { marcas: [
@@ -499,6 +545,13 @@ const capitulos = [
       { t: 'Valor vendido', n: 2, caja: true, tag: 'P|SPAN|DIV', r: 'Total de las ventas del proyecto.' },
       { t: 'Saldo por cobrar', n: 3, caja: true, tag: 'P|SPAN|DIV', r: 'Lo que los clientes todavía deben.' },
     ] });
+    await ir('/proyectos');
+    const rem = await enlaceDe('main a', 'Remodelación Casa Demo');
+    await ir(rem + '/finanzas', 2000);
+    await foto('proyecto-finanzas-obra', 'Finanzas de una obra con su costo de nómina', { alto: 820, marcas: [
+      { t: 'Nómina del 01/11/2026', n: 1, caja: true, tag: 'P|SPAN|DIV', r: 'Cada quincena liquidada entra como un solo egreso de la obra, a su costo, sin nombres de trabajadores.' },
+      { t: 'Utilidad', n: 2, caja: true, tag: 'P|SPAN|DIV', r: 'Lo que deja la obra después de su nómina y demás gastos.' },
+    ] });
   }),
 
   cap('comisiones', async () => {
@@ -524,7 +577,15 @@ const capitulos = [
       await nav.clicTexto('Ver reporte', 'button');
       await nav.esperarCarga(2000);
     }, alto: 1000 });
-    const id = await nav.evaluar('true');
+    await ir('/reportes?reporte=mano-de-obra', 3000);
+    await foto('reporte-mano-de-obra', 'Reporte del costo de mano de obra por obra y quincena', {
+      alto: 1500,
+      antes: async () => { await nav.clicTexto('Ver reporte', 'button'); await nav.esperarCarga(2500); },
+      desplazar: 'Costo de mano de obra por obra y quincena',
+      marcas: [
+        { t: 'Ver reporte', n: 1, tag: 'BUTTON', r: 'Muestra el reporte aquí; también puedes descargarlo en PDF o Excel.' },
+      ],
+    });
   }),
 
   cap('notificaciones', async () => {
@@ -547,27 +608,80 @@ const capitulos = [
   }),
 
   cap('nomina', async () => {
+    // Pone un valor en el campo que sigue a una etiqueta (la n-ésima con ese texto), y avisa a React.
+    const poner = (etiqueta, valor, n = 0) => nav.evaluar(`(() => {
+      const ls = [...document.querySelectorAll('label')].filter((x) => x.textContent.trim().startsWith(${JSON.stringify(etiqueta)}));
+      const l = ls[${n}]; const e = l && (l.control || document.getElementById(l.htmlFor)); if (!e) return false;
+      const proto = e.tagName === 'SELECT' ? HTMLSelectElement.prototype : e.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      let v = ${JSON.stringify(valor)};
+      if (e.tagName === 'SELECT') { const o = [...e.options].find((x) => x.text.includes(v)); if (!o) return false; v = o.value; }
+      Object.getOwnPropertyDescriptor(proto, 'value').set.call(e, v); e.dispatchEvent(new Event(e.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); return true; })()`);
+
     await ir('/nomina', 1800);
-    await foto('nomina-lista', 'Trabajadores y nómina', { alto: 700, marcas: [
+    await foto('nomina-lista', 'Trabajadores y nómina', { alto: 760, marcas: [
       { t: 'Nuevo trabajador', n: 1, r: 'Registra un trabajador.' },
-      { t: 'Maestro de obra', n: 2, r: 'Toca un trabajador para ver sus pagos.' },
+      { t: 'Liquidar quincena', n: 2, r: 'Paga la quincena de una obra a varios trabajadores a la vez.' },
+      { t: 'Cargos y valor día', n: 3, r: 'Define los cargos y lo que se paga por día en cada uno.' },
+      { t: 'Costo por obra', n: 4, r: 'Abre el reporte del costo de la mano de obra de cada obra.' },
+      { t: 'Ana Sofía Valencia Zapata', n: 5, r: 'Toca un trabajador para ver sus pagos.' },
+    ] });
+    await ir('/nomina/cargos', 1500);
+    await foto('nomina-cargos', 'Cargos de nómina y su valor día', { alto: 820, marcas: [
+      { t: 'Maestro', n: 1, caja: true, tag: 'P|SPAN|DIV|LI', r: 'Cada cargo con su valor día sugerido.' },
+      { t: 'Editar', n: 2, tag: 'BUTTON', r: 'Cambia el nombre o el valor.' },
+      { t: 'Desactivar', n: 3, tag: 'BUTTON', r: 'Deja de ofrecerlo sin borrarlo.' },
+      { t: 'Agregar', n: 4, tag: 'BUTTON', r: 'Crea un cargo nuevo.' },
     ] });
     await ir('/trabajadores/nuevo', 1200);
-    await foto('trabajador-nuevo', 'Formulario para registrar un trabajador', { alto: 800, marcas: [
-      { campo: 'Cargo', n: 1, r: 'Por ejemplo, ayudante de obra.' },
-      { campo: 'Salario base', n: 2, r: 'El salario mensual, en pesos.' },
-      { t: 'Registrar trabajador', n: 3, tag: 'BUTTON', r: 'Guarda al trabajador.' },
+    await foto('trabajador-nuevo', 'Formulario para registrar un trabajador', { alto: 1400, marcas: [
+      { campo: 'Nombres', n: 1, r: 'Escribe los nombres y los apellidos por separado: el sistema arma el nombre completo.' },
+      { campo: 'Cargo', n: 2, r: 'Elige un cargo de la lista o escribe otro.' },
+      { campo: 'Valor día (pesos)', n: 3, r: 'Lo que se le paga por día de trabajo. Se sugiere el del cargo, pero puedes cambiarlo.' },
+      { campo: 'Banco (opcional)', n: 4, r: 'Datos para pagarle por transferencia.' },
+      { t: 'Registrar trabajador', n: 5, tag: 'BUTTON', r: 'Guarda al trabajador.' },
     ] });
     await ir('/nomina', 1500);
-    const t = await enlaceDe('main a', 'María Fernanda Valencia Salazar');
+    const t = await enlaceDe('main a', 'Ana Sofía Valencia Zapata');
     await ir(t, 1500);
-    await foto('trabajador-ficha', 'Ficha de un trabajador', { alto: 1000, marcas: [
-      { t: 'Registrar pago', n: 1, tag: 'BUTTON|A', r: 'Registra un pago de nómina.' },
-      { t: 'Editar', n: 2, tag: 'BUTTON|A', r: 'Corrige los datos del trabajador.' },
+    await foto('trabajador-ficha', 'Ficha de un trabajador', { alto: 1100, marcas: [
+      { t: 'Registrar pago', n: 1, tag: 'BUTTON|A', r: 'Registra un pago de nómina suelto (sin liquidar una quincena).' },
+      { t: 'Editar', n: 2, tag: 'BUTTON|A', r: 'Corrige los datos del trabajador, su valor día y sus datos de pago.' },
       { t: 'Ver en SST', n: 3, tag: 'BUTTON|A', r: 'Abre su ficha de seguridad y salud.' },
       { t: 'Retirar trabajador', n: 4, tag: 'BUTTON', r: 'Registra el retiro con su fecha y motivo; la ficha se conserva.' },
     ] });
-    await ir(t + '/pagos/nuevo', 1500);
+    await foto('trabajador-pagos', 'Pagos de un trabajador, con su obra y sus días', { desplazar: 'Pagos de nómina', alto: 430, marcas: [
+      { t: 'Obra', n: 1, tag: 'TH', r: 'La obra a la que se cargó el pago de esa quincena.' },
+      { t: 'Valor pagado', n: 2, tag: 'TH', r: 'Lo que se pagó, después de descuentos y anticipos. Bajo la obra aparecen los días pagados.' },
+    ] });
+    await ir('/nomina/liquidar', 1500);
+    await poner('Obra (proyecto)', 'Remodelación');
+    await pausa(500);
+    await poner('Período desde', '2026-11-16');
+    await poner('Período hasta', '2026-11-30');
+    await poner('Fecha de pago', '2026-11-30');
+    await nav.clicTexto('Copiar la quincena anterior de esta obra', 'button');
+    await pausa(1200);
+    const dias = ['15', '13.5', '15', '14'];
+    for (const [i, d] of dias.entries()) await poner('Días', d, i);
+    await poner('Horas extra', '6', 0);
+    await poner('Valor hora extra', '15000', 0);
+    await poner('Anticipo', '150000', 2);
+    await pausa(500);
+    await foto('nomina-liquidar', 'Liquidar la quincena de una obra', { alto: 1500, marcas: [
+      { campo: 'Obra (proyecto)', n: 1, r: 'Elige la obra a la que se carga el costo.' },
+      { campo: 'Período desde', n: 2, r: 'La quincena que se paga. Los botones de arriba la llenan solos.' },
+      { t: 'Copiar la quincena anterior de esta obra', n: 3, tag: 'BUTTON', r: 'Trae a los mismos trabajadores de la quincena anterior.' },
+      { t: 'Días', n: 4, r: 'Los días trabajados (admite medio día, por ejemplo 7,5). El valor día sale de la ficha.' },
+      { t: 'Horas extra', n: 5, r: 'Horas extra y la tarifa que se paga por cada una.' },
+      { t: 'Anticipo', n: 6, r: 'Lo ya entregado antes: se resta de lo que se paga.' },
+    ] });
+    await foto('nomina-liquidar-total', 'Totales de la liquidación', { desplazar: 'Total a pagar', alto: 800, marcas: [
+      { t: 'Total a pagar', n: 1, tag: 'P|SPAN|DIV', r: 'Lo que sale de caja esta quincena.' },
+      { t: 'Guardar liquidación', n: 2, tag: 'BUTTON', r: 'Guarda todos los pagos de una vez, o ninguno si algo falla.' },
+    ] });
+    await ir('/nomina', 1500);
+    const t2 = await enlaceDe('main a', 'María Fernanda Valencia Salazar');
+    await ir(t2 + '/pagos/nuevo', 1500);
     await foto('pago-nomina-nuevo', 'Formulario para registrar un pago de nómina', { alto: 900, marcas: [
       { campo: 'Período desde', n: 1, r: 'Primer día del período que se paga.' },
       { campo: 'Período hasta', n: 2, r: 'Último día del período.' },
@@ -918,10 +1032,13 @@ const capitulos = [
       { t: 'Descargar Excel', n: 2, tag: 'BUTTON', r: 'El Excel con lo que se lleva a la nómina. Es una liquidación de apoyo: la nómina se liquida fuera del sistema.' },
     ] });
 
-    // --- Nómina: propuesta al registrar un pago
+    // --- Nómina: propuesta al registrar un pago. El período sale de las fechas del ausentismo (la demostración se genera
+    // respecto a la fecha de hoy, así que no se puede dejar fijo).
+    const origen = primera?.trabajador?.id === juan.id ? primera : prorroga;
+    const periodoDesde = String(origen.fechaInicio).slice(0, 10), periodoHasta = String(prorroga.fechaFin).slice(0, 10);
     await foto('nomina-ausentismo-periodo', 'Registrar un pago: ausentismo del período', { alto: 950, antes: async () => {
       await ir('/trabajadores/' + juan.id + '/pagos/nuevo', 2000);
-      await fijar('#periodoInicio', '2026-09-15'); await fijar('#periodoFin', '2026-09-30'); await pausa(1800);
+      await fijar('#periodoInicio', periodoDesde); await fijar('#periodoFin', periodoHasta); await pausa(1800);
       await nav.clicTexto('Agregar como novedad', 'button'); await pausa(500);
     }, marcas: [
       { t: 'Ausentismo en este período', n: 1, tag: 'P', caja: true, r: 'El sistema busca las incapacidades y licencias que caen en el período pagado y propone la novedad de cada una.' },

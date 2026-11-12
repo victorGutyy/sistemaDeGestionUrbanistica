@@ -15,8 +15,8 @@ TITULO = "Manual de usuario del Sistema de gestión de urbanismo"
 SUBTITULO = "Guía paso a paso para vender lotes, registrar abonos, cuidar la caja y entender las finanzas"
 AUTOR = "Victor Alfonso Gutierrez Lopez"
 EDICION = "Edición para Balder Ingeniería y Mantenimiento SAS"
-VERSION = "Versión 1.2"
-FECHA = "Octubre de 2026"
+VERSION = "Versión 1.3"
+FECHA = "Noviembre de 2026"
 
 C = []  # contenido
 
@@ -45,9 +45,9 @@ ul("Los **círculos rojos con un número** señalan el botón, el campo o la zon
    "Los cuadros de **Consejo** te ayudan a trabajar mejor. Los cuadros de **Importante** te avisan de algo que no se puede deshacer o que conviene hacer con cuidado.",
    "Todas las imágenes usan **datos de demostración inventados** (personas, documentos, teléfonos y valores ficticios). Ningún dato real de la empresa ni de sus clientes aparece en este manual.")
 h2("Esta versión del manual")
-p("Este manual describe el sistema tal como está hoy. La versión 1.1 agregó el capítulo de Seguridad y salud en el trabajo. La versión 1.2 le suma el **ausentismo** (incapacidades y licencias con su liquidación de apoyo), los **reportes de SST** y la **carga de datos de SST desde Excel**, y actualiza Nómina, Importar desde Excel, Configuración, los permisos de cada rol, el glosario y las preguntas frecuentes. Cuando se agreguen funciones nuevas, el manual se actualizará y cambiará el número de versión que aparece en la portada.")
+p("Este manual describe el sistema tal como está hoy. La versión 1.1 agregó el capítulo de Seguridad y salud en el trabajo. La versión 1.2 le suma el **ausentismo** (incapacidades y licencias con su liquidación de apoyo), los **reportes de SST** y la **carga de datos de SST desde Excel**, y actualiza Nómina, Importar desde Excel, Configuración, los permisos de cada rol, el glosario y las preguntas frecuentes. La versión 1.3 agrega la **nómina por obra y quincena** (cargos con su valor día, liquidar la quincena de una obra y el costo de la mano de obra de cada obra), los **acuerdos de pago** (para respetar los arreglos con los clientes: pausan los avisos y el interés de mora), la **cuota inicial libre** en las ventas financiadas, el rol **Soporte técnico**, la flecha **Volver** en todas las pantallas y un aspecto renovado con el logo de la empresa de fondo. Cuando se agreguen funciones nuevas, el manual se actualizará y cambiará el número de versión que aparece en la portada.")
 h2("Qué cambia según tu rol")
-p("No todas las personas ven todas las opciones. El menú se adapta al rol que tiene tu cuenta (Gerente, Administrador, Consulta o Contratista SST). Si en este manual lees una opción que no aparece en tu menú, es porque tu rol no la incluye. En el Apéndice A hay un cuadro completo.")
+p("No todas las personas ven todas las opciones. El menú se adapta al rol que tiene tu cuenta (Gerente, Administrador, Consulta, Contratista SST o Soporte técnico). Si en este manual lees una opción que no aparece en tu menú, es porque tu rol no la incluye. En el Apéndice A hay un cuadro completo.")
 
 # =====================================================================  1
 cap("Conoce el sistema")
@@ -68,6 +68,7 @@ tabla("roles", "Roles del sistema y sus responsabilidades", ["Rol", "Para qué s
     ["Administrador", "Operación diaria: ventas, abonos, egresos, cierres de caja y personal. Ve todos los proyectos."],
     ["Consulta", "Solo mira: no cambia nada. Puede ver todos los proyectos o solo algunos (por ejemplo, un socio que solo sigue un proyecto)."],
     ["Contratista SST", "Persona externa encargada de la seguridad y salud en el trabajo. Solo ve y trabaja el módulo de Seguridad y salud: no ve dinero, salarios, clientes ni proyectos."],
+    ["Soporte técnico", "Rol de solo lectura para quien da soporte al sistema: ve todos los módulos de consulta, incluida la auditoría, pero no puede registrar, cambiar ni anular nada, ni ve los diagnósticos de las incapacidades."],
     ["Cliente comprador", "No ingresa al sistema. Recibe sus recibos, recordatorios y avisos por correo o WhatsApp."],
     ["Sistema", "Hace solo las tareas automáticas: recordatorios de pago, avisos de mora y numeración de recibos."],
 ], [24, 76], "Nota. Los permisos de cada rol se detallan en el Apéndice A.")
@@ -96,6 +97,10 @@ h2("Conoce la pantalla principal")
 p("Al ingresar llegas a la pantalla principal, que se ve en la {fig:menu}. A la izquierda está el **menú**: cada opción abre un módulo del sistema (1). Abajo del menú ves tu nombre y tu rol (2), y el botón para **cerrar sesión** (3).")
 fig("menu")
 consejo("Cuando termines de trabajar, cierra tu sesión, sobre todo si usas un computador compartido.")
+h2("Volver a la pantalla anterior")
+p("En todas las pantallas, arriba y a la izquierda, ves la flecha **Volver**. Te lleva a la pantalla donde estabas antes, como el botón de atrás del navegador pero siempre a la vista, también en el celular. Si abriste una pantalla escribiendo su dirección directamente, la flecha te sube un nivel (por ejemplo, de la liquidación de la quincena a Nómina). En el panel general no aparece, porque es la pantalla de inicio.")
+h2("El aspecto del sistema")
+p("Las pantallas usan un fondo suave con los colores de la empresa y, detrás del contenido, el **logo de la empresa** muy tenue: no tapa los datos ni se imprime. El logo y el color los define el gerente en Configuración → Empresa. Si no se ha subido un logo, el fondo queda liso.")
 h2("Cómo usarlo desde el celular")
 p("El sistema se adapta a la pantalla del celular. En lugar del menú lateral, verás un botón con tres rayitas (1) en la parte de arriba, como se ve en la {fig:movil-panel}. Al tocarlo se abre el menú, como en la {fig:movil-menu}, y tocas la opción que necesites.")
 fig("movil-panel")
@@ -239,7 +244,7 @@ h3("Venta de contado")
 p("Elige **Contado** (1) como en la {fig:venta-contado}. El valor total aparece ya escrito con el precio del lote, pero puedes cambiarlo. Si el cliente pagó todo hoy, marca **Ya se recibió el pago completo** (2) y elige el medio de pago: el sistema registra el abono y emite el recibo. Si todavía no pagó, déjala sin marcar y registra el abono después. Termina con **Registrar venta** (3).")
 fig("venta-contado")
 h3("Venta financiada")
-p("Elige **Financiado** (1) y se despliegan las condiciones, como en la {fig:venta-financiada}. La **cuota inicial** se escribe en pesos: es libre, el valor lo acuerdan el cliente y la empresa. El sistema te sugiere el porcentaje configurado (por defecto, 30 %) con el botón **Usar la sugerida** y te dice a qué porcentaje equivale lo que escribiste. El **número de cuotas** (por defecto, 12) divide el saldo. El sistema te muestra al instante la cuota inicial, el saldo a financiar y el valor aproximado de cada cuota. La financiación de la empresa no cobra interés. Si el cliente ya entregó la cuota inicial, marca la casilla y elige el medio de pago.")
+p("Elige **Financiado** (1) y se despliegan las condiciones, como en la {fig:venta-financiada}. La **cuota inicial** (2) se escribe en pesos: es libre, el valor lo acuerdan el cliente y la empresa, y no hay un mínimo. El sistema te sugiere el porcentaje configurado (por defecto, 30 %) con el botón **Usar la sugerida** (3) y te dice a qué porcentaje equivale lo que escribiste. El **número de cuotas** (4) (por defecto, 12) divide el saldo en cuotas iguales. El sistema te muestra al instante la cuota inicial, el saldo a financiar y el valor aproximado de cada cuota. La financiación de la empresa no cobra interés. Si el cliente ya entregó la cuota inicial, marca la casilla y elige el medio de pago.")
 fig("venta-financiada")
 importante("Si el plazo supera el máximo configurado, la venta se guarda como **pendiente de aprobación** y pide un motivo. No se genera su plan de cuotas hasta que el gerente la apruebe. Una cuota inicial menor a la sugerida no necesita aprobación: la pantalla solo te avisa.")
 h3("Seguir una venta")
@@ -247,6 +252,22 @@ p("El detalle de una venta ({fig:venta-financiada-detalle}) tiene arriba el bot�
 fig("venta-financiada-detalle")
 p("Más abajo está el **plan de cuotas** ({fig:venta-cuotas}): la cuota inicial y cada cuota con su vencimiento, su valor y su estado (**Pagada**, **Parcial** o **Pendiente**).")
 fig("venta-cuotas")
+h3("Registrar un acuerdo de pago con el cliente")
+p("A veces la empresa llega a un arreglo con un cliente: por ejemplo, que pague algunas cuotas al final del plan. Para respetarlo sin que el sistema le siga cobrando como a los demás, en el detalle de la venta hay un recuadro **Acuerdo de pago**. Solo aparece en las ventas financiadas y activas, y solo lo manejan el gerente y el administrador.")
+ol("En el detalle de la venta, busca el recuadro **Acuerdo de pago** y pulsa **Registrar acuerdo**.",
+   "Escribe qué se acordó con el cliente (1). Es obligatorio y queda escrito para quien revise después.",
+   "Indica desde qué día rige el acuerdo (2) y, si ya lo sabes, hasta qué día (3).",
+   "Pulsa **Registrar acuerdo** (4) y confirma el aviso que te muestra el sistema.")
+fig("acuerdo-formulario")
+p("Mientras el acuerdo está **vigente** ({fig:acuerdo-vigente}) pasan tres cosas con esa venta, y solo con esa: **no se envían recordatorios ni avisos de mora** (por correo, y el sistema te pide confirmar si abres un mensaje de WhatsApp); **el interés de mora no crece**; y el recuadro muestra el acuerdo con sus fechas, su motivo y quién lo registró. La deuda, los días de atraso y el semáforo siguen mostrándose como son: el acuerdo no los esconde.")
+fig("acuerdo-vigente")
+ul("**Si ya había atraso.** El interés que ya se había causado antes del día **Desde** se conserva. Si el arreglo cubre también días en que el cliente ya estaba atrasado y no quieres cobrarlos, escribe en **Desde** el día en que empezó el atraso.",
+   "**Cuando termina.** Si pusiste fecha final, al día siguiente se reanudan los avisos y el interés. Si no, el acuerdo sigue hasta que pulses **Finalizar acuerdo** (por ejemplo, cuando el cliente se pone al día o se rompe el arreglo). El interés vuelve a contarse solo desde ese día: no se cobran los días del acuerdo.",
+   "**Historial.** Un acuerdo no se borra ni se edita: se finaliza y queda en el historial de la venta, con quién lo registró y quién lo finalizó. Si te equivocaste, finalízalo y registra el correcto. Una venta no puede tener dos acuerdos en las mismas fechas.")
+importante("Un acuerdo **no cambia lo que el cliente debe ni la fecha de cada cuota**. Las cuotas que quedaron “para el final” siguen con su fecha original y se ven vencidas hasta que se paguen; el acuerdo solo pausa los avisos y el crecimiento del interés. Cada acuerdo queda en la auditoría.")
+p("Un acuerdo vigente también se reconoce desde otras pantallas: en **Cartera** la venta lleva la etiqueta **Acuerdo vigente** ({fig:cartera-acuerdo}) y en la **ficha del cliente** aparece un aviso con las fechas y el motivo ({fig:cliente-acuerdo}).")
+fig("cartera-acuerdo")
+fig("cliente-acuerdo")
 h3("Adjuntar los documentos firmados")
 p("En la sección **Documentos firmados** ({fig:venta-documentos}) pulsa **Subir documentos** (1) para adjuntar el contrato o la promesa de compraventa firmados (PDF, PNG o JPG; hasta 10 a la vez). Quedan guardados con la venta y solo se pueden descargar con sesión iniciada. En esa misma zona está la **comisión de la venta** y, al final, **Registrar desistimiento** (2).")
 fig("venta-documentos")
@@ -361,6 +382,7 @@ p("La opción **Cartera** ({fig:cartera-lista}) muestra arriba la **cartera venc
 fig("cartera-lista")
 p("Los clientes **en mora** (rojo) y los **próximos a vencer** (amarillo) se ven como en la {fig:cartera-mora}. Al final de la pantalla hay una tabla con la cartera vencida **por proyecto**.")
 fig("cartera-mora")
+consejo("Si una venta tiene un **acuerdo de pago** vigente, verás la etiqueta **Acuerdo vigente** junto a su lote: esa venta no recibe avisos automáticos y su interés de mora no crece. Cómo se registra lo explicamos en el capítulo de Ventas.")
 importante("El interés de mora que ves es informativo: el sistema lo calcula por día con la tasa que el gerente deje en Configuración. La forma exacta de cobrarlo es una decisión de la empresa. Los avisos de mora que se mandan a los clientes, por ahora, no incluyen el interés.")
 consejo("Cuántos días antes del vencimiento un cliente pasa a amarillo, y cuántos días de gracia hay antes de cobrar mora, se ajustan en Configuración.")
 
@@ -418,7 +440,7 @@ p("Para rendir cuentas al socio, entregar información al contador o revisar un 
 h2("Quién puede usarlo")
 p("Todos los roles. Cada reporte respeta los proyectos que tu cuenta puede ver.")
 h2("Qué ventajas te da")
-ul("Ocho reportes listos, sin armar tablas a mano.",
+ul("Nueve reportes listos, sin armar tablas a mano.",
    "Cada uno se puede ver antes de descargar, para confirmar que es lo que necesitas.",
    "El **informe del proyecto** está pensado para el socio: ventas y cobros, ingresos, egresos y utilidad, cartera e inventario de lotes de un solo proyecto.")
 tabla("reportes", "Reportes disponibles", ["Reporte", "Qué muestra"], [
@@ -430,12 +452,14 @@ tabla("reportes", "Reportes disponibles", ["Reporte", "Qué muestra"], [
     ["Comisiones", "Las comisiones por estado, por vendedor y una por una."],
     ["Informe del proyecto (para el socio)", "Resumen de un solo proyecto para rendir cuentas."],
     ["Maquinaria: utilidad por equipo", "Ingresos, egresos y utilidad de cada equipo, comparados con los gastos generales de la flota."],
+    ["Costo de mano de obra por obra y quincena", "Lo que cuesta la nómina a cada obra (lo devengado), lo descontado y lo pagado, con el detalle de cada trabajador. Las fechas son las del pago. Lo ven el gerente, el administrador y el soporte técnico."],
 ], [34, 66])
 h2("Paso a paso")
 p("En la opción **Reportes** ({fig:reportes-catalogo}) cada tarjeta es un reporte; toca una (1) para elegirla. Aparece su formulario con los filtros (fechas, proyecto, medio de pago, etc.). Tienes tres botones: **Ver reporte** (2) para mirarlo en pantalla, **Descargar PDF** (3) y **Descargar Excel** (4).")
 fig("reportes-catalogo")
 p("El reporte en pantalla ({fig:reporte-recaudo}) muestra el período, los totales y las tablas. En pantalla se ven las primeras 500 filas; el archivo descargado trae todas.")
 fig("reporte-recaudo")
+consejo("El reporte **Costo de mano de obra por obra y quincena** también se abre desde Nómina, con el botón **Costo por obra**. Lo explicamos, con su imagen, en el capítulo de Nómina.")
 
 # =====================================================================  14
 cap("Notificaciones")
@@ -445,7 +469,7 @@ p("Mantener informados a los clientes sin que nadie tenga que acordarse, y lleva
 h2("Quién puede usarlo")
 p("Gerente y administrador.")
 h2("Qué ventajas te da")
-ul("Los recordatorios y los avisos de mora salen **solos cada mañana** (8:00 a. m., hora de Colombia).",
+ul("Los recordatorios y los avisos de mora salen **solos cada mañana** (a las 8:00 y a las 8:05 a. m., hora de Colombia).",
    "Cada aviso queda en el historial, con su resultado, así se acaban los reclamos de “nunca me avisaron”.",
    "Por WhatsApp, el sistema arma el mensaje y abre la conversación; tú solo lo envías.")
 h2("Los tres tipos de aviso")
@@ -454,6 +478,26 @@ tabla("avisos", "Tipos de aviso a clientes", ["Aviso", "Cuándo se manda", "Cana
     ["Recordatorio de cuota", "Unos días antes del vencimiento (por defecto, 3).", "Correo o WhatsApp"],
     ["Aviso de mora", "Cada cierto número de días mientras haya cuotas vencidas (por defecto, 7).", "Correo o WhatsApp"],
 ], [26, 46, 28], "Nota. Los días se ajustan en Configuración.")
+h2("Cómo funcionan los avisos automáticos")
+p("Todos los días el sistema revisa las ventas activas y manda los avisos que correspondan **por correo**. No envía mensajes de WhatsApp por su cuenta: eso lo haces tú desde el botón de WhatsApp.")
+h3("El recordatorio de cuota")
+ul("Sale desde unos días antes del vencimiento (lo define el gerente en Configuración) hasta el mismo día en que vence. Nunca después: una cuota vencida pasa al aviso de mora.",
+   "Se manda **una sola vez por cuota**: el cliente no recibe dos veces el mismo recordatorio.",
+   "Si el correo falla, la cuota se libera y se reintenta al día siguiente.")
+h3("El aviso de mora")
+ul("Se manda **un solo correo por venta** (no uno por cuota), con la lista de cuotas vencidas y el total.",
+   "Solo cuenta lo que ya pasó los **días de gracia** que define el gerente.",
+   "Se repite cada cierto número de días mientras siga la mora. Si el correo anterior no salió, no cuenta como enviado.",
+   "Por ahora el aviso no menciona el interés de mora: falta definir con la empresa cómo se cobra.")
+h3("A quién no se le avisa")
+ul("A las cuotas ya pagadas y a las ventas que no están activas.",
+   "A las ventas con un **acuerdo de pago vigente** (se explica en el capítulo de Ventas). Las demás ventas del mismo cliente siguen recibiendo sus avisos.",
+   "A los clientes **sin correo registrado**: el sistema anota el aviso como **Omitida**, para que lo veas en el historial y registres el correo.")
+h3("Lo que controla el gerente")
+p("En Configuración, el gerente define **cuántos días antes** del vencimiento sale el recordatorio, cuántos **días de gracia** se dan antes de considerar el atraso y cada **cuántos días** se repite el aviso de mora. Cambiarlos no necesita ayuda técnica y se aplica desde el siguiente día.")
+h3("Si necesitas mandarlos ya")
+p("El botón **Enviar recordatorios de pago** del panel general corre los dos procesos en el momento, con las mismas reglas de siempre: no repite lo que ya salió ni avisa a las ventas con acuerdo vigente. Lo usan el gerente y el administrador.")
+importante("Antes de **encender** el envío de correos de la empresa (o de cambiar la cuenta de correo), conviene tener cargados los abonos reales, revisar la Cartera y registrar los acuerdos de pago que ya existan de palabra. Al encenderlo, **todas las ventas con cuotas vencidas reciben su primer aviso de mora el mismo día**, porque ninguna tiene un aviso anterior. Mientras el correo de la empresa no esté configurado, los avisos quedan como **Omitida**: no salen, pero tampoco se pierden las cuotas por avisar.")
 h2("Paso a paso")
 p("La opción **Notificaciones** ({fig:notificaciones}) tiene filtros por **tipo de aviso** (1), **canal** (2) y **resultado** (3), y por fechas. Arriba hay cuatro contadores: **Enviada**, **Falló**, **Omitida** y **Enlace abierto**. Debajo, la lista de cada aviso con su cliente, su canal y su resultado.")
 fig("notificaciones")
@@ -468,32 +512,69 @@ importante("Antes de avisar a un cliente, revisa que tenga su autorización de t
 
 # =====================================================================  15
 cap("Nómina")
-p("En esta opción se registran los trabajadores de la empresa y los pagos de nómina que se les hacen.")
+p("En esta opción se registran los trabajadores de la empresa, lo que se les paga por día y los pagos de cada quincena, repartidos por obra.")
 h2("Para qué sirve")
-p("Llevar quién trabaja en la empresa, con qué cargo y salario, y cuándo se le pagó. Cada pago queda como un egreso de categoría **Nómina** en las finanzas.")
+p("La empresa tiene personal contratado que trabaja en distintas obras y se paga por **días trabajados**. Aquí se define cuánto vale el día de cada cargo, se **liquida la quincena de cada obra** y se sabe cuánto cuesta la mano de obra de cada una. Cada quincena liquidada queda como un egreso de categoría **Nómina** en las finanzas de la obra.")
 h2("Quién puede usarlo")
-p("Gerente y administrador. El rol Consulta no ve esta opción.")
+p("Gerente y administrador: los dos manejan los cargos, los trabajadores y la liquidación de la quincena. El rol Soporte técnico puede verla, sin cambiar nada. El rol Consulta no ve esta opción.")
 h2("Qué ventajas te da")
-ul("Cada pago guarda su período, su fecha, su medio y sus novedades.",
-   "Los pagos de nómina se suman solos a los egresos de la empresa.",
-   "Queda el historial de pagos de cada trabajador.")
-importante("El sistema **registra** los pagos, pero no liquida la nómina: no calcula aportes de seguridad social ni prestaciones, ni transmite nómina electrónica. Eso lo sigue haciendo quien lleva la contabilidad de la empresa. Las afiliaciones de cada trabajador (EPS, pensión, cesantías, ARL y caja) sí se registran, en el módulo de Seguridad y salud en el trabajo que se explica en el capítulo 16.")
+ul("Cada obra sabe cuánto le cuesta su mano de obra, quincena por quincena.",
+   "El valor del día de cada trabajador se define una vez y cada pago guarda el valor con que se liquidó, así un cambio de tarifa no altera lo ya pagado.",
+   "Liquidas toda una quincena de una obra de una sola vez, y puedes copiar a los mismos trabajadores de la quincena anterior.",
+   "El sistema calcula solo lo devengado, las horas extra y lo que se paga después de anticipos y descuentos, en pesos enteros.",
+   "Queda el historial de pagos de cada trabajador, con la obra y los días de cada uno.")
+importante("El sistema **registra y calcula el pago por días**, pero no liquida la nómina legal: no calcula aportes de seguridad social ni prestaciones, ni transmite nómina electrónica. Eso lo sigue haciendo quien lleva la contabilidad de la empresa. Las afiliaciones de cada trabajador (EPS, pensión, cesantías, ARL y caja) sí se registran, en el módulo de Seguridad y salud en el trabajo que se explica en el capítulo 16.")
+h2("Las palabras de la nómina por obra")
+tabla("nomina-palabras", "Palabras que verás al liquidar", ["Palabra", "Qué significa"], [
+    ["Valor día", "Lo que se le paga al trabajador por un día de trabajo. Sale de su ficha y se puede cambiar al liquidar."],
+    ["Días", "Los días trabajados en la quincena en esa obra. Admite medio día (por ejemplo, 7,5)."],
+    ["Devengado", "Lo que ganó: los días por el valor día, más las horas extra. Es el **costo de la obra**."],
+    ["Anticipo y descuento", "Dinero que ya se le entregó antes o que se le descuenta. Se restan de lo que se paga, pero no bajan el costo de la obra."],
+    ["A pagar", "Lo que sale de caja: lo devengado menos anticipos y descuentos."],
+    ["Quincena", "Del 1 al 15 y del 16 al último día del mes. Puedes cambiar las fechas si el pago cubre otro período."],
+], [24, 76], "Nota. Un trabajador recibe un pago por cada obra en la que trabaja: si estuvo en dos obras, se liquida una y luego la otra.")
 h2("Paso a paso")
-h3("Ver los trabajadores y registrar uno nuevo")
-p("La opción **Nómina** ({fig:nomina-lista}) lista los trabajadores con su cargo, su salario base y su estado. Para agregar uno pulsa **Nuevo trabajador** (1), y para ver sus pagos toca su nombre (2).")
+h3("Ver los trabajadores")
+p("La opción **Nómina** ({fig:nomina-lista}) lista los trabajadores con su cargo, su salario base, su **valor día** y su estado. Arriba están los atajos: **Nuevo trabajador** (1), **Liquidar quincena** (2), **Cargos y valor día** (3) y **Costo por obra** (4). Para ver los pagos de una persona toca su nombre (5).")
 fig("nomina-lista")
-p("En el formulario de la {fig:trabajador-nuevo} elige el tipo de documento y escribe su número, los **nombres** y los **apellidos** (si lo prefieres, escribe el nombre completo y el sistema lo arma solo). Luego completa el **cargo** (1), el tipo de contrato (por defecto, obra o labor), el **salario base** (2) y la fecha de ingreso. La fecha de nacimiento, el sexo, el área, el celular, el teléfono y el correo son opcionales, pero conviene llenarlos: la ficha de seguridad social los usa. Guarda con **Registrar trabajador** (3).")
+h3("Definir los cargos y su valor día")
+p("Antes de liquidar, define los cargos de la empresa (por ejemplo, ayudante, oficial, maestro) y lo que se paga por día en cada uno, en **Cargos y valor día** ({fig:nomina-cargos}). Cada cargo muestra su valor (1); con **Editar** (2) lo cambias, con **Desactivar** (3) dejas de ofrecerlo sin borrarlo, y con **Agregar** (4) creas uno nuevo.")
+fig("nomina-cargos")
+consejo("El valor del cargo es solo una **sugerencia**: cada trabajador guarda su propio valor día. Si cambias el valor de un cargo, los trabajadores que ya lo tienen conservan el suyo hasta que lo edites en su ficha.")
+h3("Registrar un trabajador")
+p("En el formulario de la {fig:trabajador-nuevo} elige el tipo de documento y escribe su número, y luego los **nombres** y los **apellidos** (1) en sus casillas: el sistema arma el nombre completo solo. Elige el **cargo** (2) de la lista o escribe otro; si el cargo está en la lista, el sistema sugiere su **valor día** (3), que puedes ajustar. Completa el tipo de contrato (por defecto, obra o labor), el salario base y la fecha de ingreso. Si quieres pagarle por transferencia, escribe el **banco**, el tipo y el número de cuenta (4). La fecha de nacimiento, el sexo, el área, el celular, el teléfono y el correo son opcionales, pero conviene llenarlos: la ficha de seguridad social los usa. Guarda con **Registrar trabajador** (5).")
 fig("trabajador-nuevo")
+importante("El **número de documento no se puede cambiar**, porque es la identidad del trabajador y de todo su historial. Si lo escribiste mal, retira al trabajador (con el motivo “documento errado”) y regístralo de nuevo con el número correcto: el retirado no aparece al liquidar y su historial se conserva.")
 consejo("Después de registrar al trabajador, entra a su ficha de seguridad social y registra sus afiliaciones. Mientras falten, el panel lo marca como pendiente.")
-h3("Registrar un pago de nómina")
-p("Abre la ficha del trabajador ({fig:trabajador-ficha}). Allí ves sus datos y sus pagos anteriores (período, fecha de pago, novedades y valor pagado). Pulsa **Registrar pago** (1). Con **Editar** (2) corriges sus datos; el número de documento no se cambia, porque es la identidad del trabajador. **Ver en SST** (3) abre su ficha de seguridad y salud, y **Retirar trabajador** (4) registra la fecha y el motivo del retiro: el trabajador no se borra, queda como retirado con todo su historial.")
+h3("Liquidar la quincena de una obra")
+p("Pulsa **Liquidar quincena** y se abre la pantalla de la {fig:nomina-liquidar}. Se liquida **una obra y una quincena** cada vez.")
+ol("Elige la **obra** (1). Es la obra a la que se carga el costo.",
+   "Indica el **período** (2): los botones **Última quincena terminada** y **Quincena actual** lo llenan solos. Luego elige la fecha y el medio de pago.",
+   "Agrega a los trabajadores. Lo más rápido es **Copiar la quincena anterior de esta obra** (3), que trae a los mismos trabajadores; también puedes elegir uno por uno en **Agregar un trabajador**.",
+   "En la tarjeta de cada trabajador escribe los **días** (4). El valor día sale de su ficha. Si hubo **horas extra** (5), escribe cuántas y la tarifa de cada una; si ya se le entregó dinero antes, escríbelo como **anticipo** (6), o como **descuento**.",
+   "Revisa los totales y pulsa **Guardar liquidación** (2 de la {fig:nomina-liquidar-total}).")
+fig("nomina-liquidar")
+fig("nomina-liquidar-total")
+p("La liquidación se guarda **toda junta o no se guarda nada**: si algo está mal en una tarjeta, el sistema te lo dice y no deja a medias la quincena. También te protege de errores: no deja pagar dos veces al mismo trabajador en la misma obra y período, y te avisa si los días de una persona en el período pasan de los días del calendario.")
+importante("Una liquidación guardada **no se borra**. Si te equivocaste, díselo al gerente: queda en la auditoría y se corrige con un registro nuevo. Si el día de caja ya está cerrado, el sistema no deja registrar pagos con esa fecha.")
+h3("Ver los pagos de un trabajador")
+p("Abre la ficha del trabajador ({fig:trabajador-ficha}). Allí ves sus datos, su valor día y sus datos de pago. Pulsa **Registrar pago** (1) para un pago suelto. Con **Editar** (2) corriges sus datos y su valor día. **Ver en SST** (3) abre su ficha de seguridad y salud, y **Retirar trabajador** (4) registra la fecha y el motivo del retiro: el trabajador no se borra, queda como retirado con todo su historial.")
 fig("trabajador-ficha")
-p("En el formulario de la {fig:pago-nomina-nuevo} indica el período que se paga, desde (1) hasta (2), la fecha de pago y el medio de pago. El salario base se toma del trabajador en ese momento. Si hay horas extras, bonos o descuentos, pulsa **+ Agregar novedad** (3). Termina con **Registrar pago** (4).")
+p("Más abajo, en **Pagos de nómina** ({fig:trabajador-pagos}), cada pago muestra su período, la **obra** (1) a la que se cargó, los días pagados, la fecha de pago, las novedades y el **valor pagado** (2).")
+fig("trabajador-pagos")
+consejo("Los datos de pago (banco y cuenta) de un trabajador solo los ven quienes tienen permiso de nómina. El contratista de seguridad y salud en el trabajo no los ve.")
+h3("Registrar un pago suelto")
+p("Para un pago que no es una quincena de obra, abre la ficha y pulsa **Registrar pago**. En el formulario de la {fig:pago-nomina-nuevo} indica el período que se paga, desde (1) hasta (2), la fecha de pago y el medio de pago. El salario base se toma del trabajador en ese momento. Si hay horas extras, bonos o descuentos, pulsa **+ Agregar novedad** (3). Termina con **Registrar pago** (4).")
 fig("pago-nomina-nuevo")
 h3("Ver el ausentismo del período antes de pagar")
 p("Si la persona que registra el pago puede ver los valores de seguridad y salud (el gerente y el administrador), el formulario muestra debajo del período el panel **Ausentismo en este período** ({fig:nomina-ausentismo-periodo}). El sistema busca las incapacidades y licencias del trabajador que caen entre las fechas pagadas (1) y propone la novedad de cada una: un valor a favor del trabajador por los días que pagan la EPS, la ARL o el fondo de pensiones, y un descuento por los días de licencia no remunerada o de ausencia injustificada. Pulsa **Agregar como novedad** (2) y la propuesta pasa a la lista de novedades del pago (3), donde todavía puedes cambiarle el valor o quitarla. Una novedad que ya agregaste aparece como **Ya agregada**.")
 fig("nomina-ausentismo-periodo")
 importante("La propuesta es una **ayuda de apoyo**: la nómina sigue liquidándose fuera del sistema. Los días que paga el empleador no generan novedad (el sistema lo avisa), y un período de pago no puede pasar de 62 días. Revisa siempre el valor antes de registrar el pago.")
+h3("Ver cuánto cuesta cada obra")
+p("El costo de la mano de obra se ve de dos formas. En las **finanzas de la obra** ({fig:proyecto-finanzas-obra}), cada quincena liquidada aparece como **un solo egreso** de categoría Nómina (1), a su costo y sin nombres de trabajadores, y la utilidad (2) ya lo descuenta. Y en **Reportes → Costo de mano de obra por obra y quincena** ({fig:reporte-mano-de-obra}) ves, por obra y por quincena, lo devengado, lo descontado y lo pagado, con el detalle de cada trabajador; se puede descargar en PDF y en Excel.")
+fig("proyecto-finanzas-obra")
+fig("reporte-mano-de-obra")
+importante("El **costo de la obra** cuenta lo devengado completo, mientras que la **caja** cuenta lo que realmente se pagó. La diferencia son los anticipos y descuentos. Por eso la utilidad de una obra y la caja del día pueden diferir en ese valor.")
 
 # =====================================================================  16
 cap("Seguridad y salud en el trabajo")
@@ -657,7 +738,7 @@ p("La opción tiene dos pestañas: **Ventas y abonos** y **Seguridad y salud (SS
 fig("importacion")
 importante("Antes de importar ventas con abonos por banco, las cuentas bancarias deben estar creadas en Configuración. Las ventas importadas no generan comisión, porque se consideran historia.")
 h3("Carga de seguridad y salud")
-p("En la pestaña **Seguridad y salud (SST)** ({fig:importacion-sst}) el procedimiento es el mismo. Esta pestaña (1) tiene su propia plantilla (2), con una hoja de instrucciones y cuatro hojas de datos: **Trabajadores**, **Ausentismos**, **Entregas EPP** y **Asistencias**. Puedes dejar vacías las hojas que no uses. Los trabajadores se identifican por su documento, que debe escribirse igual en todas las hojas. Sube el archivo (3) y pulsa **Revisar sin guardar** (4).")
+p("En la pestaña **Seguridad y salud (SST)** ({fig:importacion-sst}) el procedimiento es el mismo. Esta pestaña (1) tiene su propia plantilla (2), con una hoja de instrucciones y cuatro hojas de datos: **Trabajadores**, **Ausentismos**, **Entregas EPP** y **Asistencias**. Puedes dejar vacías las hojas que no uses. Los trabajadores se identifican por su documento, que debe escribirse igual en todas las hojas. La hoja **Trabajadores** también acepta, de forma opcional, el **valor día**, el **banco**, el **tipo de cuenta** y el **número de cuenta**, para cargar de una vez la información que necesita la nómina por obra. Sube el archivo (3) y pulsa **Revisar sin guardar** (4).")
 fig("importacion-sst")
 p("Cada fila pasa por **las mismas reglas que al digitarla en pantalla**: un ausentismo no puede traslaparse con otro, ni empezar antes del ingreso del trabajador, y necesita los parámetros legales del año en que empieza. La revisión corre la carga completa pero **no guarda nada**. Si hay errores ({fig:importacion-sst-errores}), mientras exista uno solo (1) no se guarda nada, ni siquiera lo que estaba bien; los errores se agrupan por hoja (2) y dicen la fila y la columna para corregirlos en el Excel y volver a subirlo.")
 fig("importacion-sst-errores")
@@ -681,8 +762,8 @@ h2("Paso a paso")
 h3("Ver y crear usuarios")
 p("La opción **Usuarios** ({fig:usuarios-lista}) lista las cuentas con su rol, su estado y su último ingreso. Para crear una pulsa **Nuevo usuario** (1). En cada cuenta puedes **Editar** (2) o **Desactivar** (3).")
 fig("usuarios-lista")
-p("Además del gerente, el administrador y la consulta, hay un rol para la persona externa que lleva la seguridad y salud: el **Contratista SST**. Al crear su cuenta, elígelo en el campo **Rol**. Esa persona ve solo el módulo de Seguridad y salud en el trabajo (capítulo 16), sin salarios, dinero ni proyectos.")
-p("En el formulario de la {fig:usuario-nuevo} escribe el nombre, el **correo** (1) con el que ingresará la persona, una **contraseña** de mínimo 8 caracteres (2) y elige el **rol** (3): gerente, administrador, consulta o contratista SST. Entrégale la contraseña por un medio seguro.")
+p("Además del gerente, el administrador y la consulta, hay un rol para la persona externa que lleva la seguridad y salud: el **Contratista SST**. Al crear su cuenta, elígelo en el campo **Rol**. Esa persona ve solo el módulo de Seguridad y salud en el trabajo (capítulo 16), sin salarios, dinero ni proyectos. También existe el rol **Soporte técnico**, pensado para quien da soporte al sistema: ve todos los módulos de consulta (incluida la auditoría) pero **no puede registrar, cambiar ni anular nada**, no gestiona usuarios y no ve los diagnósticos de las incapacidades, que son datos de salud. Así, quien revisa el sistema no necesita usar la cuenta del gerente y cada acción queda a nombre de quien la hizo.")
+p("En el formulario de la {fig:usuario-nuevo} escribe el nombre, el **correo** (1) con el que ingresará la persona, una **contraseña** de mínimo 8 caracteres (2) y elige el **rol** (3): gerente, administrador, consulta, contratista SST o soporte técnico. Entrégale la contraseña por un medio seguro.")
 fig("usuario-nuevo")
 h3("Cambiar el rol o limitar los proyectos")
 p("Al editar un usuario ({fig:usuario-editar}) puedes cambiar su rol; el cambio aplica de inmediato. Si el rol es Consulta, puedes elegir **Solo algunos proyectos** (1) y marcar cuáles ve. Una persona limitada no ve datos de otros proyectos, ni nómina, ni configuración.")
@@ -737,63 +818,68 @@ fig("config-exportar")
 apendice("Qué puede hacer cada rol")
 p("La {tabla:permisos} resume los permisos de cada rol. Un guion significa que el rol no tiene esa función.")
 SI, NO = "Sí", "—"
-tabla("permisos", "Permisos por rol", ["Función", "Gerente", "Administrador", "Consulta", "Contratista SST"], [
-    ["Ver panel general, proyectos, ventas, clientes y recibos", SI, SI, SI + " (solo sus proyectos)", NO],
-    ["Ver cartera, finanzas y reportes", SI, SI, SI, NO],
-    ["Crear proyectos y lotes", SI, SI, NO, NO],
-    ["Finalizar o reactivar un proyecto", SI, NO, NO, NO],
-    ["Registrar y editar clientes", SI, SI, NO, NO],
-    ["Registrar ventas", SI, SI, NO, NO],
-    ["Aprobar o rechazar ventas con excepción", SI, NO, NO, NO],
-    ["Registrar un desistimiento", SI, NO, NO, NO],
-    ["Registrar abonos", SI, SI, NO, NO],
-    ["Anular un abono y su recibo", SI, NO, NO, NO],
-    ["Verificar pagos contra el extracto", SI, SI, NO, NO],
-    ["Generar y cerrar cierres de caja", SI, SI, NO, NO],
-    ["Aprobar o devolver un cierre de caja", SI, NO, NO, NO],
-    ["Registrar egresos e ingresos", SI, SI, NO, NO],
-    ["Anular un egreso o ingreso", SI, NO, NO, NO],
-    ["Ver y pagar comisiones", SI, SI, NO, NO],
-    ["Anular una comisión", SI, NO, NO, NO],
-    ["Ver el historial de notificaciones y enviar avisos", SI, SI, NO, NO],
-    ["Trabajadores y pagos de nómina", SI, SI, NO, NO],
-    ["Ver Seguridad y salud (trabajadores, EPP, plan, capacitaciones y ausentismo)", SI, SI, NO, SI],
-    ["Registrar afiliaciones, editar y retirar trabajadores", SI, SI, NO, NO],
-    ["Registrar EPP, plan de trabajo, capacitaciones y autorizaciones de datos de salud", SI, SI, NO, SI],
-    ["Registrar y anular incapacidades y licencias (ausentismo)", SI, SI, NO, SI],
-    ["Ver diagnósticos, observaciones y certificados del ausentismo", SI, NO, NO, SI],
-    ["Ver los valores liquidados, las novedades para nómina y el panel de ausentismo al pagar nómina", SI, SI, NO, NO],
-    ["Corregir una liquidación y llevar el seguimiento del recobro", SI, SI, NO, NO],
-    ["Ver y descargar los reportes de SST (la tabla de valores solo con permiso de valores)", SI, SI, NO, SI],
-    ["Cargar datos de SST desde Excel", SI, NO, NO, NO],
-    ["Cambiar parámetros legales, entidades, clases de riesgo y tipos de ausentismo", SI, NO, NO, NO],
-    ["Registrar equipos de maquinaria", SI, SI, NO, NO],
-    ["Dar de baja un equipo", SI, NO, NO, NO],
-    ["Consultar la auditoría", SI, NO, NO, NO],
-    ["Importar datos desde Excel", SI, NO, NO, NO],
-    ["Exportar todos los datos a Excel", SI, NO, NO, NO],
-    ["Crear usuarios y cambiar roles", SI, NO, NO, NO],
-    ["Cambiar la configuración", SI, NO, NO, NO],
-], [34, 14, 18, 17, 17], "Nota. La opción Configuración no aparece en el menú del administrador, ni en el de Consulta, ni en el del Contratista SST.")
-p("Así se ve el menú de cada rol. El administrador ({fig:rol-administrador}) no ve Auditoría, Importar Excel, Usuarios ni Configuración. Un usuario de Consulta limitado a un proyecto ({fig:rol-consulta}) solo ve lo de ese proyecto y no puede cambiar nada. El Contratista SST ({fig:rol-contratista}, en el capítulo 16) solo ve la opción Seguridad y salud.")
+tabla("permisos", "Permisos por rol", ["Función", "Gerente", "Administrador", "Consulta", "Contratista SST", "Soporte técnico"], [
+    ["Ver panel general, proyectos, ventas, clientes y recibos", SI, SI, SI + " (solo sus proyectos)", NO, SI],
+    ["Ver cartera, finanzas y reportes", SI, SI, SI, NO, SI],
+    ["Crear proyectos y lotes", SI, SI, NO, NO, NO],
+    ["Finalizar o reactivar un proyecto", SI, NO, NO, NO, NO],
+    ["Registrar y editar clientes", SI, SI, NO, NO, NO],
+    ["Registrar ventas", SI, SI, NO, NO, NO],
+    ["Aprobar o rechazar ventas con excepción", SI, NO, NO, NO, NO],
+    ["Registrar un desistimiento", SI, NO, NO, NO, NO],
+    ["Registrar abonos", SI, SI, NO, NO, NO],
+    ["Anular un abono y su recibo", SI, NO, NO, NO, NO],
+    ["Verificar pagos contra el extracto", SI, SI, NO, NO, NO],
+    ["Generar y cerrar cierres de caja", SI, SI, NO, NO, NO],
+    ["Aprobar o devolver un cierre de caja", SI, NO, NO, NO, NO],
+    ["Registrar egresos e ingresos", SI, SI, NO, NO, NO],
+    ["Anular un egreso o ingreso", SI, NO, NO, NO, NO],
+    ["Ver y pagar comisiones", SI, SI, NO, NO, "Solo ver"],
+    ["Anular una comisión", SI, NO, NO, NO, NO],
+    ["Ver el historial de notificaciones y enviar avisos", SI, SI, NO, NO, "Solo ver"],
+    ["Trabajadores, cargos y pagos de nómina (incluida la liquidación de la quincena por obra)", SI, SI, NO, NO, "Solo ver"],
+    ["Ver Seguridad y salud (trabajadores, EPP, plan, capacitaciones y ausentismo)", SI, SI, NO, SI, SI],
+    ["Registrar afiliaciones, editar y retirar trabajadores", SI, SI, NO, NO, NO],
+    ["Registrar EPP, plan de trabajo, capacitaciones y autorizaciones de datos de salud", SI, SI, NO, SI, NO],
+    ["Registrar y anular incapacidades y licencias (ausentismo)", SI, SI, NO, SI, NO],
+    ["Ver diagnósticos, observaciones y certificados del ausentismo", SI, NO, NO, SI, NO],
+    ["Ver los valores liquidados, las novedades para nómina y el panel de ausentismo al pagar nómina", SI, SI, NO, NO, SI],
+    ["Corregir una liquidación y llevar el seguimiento del recobro", SI, SI, NO, NO, NO],
+    ["Ver y descargar los reportes de SST (la tabla de valores solo con permiso de valores)", SI, SI, NO, SI, SI],
+    ["Cargar datos de SST desde Excel", SI, NO, NO, NO, NO],
+    ["Cambiar parámetros legales, entidades, clases de riesgo y tipos de ausentismo", SI, NO, NO, NO, NO],
+    ["Registrar y finalizar acuerdos de pago de una venta (pausan avisos e interés)", SI, SI, NO, NO, NO],
+    ["Registrar equipos de maquinaria", SI, SI, NO, NO, NO],
+    ["Dar de baja un equipo", SI, NO, NO, NO, NO],
+    ["Consultar la auditoría", SI, NO, NO, NO, SI],
+    ["Importar datos desde Excel", SI, NO, NO, NO, NO],
+    ["Exportar todos los datos a Excel", SI, NO, NO, NO, NO],
+    ["Crear usuarios y cambiar roles", SI, NO, NO, NO, NO],
+    ["Cambiar la configuración", SI, NO, NO, NO, NO],
+], [28, 11, 18, 14, 14, 15], "Nota. La opción Configuración no aparece en el menú del administrador, ni en el de Consulta, ni en el del Contratista SST, ni en el del Soporte técnico. El Soporte técnico es un rol de solo lectura: ve la información, pero no puede registrar, cambiar ni anular nada.")
+p("Así se ve el menú de cada rol. El administrador ({fig:rol-administrador}) no ve Auditoría, Importar Excel, Usuarios ni Configuración. Un usuario de Consulta limitado a un proyecto ({fig:rol-consulta}) solo ve lo de ese proyecto y no puede cambiar nada. El Soporte técnico ve casi todo el menú del administrador, y además Auditoría, pero sin ningún botón para registrar o cambiar datos. El Contratista SST ({fig:rol-contratista}, en el capítulo 16) solo ve la opción Seguridad y salud.")
 fig("rol-administrador")
 fig("rol-consulta")
 
 apendice("Glosario")
 tabla("glosario", "Palabras que verás en el sistema", ["Palabra", "Qué significa"], [
     ["Abono", "Cualquier pago que hace un cliente: cuota inicial, cuota o pago extra."],
+    ["Acuerdo de pago", "Arreglo con un cliente (por ejemplo, pagar algunas cuotas al final) que se registra en su venta. Mientras está vigente no se envían avisos y el interés de mora no crece."],
     ["AFP", "Fondo de pensiones al que está afiliado un trabajador."],
+    ["Anticipo", "Dinero que se le entrega al trabajador antes de la liquidación. Se resta de lo que se le paga, pero no baja el costo de la obra."],
     ["Anular", "Dejar sin efecto un registro equivocado, sin borrarlo. Queda a la vista, marcado como anulado, con su motivo."],
     ["ARL", "Administradora de riesgos laborales: la entidad a la que se afilia al trabajador para cubrir accidentes y enfermedades del trabajo. Su tasa de cotización depende de la clase de riesgo (de 1 a 5)."],
     ["Auditoría", "Registro de quién hizo cada cambio importante, cuándo y qué valores tenía antes y después."],
     ["Ausentismo", "Los días en que un trabajador no va a trabajar por una incapacidad o una licencia. El módulo los registra y calcula quién paga cada día."],
     ["Autorización de datos de salud", "Permiso escrito del trabajador para que la empresa trate sus datos de salud. Es un dato sensible protegido por la Ley 1581 de 2012."],
     ["Caja de compensación", "Entidad de subsidio familiar a la que se afilia al trabajador."],
+    ["Cargo de nómina", "El oficio de un trabajador (ayudante, oficial, maestro…) con el valor día que se sugiere para él."],
     ["Cartera", "El dinero que los clientes le deben a la empresa."],
     ["CIE-10", "Clasificación internacional de enfermedades: el código que identifica el diagnóstico de una incapacidad (por ejemplo, J06.9). Es un dato de salud."],
     ["Cierre de caja", "Resumen de lo que entró y salió de la caja en un período, con el conteo del efectivo."],
     ["Cuota inicial", "Primer pago de una venta financiada, que se hace al firmar. Se cuenta como la cuota 0."],
     ["Desistimiento", "Cuando el comprador se retira de la compra. Se registra sin borrar los abonos ni los recibos."],
+    ["Devengado", "Lo que gana un trabajador en la quincena: los días por el valor día, más las horas extra. Es lo que cuesta a la obra."],
     ["EPP", "Elementos de protección personal: casco, guantes, botas, gafas y demás que se entregan al trabajador. Cada uno tiene una vida útil, al cabo de la cual se repone."],
     ["EPS", "Entidad promotora de salud a la que está afiliado el trabajador."],
     ["Escriturar", "Marcar que el lote ya tiene su escritura firmada."],
@@ -809,12 +895,14 @@ tabla("glosario", "Palabras que verás en el sistema", ["Palabra", "Qué signifi
     ["Pagador", "Quien paga un día de ausentismo: el empleador, la EPS, la ARL o el fondo de pensiones."],
     ["PHVA", "Planear, hacer, verificar y actuar: los cuatro ciclos con los que se ordenan las actividades del plan de trabajo de seguridad y salud."],
     ["Prórroga", "Una incapacidad que continúa otra anterior. Sus días se suman a los de la primera para saber en qué tramo de pago va."],
+    ["Quincena", "Período de pago de la nómina por obra: del 1 al 15 y del 16 al último día del mes."],
     ["Recibo de caja", "Comprobante numerado que se entrega por cada pago recibido."],
     ["Recobro", "El cobro que la empresa le hace a la EPS, la ARL o el fondo de pensiones por los días de incapacidad que le corresponde pagar a la entidad."],
     ["Semáforo", "Colores de la cartera: verde (al día), amarillo (por vencer) y rojo (en mora)."],
     ["Separar", "Apartar un lote para un cliente interesado, con una fecha límite para formalizar la venta."],
     ["SMMLV", "Salario mínimo mensual legal vigente. Es uno de los valores legales que se guardan por año en el módulo de Seguridad y salud."],
     ["SST", "Seguridad y salud en el trabajo: el módulo que lleva las afiliaciones, los EPP, el plan de trabajo y las capacitaciones del personal."],
+    ["Valor día", "Lo que se le paga a un trabajador por un día de trabajo. Cada trabajador tiene el suyo y cada pago guarda el valor con que se liquidó."],
     ["Verificar", "Confirmar que un pago hecho por banco aparece en el extracto."],
     ["Vida útil", "Los días que dura un elemento de protección antes de reponerlo. De ella sale la fecha de reposición."],
 ], [24, 76])
@@ -850,6 +938,16 @@ h3("¿Por qué la revisión de mi archivo de Excel de SST dice que no se guardó
 p("Porque la revisión nunca guarda: solo muestra lo que pasaría. Si hay errores, corrígelos en el Excel y súbelo otra vez. Solo cuando no hay errores y confirmas con **Sí, guardar** se carga todo.")
 h3("¿Por qué los avisos de seguridad y salud salen como “Omitido”?")
 p("Porque el correo de la empresa todavía no está configurado. Los avisos se guardan y salen solos cuando se configure. Mientras tanto, las alertas se ven en las pestañas del módulo y en el panel general.")
+h3("Un cliente tiene un arreglo de palabra con la empresa. ¿Cómo evito que le lleguen avisos de mora?")
+p("Registra un **acuerdo de pago** en su venta: abre el detalle de la venta y pulsa **Registrar acuerdo** en el recuadro Acuerdo de pago. Mientras esté vigente, esa venta no recibe recordatorios ni avisos de mora y su interés de mora no crece. Lo hacen el gerente y el administrador, y queda en la auditoría.")
+h3("¿Un acuerdo de pago borra la deuda o cambia las fechas de las cuotas?")
+p("No. La deuda, los días de atraso y la fecha de cada cuota siguen igual. El acuerdo solo pausa los avisos y evita que el interés siga creciendo.")
+h3("Escribí mal la cédula de un trabajador. ¿Cómo la corrijo?")
+p("El número de documento no se cambia, porque es la identidad del trabajador. Retira al trabajador con el motivo “documento errado” y regístralo de nuevo con el número correcto: el retirado deja de aparecer al liquidar y su historial se conserva.")
+h3("¿Por qué el costo de una obra no coincide con lo que salió de caja en su nómina?")
+p("Porque el costo de la obra cuenta lo **devengado** completo, y la caja cuenta lo que realmente se **pagó**. La diferencia son los anticipos y los descuentos.")
+h3("¿Cómo vuelvo a la pantalla anterior?")
+p("Con la flecha **Volver**, arriba a la izquierda de cada pantalla. Funciona también en el celular.")
 h3("¿Se pueden recuperar los datos si algo sale mal?")
 p("Sí. La información nunca se borra del sistema y el gerente puede exportar todos los datos a Excel desde Configuración en cualquier momento.")
 
@@ -867,6 +965,10 @@ tabla("problemas", "Problemas frecuentes y qué hacer", ["Qué ves", "Qué hacer
     ["Al registrar el ausentismo dice que faltan los parámetros legales del año", "El gerente debe cargar y validar los valores del año en Configuración → Seguridad social."],
     ["No veo la sección Novedades para nómina ni los valores", "Tu rol no puede ver valores. Los ven el gerente y el administrador."],
     ["Al cargar el Excel de SST aparecen errores por fila", "Corrige la fila y la columna que indica el sistema, guarda el Excel y súbelo otra vez. Mientras haya un error no se guarda nada."],
+    ["Una venta no recibe avisos de mora aunque está atrasada", "Probablemente tiene un acuerdo de pago vigente: míralo en el detalle de la venta, en el recuadro Acuerdo de pago. Para reanudar los avisos, finaliza el acuerdo."],
+    ["No me deja registrar un acuerdo de pago", "Solo el gerente y el administrador pueden registrarlo, y solo en una venta financiada y activa. Si dice que ya hay un acuerdo en esas fechas, finaliza el anterior primero."],
+    ["Al liquidar la quincena dice que ya existe un pago de ese trabajador en esa obra y período", "Ese trabajador ya se pagó por esa obra en esa quincena. Quítalo de la liquidación, o revisa las fechas del período."],
+    ["Al liquidar dice que el día de caja está cerrado", "Hay un cierre de caja que ya cubre la fecha de pago que elegiste. Elige una fecha posterior al cierre o consulta con el gerente."],
     ["Un aviso aparece como “Omitida”", "El cliente no tiene correo o el correo de la empresa no está configurado. Usa WhatsApp o completa los datos."],
     ["Algo se ve raro en el celular", "Recarga la página. Si sigue igual, cuéntale al gerente qué pantalla era y qué estabas haciendo."],
 ], [32, 68])
@@ -875,5 +977,5 @@ p("Si el problema continúa, avisa al gerente con tres datos: qué estabas hacie
 C.append(("referencias", [
     "American Psychological Association. (2020). *Publication manual of the American Psychological Association* (7.ª ed.). https://doi.org/10.1037/0000165-000",
     "Congreso de la República de Colombia. (2012, 17 de octubre). *Ley 1581 de 2012, por la cual se dictan disposiciones generales para la protección de datos personales*. Diario Oficial n.º 48.587.",
-    "Gutierrez Lopez, V. A. (2026). *Sistema de gestión de urbanismo* (versión 1.2) [Software]. Edición para Balder Ingeniería y Mantenimiento SAS.",
+    "Gutierrez Lopez, V. A. (2026). *Sistema de gestión de urbanismo* (versión 1.3) [Software]. Edición para Balder Ingeniería y Mantenimiento SAS.",
 ]))
