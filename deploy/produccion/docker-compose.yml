@@ -90,6 +90,8 @@ services:
     volumes:
       - caddy_data:/data       # certificados HTTPS
       - caddy_config:/config
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/balderweb/caddy:/etc/caddy/sites:ro
 
 volumes:
   pgdata:

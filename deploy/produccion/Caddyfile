@@ -25,3 +25,6 @@
 		file_server
 	}
 }
+
+# Dominios de otros proyectos (BALDER-web): archivos *.caddy de /opt/balderweb/caddy
+import /etc/caddy/sites/*.caddy
