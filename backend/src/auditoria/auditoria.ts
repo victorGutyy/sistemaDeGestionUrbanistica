@@ -45,6 +45,7 @@ export const ACCIONES_AUDITORIA = {
   VENTA_APROBAR: 'Aprobó una venta con excepción',
   VENTA_RECHAZAR: 'Rechazó una venta con excepción',
   VENTA_DESISTIR: 'Registró un desistimiento',
+  VENTA_AJUSTAR_PLAN: 'Ajustó las fechas del plan de pagos de una venta',
   VENTA_DOCUMENTO_SUBIR: 'Adjuntó documentos firmados',
   LOTE_CREAR: 'Creó un lote',
   LOTE_EDITAR: 'Editó un lote',

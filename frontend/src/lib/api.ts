@@ -516,6 +516,10 @@ export interface CrearVentaPayload {
   fechaLimiteCuotaInicial?: string
   // Registra de una vez el abono de la cuota inicial recibida.
   cuotaInicialRecibida?: boolean
+  // Cuánto se recibió de la cuota inicial (p. ej. la separación). Sin él, se toma la cuota inicial completa.
+  valorCuotaInicialRecibido?: string
+  // Fecha de la primera cuota mensual, si el contrato la fija; las demás caen el mismo día de cada mes (CC-08).
+  fechaPrimeraCuota?: string
   medioPago?: MedioPago
   cuentaDestinoId?: string
   referencia?: string
@@ -685,6 +689,44 @@ export function aprobarVenta(id: string) {
 
 export function rechazarVenta(id: string, motivo: string) {
   return solicitar<Venta>(`/ventas/${id}/rechazar`, { method: 'POST', body: JSON.stringify({ motivo }) })
+}
+
+// Cómo quedaría el plan de pagos con esas condiciones, sin guardar nada (CC-08).
+export interface VistaPreviaPlanPayload {
+  valorTotal: string
+  cuotaInicial: string
+  numeroCuotas: number
+  fechaVenta?: string
+  fechaLimiteCuotaInicial?: string
+  fechaPrimeraCuota?: string
+}
+
+export interface VistaPreviaPlan {
+  cuotaInicial: { valor: string; fechaLimite: string } | null
+  saldoFinanciado: string
+  totalCuotas: string
+  cuotas: { numero: number; fechaVencimiento: string; valor: string }[]
+}
+
+export function vistaPreviaPlan(payload: VistaPreviaPlanPayload) {
+  return solicitar<VistaPreviaPlan>('/ventas/vista-previa-plan', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+// Reprogramar las fechas del plan de una venta ya registrada (CC-08). Solo fechas: no cambia valores ni lo pagado.
+export interface AjustarPlanPayload {
+  motivo: string
+  fechaCuotaInicial?: string
+  fechaPrimeraCuotaPendiente?: string
+  soloVistaPrevia?: boolean
+}
+
+export interface RespuestaAjustarPlan {
+  guardado: boolean
+  cambios: { cuotaId: string; numero: number; antes: string; despues: string }[]
+}
+
+export function ajustarPlanDePagos(ventaId: string, payload: AjustarPlanPayload) {
+  return solicitar<RespuestaAjustarPlan>(`/ventas/${ventaId}/ajustar-plan`, { method: 'POST', body: JSON.stringify(payload) })
 }
 
 export function crearVenta(payload: CrearVentaPayload) {

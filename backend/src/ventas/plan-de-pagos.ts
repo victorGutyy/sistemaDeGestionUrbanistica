@@ -13,6 +13,11 @@ export interface ParametrosPlanDePagos {
   /** Tasa mensual en porcentaje (ej. 1.5 = 1.5% mensual), o null si no hay interés. */
   tasaInteres: Prisma.Decimal | null;
   fechaVenta: Date;
+  /**
+   * Fecha de la primera cuota, si el contrato la fija ("a partir de febrero, los 5 de cada mes"). Las demás caen el mismo
+   * día de cada mes siguiente. Sin ella, la cuota n vence n meses después de la fecha de venta.
+   */
+  fechaPrimeraCuota?: Date | null;
 }
 
 // Interés simple sobre saldo inicial: el capital financiado se reparte en
@@ -20,7 +25,7 @@ export interface ParametrosPlanDePagos {
 // sobre ese saldo inicial (no sobre el saldo que va quedando) y se suma
 // igual a cada cuota. Es el método que ya usan en el Excel actual.
 export function generarPlanDePagos(params: ParametrosPlanDePagos): CuotaPlanificada[] {
-  const { valorTotal, cuotaInicial, numeroCuotas, tasaInteres, fechaVenta } = params;
+  const { valorTotal, cuotaInicial, numeroCuotas, tasaInteres, fechaVenta, fechaPrimeraCuota } = params;
 
   if (numeroCuotas <= 0) {
     throw new Error('numeroCuotas debe ser mayor a cero para generar un plan de pagos');
@@ -48,7 +53,8 @@ export function generarPlanDePagos(params: ParametrosPlanDePagos): CuotaPlanific
 
     cuotas.push({
       numero,
-      fechaVencimiento: sumarMeses(fechaVenta, numero),
+      // Cada fecha se calcula desde la base (no desde la anterior): así un día 31 vuelve a 31 en los meses que lo tienen.
+      fechaVencimiento: fechaPrimeraCuota ? sumarMeses(fechaPrimeraCuota, numero - 1) : sumarMeses(fechaVenta, numero),
       valor: capitalDeEstaCuota.plus(interesPorCuota),
     });
   }
@@ -59,7 +65,7 @@ export function generarPlanDePagos(params: ParametrosPlanDePagos): CuotaPlanific
 // Suma "meses" a "fecha" conservando el día del mes cuando es posible, y
 // recortándolo al último día del mes destino cuando no cabe (31 de enero
 // + 1 mes = 28 o 29 de febrero, no 3 de marzo como haría un setMonth ingenuo).
-function sumarMeses(fecha: Date, meses: number): Date {
+export function sumarMeses(fecha: Date, meses: number): Date {
   const resultado = new Date(fecha);
   const diaOriginal = resultado.getDate();
 

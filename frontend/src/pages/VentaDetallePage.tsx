@@ -5,6 +5,7 @@ import { CuentaYReferencia } from '../components/CuentaYReferencia'
 import { EtiquetaVerificacion } from '../components/EtiquetaVerificacion'
 import { HistorialAvisos } from '../components/HistorialAvisos'
 import { TarjetaAcuerdoPago } from '../components/TarjetaAcuerdoPago'
+import { TarjetaAjustarPlan } from '../components/TarjetaAjustarPlan'
 import { TarjetaComision } from '../components/TarjetaComision'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
@@ -392,6 +393,13 @@ Motivo (queda registrado):`,
         acuerdos={venta.acuerdosPago ?? []}
         puedeGestionar={tiene(PERMISOS.ACUERDOS_GESTIONAR)}
         admiteAcuerdo={venta.estado === 'ACTIVA' && venta.formaPago === 'FINANCIADO'}
+        onCambio={() => setRecarga((n) => n + 1)}
+      />
+
+      <TarjetaAjustarPlan
+        ventaId={venta.id}
+        cuotas={venta.cuotas}
+        puedeAjustar={tiene(PERMISOS.VENTAS_AJUSTAR_PLAN) && venta.estado === 'ACTIVA' && venta.formaPago === 'FINANCIADO'}
         onCambio={() => setRecarga((n) => n + 1)}
       />
 

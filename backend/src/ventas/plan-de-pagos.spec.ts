@@ -112,3 +112,56 @@ describe('generarPlanDePagos', () => {
     ).toThrow();
   });
 });
+
+describe('generarPlanDePagos con fecha de la primera cuota', () => {
+  // Contrato real de ejemplo: $55.000.000, cuota inicial $16.500.000 (separación de $7.000.000 + $9.500.000 hasta el
+  // 28/12/2026) y 12 cuotas mensuales a partir de febrero de 2027, los 5 de cada mes.
+  const plan = () =>
+    generarPlanDePagos({
+      valorTotal: D('55000000'),
+      cuotaInicial: D('16500000'),
+      numeroCuotas: 12,
+      tasaInteres: null,
+      fechaVenta: new Date(2026, 10, 12),
+      fechaPrimeraCuota: new Date(2027, 1, 5),
+    });
+
+  it('la primera cuota cae en la fecha del contrato y las demás el mismo día de cada mes', () => {
+    const fechas = plan().map((c) => formatearFechaLocal(c.fechaVencimiento));
+    expect(fechas[0]).toBe('2027-02-05');
+    expect(fechas[1]).toBe('2027-03-05');
+    expect(fechas[10]).toBe('2027-12-05');
+    expect(fechas[11]).toBe('2028-01-05');
+  });
+
+  it('11 cuotas de $3.208.333 y la última absorbe el residuo para que la suma cuadre exacta', () => {
+    const cuotas = plan();
+    expect(cuotas.slice(0, 11).every((c) => c.valor.toString() === '3208333')).toBe(true);
+    expect(cuotas[11].valor.toString()).toBe('3208337');
+    expect(cuotas.reduce((suma, c) => suma.plus(c.valor), D('0')).toString()).toBe('38500000');
+  });
+
+  it('un día 31 se recorta al último día del mes y vuelve a 31 donde el mes lo tiene', () => {
+    const cuotas = generarPlanDePagos({
+      valorTotal: D('12000000'),
+      cuotaInicial: D('0'),
+      numeroCuotas: 4,
+      tasaInteres: null,
+      fechaVenta: new Date(2026, 0, 1),
+      fechaPrimeraCuota: new Date(2026, 0, 31),
+    });
+    expect(cuotas.map((c) => formatearFechaLocal(c.fechaVencimiento))).toEqual(['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30']);
+  });
+
+  it('sin fecha de la primera cuota se conserva el comportamiento de siempre (un mes después de la venta)', () => {
+    const cuotas = generarPlanDePagos({
+      valorTotal: D('12000000'),
+      cuotaInicial: D('0'),
+      numeroCuotas: 3,
+      tasaInteres: null,
+      fechaVenta: new Date(2026, 0, 15),
+      fechaPrimeraCuota: null,
+    });
+    expect(cuotas.map((c) => formatearFechaLocal(c.fechaVencimiento))).toEqual(['2026-02-15', '2026-03-15', '2026-04-15']);
+  });
+});

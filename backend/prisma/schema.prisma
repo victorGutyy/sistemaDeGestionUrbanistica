@@ -492,6 +492,9 @@ model Venta {
   fechaVenta        DateTime               @default(now())
   // Hasta cuándo se espera la cuota inicial (cuota 0); por defecto, el día de la venta.
   fechaCuotaInicial DateTime?
+  // Fecha de la primera cuota mensual cuando el contrato la fija (p. ej. "a partir de febrero, los 5 de cada mes"); las
+  // demás caen el mismo día de cada mes siguiente. Sin valor, la primera cuota vence un mes después de la fecha de venta.
+  fechaPrimeraCuota DateTime?
   estado            EstadoVenta            @default(ACTIVA)
   // Quién registró la venta (nulo en ventas anteriores al control por usuario).
   registradaPorId   String?

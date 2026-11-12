@@ -64,6 +64,11 @@ describe('catálogo de permisos y roles del sistema', () => {
     expect(rol('CONSULTA').permisos.some((p) => p.startsWith('caja.'))).toBe(false);
   });
 
+  it('ajustar el plan de pagos de una venta (CC-08) lo hacen el gerente y el administrador, y nadie más', () => {
+    const quienes = ROLES_SISTEMA.filter((r) => (r.permisos as string[]).includes(PERMISOS.VENTAS_AJUSTAR_PLAN)).map((r) => r.clave);
+    expect(quienes.sort()).toEqual(['ADMINISTRADOR', CLAVE_GERENTE].sort());
+  });
+
   it('los acuerdos de pago (CC-07) los manejan el gerente y el administrador, y nadie más', () => {
     const quienes = ROLES_SISTEMA.filter((r) => (r.permisos as string[]).includes(PERMISOS.ACUERDOS_GESTIONAR)).map((r) => r.clave);
     expect(quienes.sort()).toEqual(['ADMINISTRADOR', CLAVE_GERENTE].sort());

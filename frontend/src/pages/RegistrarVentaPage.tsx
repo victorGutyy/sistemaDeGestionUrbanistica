@@ -20,6 +20,7 @@ import {
   type Vendedor,
 } from '../lib/api'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
+import { VistaPreviaPlan } from '../components/VistaPreviaPlan'
 import { ETIQUETA_TIPO_DOCUMENTO, TIPOS_DOCUMENTO } from '../lib/clientes'
 import { formatearCOP, hoyEnBogota } from '../lib/formato'
 import { formatearPorcentaje } from '../lib/seguridadSocial'
@@ -79,6 +80,10 @@ export function RegistrarVentaPage() {
   const [cuentaId, setCuentaId] = useState('')
   const [referencia, setReferencia] = useState('')
   const [fechaLimite, setFechaLimite] = useState('')
+  // CC-08: contratos con fechas propias. Lo recibido hoy puede ser una parte de la cuota inicial (la separación) y la primera
+  // cuota puede tener una fecha fija; las demás caen el mismo día de cada mes.
+  const [valorRecibido, setValorRecibido] = useState('')
+  const [fechaPrimeraCuota, setFechaPrimeraCuota] = useState('')
   const [motivoExcepcion, setMotivoExcepcion] = useState('')
 
   useEffect(() => {
@@ -136,6 +141,23 @@ export function RegistrarVentaPage() {
   const saldoFinanciado = Math.max(total - cuotaInicial, 0)
   const valorCuota = cuotasNum > 0 ? Math.round(saldoFinanciado / cuotasNum) : 0
   const puedeRegistrarPago = mediosPago.length > 0 && !quedaPendiente && cuotaInicial > 0
+  // Lo recibido al vender: por defecto la cuota inicial completa; si el cliente dio solo una parte, el resto queda por pagar.
+  const recibidoHoy = puedeRegistrarPago && cuotaRecibida ? (financiado && valorRecibido !== '' ? Number(valorRecibido) || 0 : cuotaInicial) : 0
+  const recibidaParcial = financiado && puedeRegistrarPago && cuotaRecibida && recibidoHoy < cuotaInicial
+  const cuotaInicialPendiente = !(puedeRegistrarPago && cuotaRecibida) || recibidaParcial
+  const recibidoMayorAlTotal = financiado && recibidoHoy > cuotaInicial
+  // Condiciones del plan para la vista previa (null mientras falten datos).
+  const condicionesDelPlan =
+    financiado && total > 0 && cuotaInicialValor !== '' && cuotasNum > 0 && cuotaInicial < total
+      ? {
+          valorTotal,
+          cuotaInicial: cuotaInicialValor,
+          numeroCuotas: cuotasNum,
+          fechaVenta,
+          ...(cuotaInicialPendiente && fechaLimite ? { fechaLimiteCuotaInicial: fechaLimite } : {}),
+          ...(fechaPrimeraCuota ? { fechaPrimeraCuota } : {}),
+        }
+      : null
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -167,11 +189,20 @@ export function RegistrarVentaPage() {
           ? {
               numeroCuotas: cuotasNum,
               cuotaInicial: cuotaInicialValor,
+              fechaPrimeraCuota: fechaPrimeraCuota || undefined,
             }
           : {}),
         fechaVenta,
-        fechaLimiteCuotaInicial: !cuotaRecibida && fechaLimite ? fechaLimite : undefined,
-        ...(puedeRegistrarPago && cuotaRecibida && medioPago ? { cuotaInicialRecibida: true, medioPago, cuentaDestinoId: cuentaId || undefined, referencia: referencia.trim() || undefined } : {}),
+        fechaLimiteCuotaInicial: cuotaInicialPendiente && fechaLimite ? fechaLimite : undefined,
+        ...(puedeRegistrarPago && cuotaRecibida && medioPago
+          ? {
+              cuotaInicialRecibida: true,
+              valorCuotaInicialRecibido: recibidaParcial ? String(recibidoHoy) : undefined,
+              medioPago,
+              cuentaDestinoId: cuentaId || undefined,
+              referencia: referencia.trim() || undefined,
+            }
+          : {}),
         motivoExcepcion: esExcepcion ? motivoExcepcion.trim() : undefined,
       })
 
@@ -369,6 +400,16 @@ export function RegistrarVentaPage() {
                 </label>
                 <input id="numeroCuotas" required type="number" min={1} value={numeroCuotas} onChange={(e) => setNumeroCuotas(e.target.value)} className={CLASE_INPUT} />
               </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="fechaPrimeraCuota" className="block text-sm text-slate-700">
+                  Fecha de la primera cuota (opcional)
+                </label>
+                <input id="fechaPrimeraCuota" type="date" min={fechaVenta} value={fechaPrimeraCuota} onChange={(e) => setFechaPrimeraCuota(e.target.value)} className={CLASE_INPUT} />
+                <p className="mt-1 text-xs text-slate-500">
+                  Si el contrato dice, por ejemplo, “a partir de febrero, los 5 de cada mes”, escribe esa fecha: las demás cuotas caen el mismo día de cada mes. Si la dejas
+                  vacía, la primera vence un mes después de la fecha de venta.
+                </p>
+              </div>
             </div>
 
             {total > 0 && (
@@ -380,6 +421,7 @@ export function RegistrarVentaPage() {
                   : ' (sin interés)'}
               </p>
             )}
+            <VistaPreviaPlan condiciones={condicionesDelPlan} recibidoHoy={recibidoHoy} />
           </div>
         )}
 
@@ -422,10 +464,30 @@ export function RegistrarVentaPage() {
             <>
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" checked={cuotaRecibida} onChange={(e) => setCuotaRecibida(e.target.checked)} />
-                {financiado ? 'Ya se recibió la cuota inicial completa' : 'Ya se recibió el pago completo'}
+                {financiado ? 'Ya se recibió dinero de la cuota inicial' : 'Ya se recibió el pago completo'}
               </label>
               {cuotaRecibida ? (
                 <div>
+                  {financiado && (
+                    <div className="mb-3">
+                      <label htmlFor="valorRecibido" className="block text-sm text-slate-700">
+                        Valor recibido hoy (pesos)
+                      </label>
+                      <input
+                        id="valorRecibido"
+                        inputMode="numeric"
+                        value={valorRecibido}
+                        onChange={(e) => setValorRecibido(soloDigitos(e.target.value))}
+                        placeholder={cuotaInicial > 0 ? String(cuotaInicial) : ''}
+                        className={CLASE_INPUT}
+                      />
+                      <p className="mt-1 text-xs text-slate-500">
+                        Déjalo vacío si se recibió la cuota inicial completa. Si el cliente dio solo una parte (por ejemplo, la separación del negocio), escríbela: el resto
+                        queda como saldo de la cuota inicial.
+                      </p>
+                      {recibidoMayorAlTotal && <p className="mt-1 text-xs text-red-600">Lo recibido no puede superar la cuota inicial.</p>}
+                    </div>
+                  )}
                   <label htmlFor="medioPago" className="block text-sm text-slate-700">
                     Medio de pago
                   </label>
@@ -447,13 +509,16 @@ export function RegistrarVentaPage() {
                     />
                   </div>
                 </div>
-              ) : (
+              ) : null}
+              {cuotaInicialPendiente && (
                 <div>
                   <label htmlFor="fechaLimite" className="block text-sm text-slate-700">
-                    Fecha límite para recibirla (opcional)
+                    {recibidaParcial ? 'Fecha límite para el saldo de la cuota inicial (opcional)' : 'Fecha límite para recibirla (opcional)'}
                   </label>
                   <input id="fechaLimite" type="date" value={fechaLimite} onChange={(e) => setFechaLimite(e.target.value)} className={CLASE_INPUT} />
-                  <p className="mt-1 text-xs text-slate-500">Queda como la cuota inicial pendiente: se paga después con abonos.</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {recibidaParcial ? 'El saldo queda como cuota inicial pendiente hasta esa fecha: se paga después con abonos.' : 'Queda como la cuota inicial pendiente: se paga después con abonos.'}
+                  </p>
                 </div>
               )}
             </>

@@ -7,3 +7,10 @@ export function parsearFechaLocal(fechaISO: string): Date {
   const [anio, mes, dia] = fechaISO.split('-').map(Number);
   return new Date(anio, mes - 1, dia);
 }
+
+// Inverso de parsearFechaLocal: el día calendario local de una fecha, como YYYY-MM-DD.
+export function formatearFechaISO(fecha: Date): string {
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}

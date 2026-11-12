@@ -84,6 +84,18 @@ export class CrearVentaDto {
   @IsBoolean()
   cuotaInicialRecibida?: boolean;
 
+  // Cuánto se recibió de la cuota inicial al vender (p. ej. la separación). Si se omite, se toma la cuota inicial completa.
+  // Solo con cuotaInicialRecibida. Lo que falta queda como saldo de la cuota inicial, hasta su fecha límite.
+  @IsOptional()
+  @Matches(SOLO_PESOS, { message: 'valorCuotaInicialRecibido debe ser un valor en pesos enteros' })
+  valorCuotaInicialRecibido?: string;
+
+  // Fecha de la primera cuota mensual cuando el contrato la fija (p. ej. "a partir de febrero, los 5 de cada mes").
+  // Las demás caen el mismo día de cada mes siguiente. Sin ella, la primera vence un mes después de la fecha de venta.
+  @IsOptional()
+  @Matches(FECHA, { message: 'fechaPrimeraCuota debe tener el formato YYYY-MM-DD' })
+  fechaPrimeraCuota?: string;
+
   @IsOptional()
   @IsEnum(MedioPago)
   medioPago?: MedioPago;

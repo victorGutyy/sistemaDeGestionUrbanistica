@@ -346,6 +346,89 @@ describe('VentasService.crear', () => {
     });
   });
 
+  describe('plan de pagos a la medida (CC-08)', () => {
+    // Contrato de ejemplo: $55.000.000; cuota inicial $16.500.000 (separación de $7.000.000 recibida hoy + $9.500.000
+    // hasta el 28/12/2026) y 12 cuotas mensuales desde el 5 de febrero de 2027.
+    const CONTRATO: DatosVenta = {
+      ...BASE_FINANCIADA,
+      valorTotal: '55000000',
+      cuotaInicial: '16500000',
+      numeroCuotas: 12,
+      fechaVenta: '2026-11-12',
+      fechaLimiteCuotaInicial: '2026-12-28',
+      fechaPrimeraCuota: '2027-02-05',
+    };
+
+    it('las cuotas arrancan en la fecha del contrato y caen el mismo día de cada mes; la cuota inicial vence el 28/12', async () => {
+      await service.crear(CONTRATO, USUARIO);
+      const { data: cuotas } = tx.cuota.createMany.mock.calls[0][0] as { data: { numero: number; fechaVencimiento: Date; valor: Prisma.Decimal }[] };
+      expect(cuotas).toHaveLength(12);
+      const fecha = (c: { fechaVencimiento: Date }) => `${c.fechaVencimiento.getFullYear()}-${c.fechaVencimiento.getMonth() + 1}-${c.fechaVencimiento.getDate()}`;
+      expect(fecha(cuotas[0])).toBe('2027-2-5');
+      expect(fecha(cuotas[11])).toBe('2028-1-5');
+      expect(cuotas.reduce((suma, c) => suma.plus(c.valor), D('0')).toString()).toBe('38500000');
+      const cuotaCero = tx.cuota.create.mock.calls[0][0].data;
+      expect(cuotaCero.fechaVencimiento.getMonth()).toBe(11);
+      expect(cuotaCero.fechaVencimiento.getDate()).toBe(28);
+      expect(tx.venta.create.mock.calls[0][0].data.fechaPrimeraCuota.getFullYear()).toBe(2027);
+    });
+
+    it('lo recibido al vender puede ser una parte de la cuota inicial: el abono es por ese valor y no por el total', async () => {
+      await service.crear({ ...CONTRATO, cuotaInicialRecibida: true, valorCuotaInicialRecibido: '7000000', medioPago: MedioPago.EFECTIVO }, USUARIO);
+      const [, datos] = vi.mocked(crearAbonoEnTx).mock.calls[0];
+      expect(datos.valor.toString()).toBe('7000000');
+      expect(datos.soloCuotaId).toBe('cuota-0');
+      const auditoria = auditoriaDe(tx.registroAuditoria.create, 'VENTA_CREAR');
+      expect(auditoria.despues).toMatchObject({ valorRecibidoDeLaCuotaInicial: '7000000', fechaPrimeraCuota: '2027-02-05' });
+    });
+
+    it('sin indicar el valor recibido se recibe la cuota inicial completa, como siempre', async () => {
+      await service.crear({ ...CONTRATO, cuotaInicialRecibida: true, medioPago: MedioPago.EFECTIVO }, USUARIO);
+      expect(vi.mocked(crearAbonoEnTx).mock.calls[0][1].valor.toString()).toBe('16500000');
+    });
+
+    it('rechaza un valor recibido mayor a la cuota inicial o sin marcar que se recibió', async () => {
+      await expect(service.crear({ ...CONTRATO, cuotaInicialRecibida: true, valorCuotaInicialRecibido: '17000000', medioPago: MedioPago.EFECTIVO }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.crear({ ...CONTRATO, valorCuotaInicialRecibido: '7000000' }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+      expect(crearAbonoEnTx).not.toHaveBeenCalled();
+    });
+
+    it('rechaza una primera cuota anterior a la venta, o en una venta de contado', async () => {
+      await expect(service.crear({ ...CONTRATO, fechaPrimeraCuota: '2026-11-01' }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.crear({ ...BASE_CONTADO, fechaPrimeraCuota: '2027-02-05' }, USUARIO)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('sin fecha de la primera cuota el plan es el de siempre: un mes después de la venta', async () => {
+      await service.crear({ ...BASE_FINANCIADA, fechaVenta: '2026-10-01' }, USUARIO);
+      const { data: cuotas } = tx.cuota.createMany.mock.calls[0][0] as { data: { fechaVencimiento: Date }[] };
+      expect(cuotas[0].fechaVencimiento.getMonth()).toBe(10);
+      expect(cuotas[0].fechaVencimiento.getDate()).toBe(1);
+      expect(tx.venta.create.mock.calls[0][0].data.fechaPrimeraCuota).toBeNull();
+    });
+  });
+
+  describe('vista previa del plan (CC-08)', () => {
+    it('devuelve el mismo plan que se guardaría, con el total de las cuotas', async () => {
+      const vista = await service.vistaPreviaPlan({ valorTotal: '55000000', cuotaInicial: '16500000', numeroCuotas: 12, fechaVenta: '2026-11-12', fechaLimiteCuotaInicial: '2026-12-28', fechaPrimeraCuota: '2027-02-05' });
+      expect(vista.cuotas).toHaveLength(12);
+      expect(vista.cuotas[11].valor.toString()).toBe('3208337');
+      expect(vista.totalCuotas.toString()).toBe('38500000');
+      expect(vista.saldoFinanciado.toString()).toBe('38500000');
+      expect(vista.cuotaInicial?.fechaLimite.getDate()).toBe(28);
+    });
+
+    it('rechaza una cuota inicial que cubre todo el valor o una primera cuota anterior a la venta', async () => {
+      await expect(service.vistaPreviaPlan({ valorTotal: '1000000', cuotaInicial: '1000000', numeroCuotas: 3 })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.vistaPreviaPlan({ valorTotal: '1000000', cuotaInicial: '100000', numeroCuotas: 3, fechaVenta: '2026-11-12', fechaPrimeraCuota: '2026-11-01' })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('no escribe nada en la base de datos', async () => {
+      await service.vistaPreviaPlan({ valorTotal: '55000000', cuotaInicial: '16500000', numeroCuotas: 12 });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(tx.cuota.createMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('excepciones (RF-VEN-05)', () => {
     // La cuota inicial es libre (CC-04): lo que exige excepción es el plazo mayor al máximo (12).
     const PLAZO_LARGO = { ...BASE_FINANCIADA, numeroCuotas: 24 };

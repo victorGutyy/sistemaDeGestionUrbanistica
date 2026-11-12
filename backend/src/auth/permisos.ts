@@ -15,6 +15,7 @@ export const PERMISOS = {
   VENTAS_CREAR: 'ventas.crear',
   VENTAS_AUTORIZAR: 'ventas.autorizar', // aprobar o rechazar ventas con excepción
   VENTAS_DESISTIR: 'ventas.desistir', // registrar el desistimiento de una venta
+  VENTAS_AJUSTAR_PLAN: 'ventas.ajustar_plan', // reprogramar las fechas del plan de pagos de una venta ya registrada
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
   ABONOS_ANULAR: 'abonos.anular', // anular un abono y su recibo (solo gerente)

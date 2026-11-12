@@ -7,6 +7,7 @@ import { Permiso } from '../auth/roles.decorator.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { CrearVentaDto, RechazarVentaDto } from './dto/crear-venta.dto.js';
 import { DesistirVentaDto } from './dto/desistir-venta.dto.js';
+import { VistaPreviaPlanDto } from './dto/vista-previa-plan.dto.js';
 import { ListarVentasQueryDto } from './dto/listar-ventas-query.dto.js';
 import { VentasService } from './ventas.service.js';
 
@@ -21,6 +22,13 @@ export class VentasController {
   @Post()
   crear(@Body() dto: CrearVentaDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
     return this.ventasService.crear(dto, usuario);
+  }
+
+  // Cómo quedaría el plan de pagos con esas condiciones, sin guardar nada (CC-08): la pantalla lo muestra antes de registrar.
+  @Permiso(PERMISOS.VENTAS_CREAR)
+  @Post('vista-previa-plan')
+  vistaPreviaPlan(@Body() dto: VistaPreviaPlanDto) {
+    return this.ventasService.vistaPreviaPlan(dto);
   }
 
   // Valores por defecto del negocio para la pantalla de venta nueva.

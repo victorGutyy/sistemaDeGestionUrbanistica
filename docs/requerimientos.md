@@ -616,3 +616,31 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 |---|---|
 | Si al terminar un acuerdo las cuotas que se dejaron "para el final" deben moverse de fecha (hoy siguen con su fecha original y quedan en mora real mientras no se paguen) | RF-CAR-07, RF-CAR-08 |
 | Si conviene pausar varias ventas a la vez desde Cartera (acción masiva) | RF-CAR-07 |
+
+### CC-08 · 12 de noviembre de 2026 · Plan de pagos a la medida del contrato
+
+**Origen.** Los contratos de la empresa no siguen un solo patrón. Ejemplo: valor total $55.000.000; separación de $7.000.000 al “pisar el negocio”; saldo de la cuota inicial de $9.500.000 hasta el 28 de diciembre de 2026; y 12 cuotas mensuales de $3.208.333 a partir de febrero de 2027, los 5 de cada mes. El sistema asumía que la primera cuota vence un mes después de la fecha de venta, así que las cuotas quedaban con fechas distintas a las del contrato y los clientes recibían recordatorios y avisos de mora que no correspondían. Decisión del 12/11/2026: **entra dentro del presupuesto** (sin cotización adicional).
+
+| ID | Requerimiento | Prioridad | Etapa |
+|---|---|---|---|
+| RF-VEN-11 | Registrar una venta financiada con la **fecha de la primera cuota** fijada por el contrato; las demás cuotas caen el mismo día de cada mes siguiente (el último día del mes si el mes no tiene ese día) | Debe | 2 |
+| RF-VEN-12 | Al registrar la venta, indicar **cuánto se recibió de la cuota inicial** (por ejemplo, la separación): el abono y su recibo son por ese valor, y el resto queda como saldo de la cuota inicial hasta su fecha límite | Debe | 2 |
+| RF-VEN-13 | Mostrar, antes de guardar, la **vista previa del plan de pagos** (cuota inicial, saldo y cada cuota con su fecha y valor), calculada con la misma regla que se usa al guardar | Debería | 2 |
+| RF-VEN-14 | **Ajustar las fechas del plan** de una venta ya registrada (fecha límite de la cuota inicial y fecha de la primera cuota pendiente), con vista previa, motivo obligatorio y auditoría de las fechas anteriores y nuevas; lo hacen el gerente y el administrador (permiso `ventas.ajustar_plan`) | Debe | 2 |
+
+**Reglas de negocio.**
+- Solo cambian **fechas** de cuotas que todavía no están pagadas. Los valores de las cuotas, lo ya pagado y el total de la venta no se modifican.
+- La primera cuota no puede ser anterior a la fecha de la venta. Al ajustar una venta, una fecha no puede quedar antes de la de una cuota anterior ya pagada, y una cuota inicial ya pagada no se reprograma.
+- A las cuotas que cambian de fecha se les libera el recordatorio, para que el cliente reciba el de su nueva fecha.
+- Se redondea como siempre: cuotas en pesos enteros y la última absorbe el residuo (en el ejemplo, 11 cuotas de $3.208.333 y la última de $3.208.337).
+- Solo una venta activa y financiada se ajusta. La vista previa no guarda nada.
+- Para los clientes ya registrados con fechas equivocadas, el ajuste corrige Cartera (las cuotas dejan de verse vencidas) y los avisos; mientras tanto se puede usar un acuerdo de pago (CC-07).
+
+**No se incluye.** Cambiar el valor de cada cuota ni armar un plan irregular fila por fila (queda como posible mejora si hay contratos que lo necesiten), ni convertir automáticamente en pago de la cuota inicial el valor que figura en una separación de lote (hoy se registra como lo recibido al vender).
+
+**Puntos por confirmar derivados de este cambio:**
+
+| Punto | Requerimientos afectados |
+|---|---|
+| Cuántos contratos más se salen de “cuota inicial y cuotas mensuales iguales” (valores distintos por cuota, abonos extraordinarios, etc.), para decidir si hace falta el plan irregular fila por fila | RF-VEN-11 a 14 |
+| Cómo registran hoy los $7.000.000 de una separación en el sistema (por ejemplo, como ingreso general), para evitar contarlos dos veces al registrarlos como abono de la cuota inicial | RF-VEN-12 |
