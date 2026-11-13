@@ -34,7 +34,7 @@ export class ReprogramacionInvalida extends Error {}
 const mismoDia = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const dia = (fecha: Date) => new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
 
-export function calcularReprogramacion(cuotas: CuotaDelPlan[], pedida: ReprogramacionPedida): CambioDeFecha[] {
+export function calcularReprogramacion(cuotas: CuotaDelPlan[], pedida: ReprogramacionPedida, opciones: { permitirSinCambios?: boolean } = {}): CambioDeFecha[] {
   const porCuota = pedida.fechasPorCuota?.length ? pedida.fechasPorCuota : null;
   if (!pedida.fechaCuotaInicial && !pedida.fechaPrimeraCuotaPendiente && !porCuota) {
     throw new ReprogramacionInvalida('Indica la nueva fecha de la cuota inicial, la de la primera cuota pendiente o las fechas de las cuotas');
@@ -98,6 +98,10 @@ export function calcularReprogramacion(cuotas: CuotaDelPlan[], pedida: Reprogram
     }
   }
 
-  if (cambios.length === 0) throw new ReprogramacionInvalida('Esas fechas ya son las del plan: no hay nada que cambiar');
+  if (cambios.length === 0) {
+    // Cuando el ajuste también cambia valores, que las fechas queden igual no es un error.
+    if (opciones.permitirSinCambios) return [];
+    throw new ReprogramacionInvalida('Esas fechas ya son las del plan: no hay nada que cambiar');
+  }
   return cambios.sort((a, b) => a.numero - b.numero);
 }

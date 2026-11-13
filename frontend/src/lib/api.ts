@@ -722,12 +722,17 @@ export interface AjustarPlanPayload {
   fechaPrimeraCuotaPendiente?: string
   // La fecha de cada cuota que se quiere mover (solo cuotas sin pagar). No se combina con fechaPrimeraCuotaPendiente.
   fechasCuotas?: { numero: number; fecha: string }[]
+  // El nuevo valor de las cuotas que se cambian (0 = cuota inicial). El total del plan debe seguir igual.
+  valoresCuotas?: { numero: number; valor: string }[]
   soloVistaPrevia?: boolean
 }
 
 export interface RespuestaAjustarPlan {
   guardado: boolean
-  cambios: { cuotaId: string; numero: number; antes: string; despues: string }[]
+  // Lo que suman las cuotas del plan (no cambia con un ajuste).
+  totalCuotas: string
+  // Por cuota: la fecha y el valor de antes y de después (iguales si ese dato no cambia).
+  cambios: { cuotaId: string; numero: number; antes: string; despues: string; valorAntes: string; valorDespues: string }[]
 }
 
 export function ajustarPlanDePagos(ventaId: string, payload: AjustarPlanPayload) {
