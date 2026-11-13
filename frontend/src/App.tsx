@@ -43,6 +43,8 @@ import { RestablecerPasswordPage } from './pages/RestablecerPasswordPage'
 import { LoteDetallePage } from './pages/LoteDetallePage'
 import { MovimientoDetallePage } from './pages/MovimientoDetallePage'
 import { CargosNominaPage } from './pages/CargosNominaPage'
+import { LiquidacionDetallePage } from './pages/LiquidacionDetallePage'
+import { LiquidacionesPage } from './pages/LiquidacionesPage'
 import { LiquidarQuincenaPage } from './pages/LiquidarQuincenaPage'
 import { NominaPage } from './pages/NominaPage'
 import { ProyectoDetallePage } from './pages/ProyectoDetallePage'
@@ -130,6 +132,8 @@ function App() {
                 <Route path="/nomina" element={<NominaPage />} />
                 <Route path="/nomina/cargos" element={<CargosNominaPage />} />
                 <Route path="/nomina/liquidar" element={<LiquidarQuincenaPage />} />
+                <Route path="/nomina/liquidaciones" element={<LiquidacionesPage />} />
+                <Route path="/nomina/liquidaciones/:proyectoId/:inicio/:fin" element={<LiquidacionDetallePage />} />
                 <Route path="/trabajadores/nuevo" element={<RegistrarTrabajadorPage />} />
                 <Route path="/trabajadores/:id/pagos/nuevo" element={<RegistrarPagoNominaPage />} />
                 <Route path="/trabajadores/:id/editar" element={<EditarTrabajadorPage />} />

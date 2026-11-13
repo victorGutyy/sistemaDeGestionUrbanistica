@@ -8,6 +8,8 @@ import type { UsuarioAutenticado } from '../src/auth/usuario-autenticado.js';
 import type { LiquidarQuincenaDto } from '../src/nomina/dto/liquidar-quincena.dto.js';
 import { filasDeNomina } from '../src/finanzas/proyecto-finanzas.js';
 import { costoDelPago } from '../src/nomina/calculo-pago.js';
+import { corregirPagoEnTx } from '../src/nomina/corregir-pago.js';
+import { NominaService } from '../src/nomina/nomina.service.js';
 import { liquidarQuincenaEnTx, prepararLiquidacion } from '../src/nomina/liquidar-quincena.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
@@ -170,6 +172,97 @@ describe('Liquidación de nómina por obra contra Postgres real (CC-05, RF-PER-2
       expect(await tx.pagoNomina.count({ where: { trabajadorId: e.ana.id } })).toBe(1);
       await tx.$executeRaw`ROLLBACK TO SAVEPOINT liquidacion`;
       expect(await tx.pagoNomina.count({ where: { trabajadorId: e.ana.id } })).toBe(0);
+    });
+  });
+
+  describe('corregir un pago ya liquidado y ver las liquidaciones (CC-09, RF-PER-26)', () => {
+    const MOTIVO = 'Se digitaron mal los días de la quincena';
+
+    it('corrige días y novedades en la base, recalcula, conserva el resto y deja la auditoría con el motivo', async () => {
+      await enTransaccionRevertida(async (tx) => {
+        const e = await escenario(tx);
+        const resultado = await ejecutar(tx, liquidacion(e.obraA.id, [{ trabajadorId: e.ana.id, dias: '10', novedades: [{ tipo: 'ANTICIPO', valor: '100000' }], observaciones: 'Primera digitación' }]));
+        const pagoId = resultado.pagos[0].id;
+
+        const corregido = await corregirPagoEnTx(tx, pagoId, { motivo: MOTIVO, dias: '12', novedades: [{ tipo: 'DESCUENTO', valor: '50000', descripcion: 'préstamo' }] }, usuario);
+        expect(corregido.pago.valorDevengado.toString()).toBe('720000');
+        expect(corregido.pago.valorPagado.toString()).toBe('670000');
+
+        const guardado = await tx.pagoNomina.findUniqueOrThrow({ where: { id: pagoId }, include: { novedades: true } });
+        expect(guardado.dias?.toString()).toBe('12');
+        expect(guardado.salarioBase.toString()).toBe('720000');
+        expect(guardado.valorDevengado?.toString()).toBe('720000');
+        expect(guardado.valorPagado.toString()).toBe('670000');
+        expect(guardado.observaciones).toBe('Primera digitación'); // lo que no se envía no cambia
+        expect(guardado.novedades.map((n) => [n.tipo, n.valor.toString(), n.descripcion])).toEqual([['DESCUENTO', '50000', 'préstamo']]); // el anticipo se reemplazó
+        expect(guardado.proyectoId).toBe(e.obraA.id);
+
+        const auditoria = await tx.registroAuditoria.findFirstOrThrow({ where: { accion: 'NOMINA_CORREGIR_PAGO', entidadId: pagoId } });
+        expect(auditoria.resumen).toMatch(/devengado de \$600\.000 a \$720\.000/);
+        expect(auditoria.antes).toMatchObject({ dias: '10', valorPagado: '500000' });
+        expect(auditoria.despues).toMatchObject({ dias: '12', valorPagado: '670000', motivo: MOTIVO });
+      });
+    });
+
+    it('el costo de la obra y el gasto de nómina de sus finanzas siguen lo corregido', async () => {
+      await enTransaccionRevertida(async (tx) => {
+        const e = await escenario(tx);
+        const resultado = await ejecutar(tx, liquidacion(e.obraA.id, [{ trabajadorId: e.ana.id, dias: '10' }, { trabajadorId: e.beto.id, dias: '5' }]));
+        await corregirPagoEnTx(tx, resultado.pagos[1].id, { motivo: MOTIVO, dias: '10' }, usuario);
+        const pagos = await tx.pagoNomina.findMany({ where: { proyectoId: e.obraA.id }, select: { periodoInicio: true, periodoFin: true, fechaPago: true, valorDevengado: true, valorPagado: true } });
+        expect(filasDeNomina(pagos)[0].valor.toString()).toBe('1400000'); // 600.000 + 10 x 80.000
+      });
+    });
+
+    it('un pago corregido a un día en un cierre de caja cerrado se rechaza y no cambia nada', async () => {
+      await enTransaccionRevertida(async (tx) => {
+        const e = await escenario(tx);
+        const resultado = await ejecutar(tx, liquidacion(e.obraA.id, [{ trabajadorId: e.ana.id, dias: '10' }]));
+        const gerente = await tx.usuario.findFirstOrThrow({ select: { id: true } });
+        await tx.cierreCaja.create({
+          data: {
+            tipo: 'SEMANAL',
+            desde: new Date('2031-03-10T00:00:00.000Z'),
+            hasta: new Date('2031-03-16T00:00:00.000Z'),
+            efectivoInicial: 0,
+            estado: 'CERRADO',
+            numero: 999_001,
+            numeroTexto: 'PRUEBA-NOMINA-999001',
+            efectivoEsperado: 0,
+            efectivoContado: 0,
+            diferencia: 0,
+            contenido: { prueba: true },
+            creadoPorId: gerente.id,
+            cerradoPorId: gerente.id,
+            cerradoEn: new Date(),
+          },
+        });
+        await expect(corregirPagoEnTx(tx, resultado.pagos[0].id, { motivo: MOTIVO, dias: '12' }, usuario)).rejects.toThrow(/cierre de caja/);
+        expect((await tx.pagoNomina.findUniqueOrThrow({ where: { id: resultado.pagos[0].id } })).dias?.toString()).toBe('10');
+      });
+    });
+
+    it('la lista de liquidaciones agrupa por obra y quincena con sus totales, y se puede filtrar por obra', async () => {
+      await enTransaccionRevertida(async (tx) => {
+        const e = await escenario(tx);
+        await ejecutar(tx, liquidacion(e.obraA.id, [{ trabajadorId: e.ana.id, dias: '10' }, { trabajadorId: e.beto.id, dias: '5', novedades: [{ tipo: 'ANTICIPO', valor: '50000' }] }]));
+        await ejecutar(tx, liquidacion(e.obraB.id, [{ trabajadorId: e.ana.id, dias: '3' }]));
+        await ejecutar(tx, liquidacion(e.obraA.id, [{ trabajadorId: e.ana.id, dias: '12' }], { periodoInicio: '2031-03-16', periodoFin: '2031-03-31', fechaPago: '2031-03-31' }));
+
+        const servicio = new NominaService(tx as never, {} as never);
+        const deObraA = await servicio.listarLiquidaciones({ proyectoId: e.obraA.id });
+        expect(deObraA).toHaveLength(2);
+        // Lo más reciente primero: la segunda quincena, luego la primera.
+        expect(deObraA[0]).toMatchObject({ trabajadores: 1 });
+        expect(deObraA[0].devengado.toString()).toBe('720000');
+        expect(deObraA[1]).toMatchObject({ trabajadores: 2, proyecto: { id: e.obraA.id } });
+        expect(deObraA[1].devengado.toString()).toBe('1000000'); // 600.000 + 5 x 80.000
+        expect(deObraA[1].pagado.toString()).toBe('950000'); // menos el anticipo de 50.000
+
+        const deObraB = await servicio.listarLiquidaciones({ proyectoId: e.obraB.id });
+        expect(deObraB).toHaveLength(1);
+        expect(deObraB[0].proyecto.nombre).toMatch(/Obra B E2E/);
+      });
     });
   });
 });

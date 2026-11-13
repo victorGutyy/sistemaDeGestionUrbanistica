@@ -9,7 +9,9 @@ import { parsearFechaLocal } from '../common/fecha.util.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { calcularValorPagado } from './calculo-pago.js';
+import { corregirPagoEnTx } from './corregir-pago.js';
 import { ActualizarCargoNominaDto, CrearCargoNominaDto } from './dto/cargo-nomina.dto.js';
+import type { CorregirPagoNominaDto } from './dto/corregir-pago-nomina.dto.js';
 import { CrearPagoNominaDto } from './dto/crear-pago-nomina.dto.js';
 import type { LiquidarQuincenaDto } from './dto/liquidar-quincena.dto.js';
 import { liquidarQuincenaEnTx, prepararLiquidacion } from './liquidar-quincena.js';
@@ -86,6 +88,38 @@ export class NominaService {
     const cuentaId = await validarCuentaDestino(this.prisma, dto.medioPago, dto.cuentaId, 'de donde salió el dinero');
     const liquidacion = prepararLiquidacion(dto, cuentaId);
     return this.prisma.$transaction((tx) => liquidarQuincenaEnTx(tx, liquidacion, usuario));
+  }
+
+  // CC-09: corregir un pago ya liquidado por obra (días, valores, novedades, fecha y medio de pago), con motivo y auditoría.
+  async corregirPago(pagoId: string, dto: CorregirPagoNominaDto, usuario: UsuarioAutenticado) {
+    // Si cambia el medio de pago, debe estar habilitado (igual que al liquidar).
+    if (dto.medioPago) await this.configuracion.exigirMedioPagoActivo(dto.medioPago);
+    return this.prisma.$transaction((tx) => corregirPagoEnTx(tx, pagoId, dto, usuario));
+  }
+
+  // CC-09: las liquidaciones hechas (una obra y una quincena), para abrirlas y corregirlas. Lo más reciente primero.
+  async listarLiquidaciones(filtros: { proyectoId?: string } = {}) {
+    const grupos = await this.prisma.pagoNomina.groupBy({
+      by: ['proyectoId', 'periodoInicio', 'periodoFin'],
+      where: { proyectoId: filtros.proyectoId ?? { not: null } },
+      _count: { _all: true },
+      _sum: { valorDevengado: true, valorPagado: true },
+      _max: { fechaPago: true },
+      orderBy: [{ periodoFin: 'desc' }, { periodoInicio: 'desc' }],
+      take: 300,
+    });
+    const ids = [...new Set(grupos.map((g) => g.proyectoId).filter((id): id is string => id !== null))];
+    const proyectos = await this.prisma.proyecto.findMany({ where: { id: { in: ids } }, select: { id: true, nombre: true } });
+    const nombres = new Map(proyectos.map((p) => [p.id, p.nombre]));
+    return grupos.map((g) => ({
+      proyecto: { id: g.proyectoId as string, nombre: nombres.get(g.proyectoId as string) ?? '' },
+      periodoInicio: g.periodoInicio,
+      periodoFin: g.periodoFin,
+      trabajadores: g._count._all,
+      devengado: g._sum.valorDevengado ?? new Prisma.Decimal(0),
+      pagado: g._sum.valorPagado ?? new Prisma.Decimal(0),
+      ultimaFechaPago: g._max.fechaPago,
+    }));
   }
 
   // ---------- Cargos de nómina (CC-05, RF-PER-19) ----------

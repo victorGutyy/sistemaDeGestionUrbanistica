@@ -64,6 +64,7 @@ export const ACCIONES_AUDITORIA = {
   MOVIMIENTO_REGISTRAR: 'Registró un egreso o ingreso',
   MOVIMIENTO_ANULAR: 'Anuló un egreso o ingreso',
   NOMINA_REGISTRAR_PAGO: 'Registró un pago de nómina',
+  NOMINA_CORREGIR_PAGO: 'Corrigió un pago de nómina ya liquidado',
   TRABAJADOR_CREAR: 'Creó un trabajador',
   TRABAJADOR_EDITAR: 'Editó un trabajador',
   TRABAJADOR_RETIRAR: 'Retiró a un trabajador',

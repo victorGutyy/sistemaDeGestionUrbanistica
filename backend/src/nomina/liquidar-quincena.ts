@@ -68,7 +68,7 @@ export interface ResultadoLiquidacion {
 }
 
 // "2026-02-30" no es una fecha real, pero `new Date(2026, 1, 30)` la convertiría en marzo sin avisar.
-function exigirFechaReal(iso: string, campo: string): number {
+export function exigirFechaReal(iso: string, campo: string): number {
   const [anio, mes, dia] = iso.split('-').map(Number);
   const fecha = new Date(Date.UTC(anio, mes - 1, dia));
   if (fecha.getUTCFullYear() !== anio || fecha.getUTCMonth() !== mes - 1 || fecha.getUTCDate() !== dia) {
@@ -78,6 +78,21 @@ function exigirFechaReal(iso: string, campo: string): number {
 }
 
 const MS_POR_DIA = 86_400_000;
+
+// Las novedades de un pago (anticipos, descuentos, incapacidades): pesos enteros mayores a cero. Las horas extra no van aquí.
+// `prefijo` encabeza el mensaje de error (por ejemplo "Fila 3: ") para que se sepa a qué trabajador se refiere.
+export function prepararNovedades(novedades: LiquidarQuincenaDto['pagos'][number]['novedades'], prefijo = ''): NovedadPreparada[] {
+  return (novedades ?? []).map((novedad): NovedadPreparada => {
+    if (novedad.tipo === TipoNovedad.HORAS_EXTRA) {
+      throw new BadRequestException(`${prefijo}las horas extra se escriben en horas y valor de la hora, no como novedad`);
+    }
+    const valor = new Prisma.Decimal(novedad.valor);
+    if (valor.lessThanOrEqualTo(0) || !valor.isInteger()) {
+      throw new BadRequestException(`${prefijo}el valor de cada novedad debe ser un número de pesos enteros mayor a cero`);
+    }
+    return { tipo: novedad.tipo, valor, descripcion: novedad.descripcion?.trim() || undefined };
+  });
+}
 
 // Valida la forma de la liquidación (fechas, trabajadores repetidos, novedades) sin tocar la base de datos.
 export function prepararLiquidacion(dto: LiquidarQuincenaDto, cuentaId: string | null): LiquidacionPreparada {
@@ -98,16 +113,7 @@ export function prepararLiquidacion(dto: LiquidarQuincenaDto, cuentaId: string |
     }
     vistos.add(pago.trabajadorId);
 
-    const novedades = (pago.novedades ?? []).map((novedad): NovedadPreparada => {
-      if (novedad.tipo === TipoNovedad.HORAS_EXTRA) {
-        throw new BadRequestException(`Fila ${indice + 1}: las horas extra se escriben en horas y valor de la hora, no como novedad`);
-      }
-      const valor = new Prisma.Decimal(novedad.valor);
-      if (valor.lessThanOrEqualTo(0) || !valor.isInteger()) {
-        throw new BadRequestException(`Fila ${indice + 1}: el valor de cada novedad debe ser un número de pesos enteros mayor a cero`);
-      }
-      return { tipo: novedad.tipo, valor, descripcion: novedad.descripcion?.trim() || undefined };
-    });
+    const novedades = prepararNovedades(pago.novedades, `Fila ${indice + 1}: `);
 
     return {
       trabajadorId: pago.trabajadorId,

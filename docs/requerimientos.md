@@ -648,3 +648,28 @@ Todos son de prioridad Debe, salvo que se indique otra cosa. Cada uno incluye c�
 |---|---|
 | Cuántos contratos más se salen de “cuota inicial y cuotas mensuales iguales” (valores distintos por cuota, abonos extraordinarios, etc.), para decidir si hace falta el plan irregular fila por fila | RF-VEN-11 a 15 |
 | Cómo registran hoy los $7.000.000 de una separación en el sistema (por ejemplo, como ingreso general), para evitar contarlos dos veces al registrarlos como abono de la cuota inicial | RF-VEN-12 |
+
+### CC-09 · 13 de noviembre de 2026 · Registrar trabajadores y corregir liquidaciones desde la nómina
+
+**Origen.** Observaciones del cliente al usar la liquidación de quincena: (1) cuando falta un trabajador en la lista hay que salir de la liquidación a la pantalla "Nuevo trabajador" y volver a empezar; (2) una liquidación ya guardada no se puede editar si algo salió mal (días mal digitados, un valor día, un anticipo). Decisión del 13/11/2026: **entra dentro del presupuesto** (sin cotización adicional), sin migración.
+
+| ID | Requerimiento | Prioridad | Etapa |
+|---|---|---|---|
+| RF-PER-25 | **Registrar un trabajador nuevo sin salir de "Liquidar quincena"**: la misma ficha del alta normal en una ventana dentro de la liquidación; al guardarlo entra a la liquidación y lo ya digitado no se pierde | Debe | 2 |
+| RF-PER-26 | **Corregir un pago de nómina ya liquidado por obra** (días, valor día, horas extra, anticipo, descuento y demás novedades, observaciones, fecha, medio y cuenta de pago), con motivo obligatorio, recálculo con la misma fórmula, revisión del cierre de caja y auditoría de lo anterior y lo nuevo; con una pantalla de **Liquidaciones** (una por obra y quincena, con sus totales) y desde ella el acceso a corregir cada pago y a agregar a quien faltó. Lo hacen el gerente y el administrador (`nomina.gestionar`); lo ven quienes tienen `nomina.ver` | Debe | 2 |
+
+**Reglas de negocio.**
+- Solo se corrigen pagos liquidados por obra (con días); un pago anterior a CC-05 no se corrige aquí. No cambian el trabajador, la obra ni el período del pago.
+- Lo que no se envía no cambia; si se envían novedades, **reemplazan** las del pago (lo anterior queda en la auditoría). El pago no puede quedar negativo ni sin cambios.
+- No se corrige un pago cuya fecha de pago —la actual o la nueva— cae en un cierre de caja cerrado o aprobado, ni uno de una obra finalizada. Se avisa (sin impedir guardar) si los días del trabajador en varias obras superan los del período.
+- Las finanzas de la obra, el costo por obra, el flujo de caja y el reporte de egresos leen los pagos, así que muestran lo corregido sin más pasos.
+- Un trabajador que faltó se agrega con "Liquidar quincena" sobre la misma obra y quincena (el sistema solo impide repetir al mismo trabajador).
+
+**No se incluye.** Anular un pago o quitar a un trabajador incluido por error, ni mover una liquidación a otro período u obra: hoy no existe anulación de pagos de nómina. Es el siguiente paso si el cliente lo necesita (exigiría una migración aditiva con estado, motivo y quién lo anuló, y que caja, finanzas y reportes ignoren los anulados). Mientras tanto, una fecha en un cierre cerrado no admite corrección.
+
+**Puntos por confirmar derivados de este cambio:**
+
+| Punto | Requerimientos afectados |
+|---|---|
+| Si hace falta anular pagos de nómina (trabajador incluido por error, quincena u obra equivocada) y quién puede hacerlo | RF-PER-26 |
+| Si el administrador puede corregir pagos de una obra finalizada o de días ya cerrados en caja (hoy no, en ninguno de los dos casos) | RF-PER-26 |

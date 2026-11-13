@@ -10,7 +10,7 @@ import { SeccionDocumentos } from '../components/trabajador/SeccionDocumentos'
 import { useAuth } from '../contexts/AuthContext'
 import { PERMISOS } from '../lib/permisos'
 import { obtenerTrabajador, type TrabajadorConPagos } from '../lib/api'
-import { formatearCOP, formatearFecha } from '../lib/formato'
+import { fechaParaInput, formatearCOP, formatearFecha } from '../lib/formato'
 import { tiposDocumentoPermitidos } from '../lib/seguridadSocial'
 
 const ETIQUETA_NOVEDAD: Record<string, string> = {
@@ -116,12 +116,13 @@ export function TrabajadorDetallePage() {
                 <th className="px-4 py-2 font-medium">Fecha de pago</th>
                 <th className="px-4 py-2 font-medium">Novedades</th>
                 <th className="px-4 py-2 font-medium">Valor pagado</th>
+                <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody>
               {trabajador.pagos.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
                     Todavía no hay pagos registrados.
                   </td>
                 </tr>
@@ -156,6 +157,13 @@ export function TrabajadorDetallePage() {
                     )}
                   </td>
                   <td className="px-4 py-2 font-medium">{formatearCOP(pago.valorPagado)}</td>
+                  <td className="px-4 py-2 text-right">
+                    {pago.proyecto && tiene(PERMISOS.NOMINA_VER) && (
+                      <Link to={`/nomina/liquidaciones/${pago.proyecto.id}/${fechaParaInput(pago.periodoInicio)}/${fechaParaInput(pago.periodoFin)}`} className="text-blue-600 hover:underline">
+                        {tiene(PERMISOS.NOMINA_GESTIONAR) ? 'Ver o corregir' : 'Ver'}
+                      </Link>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

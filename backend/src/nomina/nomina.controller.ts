@@ -4,6 +4,7 @@ import { PERMISOS } from '../auth/permisos.js';
 import { Permiso, SoloAlcanceTotal } from '../auth/roles.decorator.js';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado.js';
 import { ActualizarCargoNominaDto, CrearCargoNominaDto } from './dto/cargo-nomina.dto.js';
+import { CorregirPagoNominaDto } from './dto/corregir-pago-nomina.dto.js';
 import { CrearPagoNominaDto } from './dto/crear-pago-nomina.dto.js';
 import { LiquidarQuincenaDto } from './dto/liquidar-quincena.dto.js';
 import { NominaService } from './nomina.service.js';
@@ -24,6 +25,19 @@ export class NominaController {
   @Post('liquidaciones')
   liquidarQuincena(@Body() dto: LiquidarQuincenaDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
     return this.nominaService.liquidarQuincena(dto, usuario);
+  }
+
+  // CC-09: las liquidaciones hechas (una por obra y quincena) y la corrección de un pago ya liquidado.
+  @Permiso(PERMISOS.NOMINA_VER)
+  @Get('liquidaciones')
+  listarLiquidaciones(@Query('proyectoId') proyectoId?: string) {
+    return this.nominaService.listarLiquidaciones({ proyectoId: proyectoId || undefined });
+  }
+
+  @Permiso(PERMISOS.NOMINA_GESTIONAR)
+  @Patch('pagos/:id')
+  corregirPago(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CorregirPagoNominaDto, @CurrentUsuario() usuario: UsuarioAutenticado) {
+    return this.nominaService.corregirPago(id, dto, usuario);
   }
 
   // Cargos de nómina (CC-05): los ven y los administran quienes llevan la nómina (gerente y administrador).

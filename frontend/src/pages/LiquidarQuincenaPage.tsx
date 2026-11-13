@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { CuentaYReferencia } from '../components/CuentaYReferencia'
+import { NuevoTrabajadorModal } from '../components/trabajador/NuevoTrabajadorModal'
 import { Aviso, CLASE_BOTON, CLASE_BOTON_SECUNDARIO, CLASE_INPUT, Campo, Seccion } from '../components/formulario'
 import {
   liquidarQuincena,
@@ -149,6 +150,11 @@ function TarjetaTrabajador({ fila, trabajador, diasPeriodo, onCambio, onQuitar }
 export function LiquidarQuincenaPage() {
   const hoy = hoyEnBogota()
   const inicial = ultimaQuincenaTerminada(hoy)
+  // Desde una liquidación ya hecha se puede llegar aquí con la obra y la quincena elegidas (para agregar a quien faltó).
+  const [parametros] = useSearchParams()
+  const formatoFecha = /^\d{4}-\d{2}-\d{2}$/
+  const desdeParametro = parametros.get('desde') ?? ''
+  const hastaParametro = parametros.get('hasta') ?? ''
 
   const [obras, setObras] = useState<Proyecto[]>([])
   const [trabajadores, setTrabajadores] = useState<Trabajador[]>([])
@@ -156,9 +162,9 @@ export function LiquidarQuincenaPage() {
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([])
   const [cargando, setCargando] = useState(true)
 
-  const [proyectoId, setProyectoId] = useState('')
-  const [periodoInicio, setPeriodoInicio] = useState(inicial.inicio)
-  const [periodoFin, setPeriodoFin] = useState(inicial.fin)
+  const [proyectoId, setProyectoId] = useState(parametros.get('obra') ?? '')
+  const [periodoInicio, setPeriodoInicio] = useState(formatoFecha.test(desdeParametro) ? desdeParametro : inicial.inicio)
+  const [periodoFin, setPeriodoFin] = useState(formatoFecha.test(hastaParametro) ? hastaParametro : inicial.fin)
   const [fechaPago, setFechaPago] = useState(hoy)
   const [medioPago, setMedioPago] = useState<MedioPago | ''>('')
   const [cuentaId, setCuentaId] = useState('')
@@ -168,6 +174,8 @@ export function LiquidarQuincenaPage() {
   const [aviso, setAviso] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [resultado, setResultado] = useState<ResultadoLiquidacion | null>(null)
+  // CC-09: dar de alta a un trabajador sin salir de la liquidación.
+  const [creandoTrabajador, setCreandoTrabajador] = useState(false)
 
   useEffect(() => {
     Promise.all([listarProyectos(), listarTrabajadores(), listarMediosPago(), listarCuentasActivas().catch(() => [] as CuentaBancaria[])])
@@ -203,6 +211,15 @@ export function LiquidarQuincenaPage() {
   function agregarTrabajador(id: string) {
     const trabajador = porId.get(id)
     if (trabajador) setFilas((actual) => [...actual, filaNueva(trabajador)])
+  }
+
+  // El trabajador recién creado entra a la lista y a la liquidación; todo lo digitado se conserva.
+  function trabajadorCreado(trabajador: Trabajador) {
+    setTrabajadores((actual) => [...actual, trabajador])
+    setFilas((actual) => [...actual, filaNueva(trabajador)])
+    setCreandoTrabajador(false)
+    setError(null)
+    setAviso(`Se registró a ${trabajador.nombre} y se agregó a la liquidación. Escribe sus días.`)
   }
 
   function cambiarFila(clave: number, cambios: Partial<Fila>) {
@@ -337,6 +354,9 @@ export function LiquidarQuincenaPage() {
             <button type="button" className={CLASE_BOTON} onClick={() => setResultado(null)}>
               Liquidar otra obra
             </button>
+            <Link to={`/nomina/liquidaciones/${proyectoId}/${periodoInicio}/${periodoFin}`} className={CLASE_BOTON_SECUNDARIO}>
+              Ver o corregir esta liquidación
+            </Link>
             <Link to="/nomina" className={CLASE_BOTON_SECUNDARIO}>
               Volver a Nómina
             </Link>
@@ -347,6 +367,7 @@ export function LiquidarQuincenaPage() {
   }
 
   return (
+    <>
     <div className="max-w-4xl space-y-4">
       <div>
         <h1 className="mt-2 text-lg font-semibold text-slate-900">Liquidar quincena</h1>
@@ -446,6 +467,13 @@ export function LiquidarQuincenaPage() {
                 </option>
               ))}
             </select>
+            <p className="mt-2 text-sm text-slate-500">
+              ¿No está en la lista?{' '}
+              <button type="button" onClick={() => setCreandoTrabajador(true)} className="font-medium text-blue-700 underline">
+                Registrar un trabajador nuevo
+              </button>{' '}
+              sin salir de esta liquidación.
+            </p>
           </div>
         </Seccion>
 
@@ -467,5 +495,7 @@ export function LiquidarQuincenaPage() {
         </div>
       </form>
     </div>
+    {creandoTrabajador && <NuevoTrabajadorModal onCreado={trabajadorCreado} onCerrar={() => setCreandoTrabajador(false)} />}
+    </>
   )
 }

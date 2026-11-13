@@ -2228,6 +2228,9 @@ export interface PagoNomina {
   valorHoraExtra?: string | null
   valorDevengado?: string | null
   observaciones?: string | null
+  // Con qué se pagó y de qué cuenta salió el dinero.
+  medioPago?: MedioPago
+  cuentaId?: string | null
 }
 
 export function listarPagosNomina(filtros: { trabajadorId?: string; proyectoId?: string; periodoInicio?: string; periodoFin?: string } = {}) {
@@ -2277,6 +2280,44 @@ export interface ResultadoLiquidacion {
 // Una obra y una quincena: un pago por trabajador, todo o nada.
 export function liquidarQuincena(payload: LiquidarQuincenaPayload) {
   return solicitar<ResultadoLiquidacion>('/nomina/liquidaciones', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+// CC-09: las liquidaciones hechas (una por obra y quincena), para abrirlas y corregirlas.
+export interface LiquidacionResumen {
+  proyecto: { id: string; nombre: string }
+  periodoInicio: string
+  periodoFin: string
+  trabajadores: number
+  devengado: string
+  pagado: string
+  ultimaFechaPago: string | null
+}
+
+export function listarLiquidaciones(proyectoId?: string) {
+  return solicitar<LiquidacionResumen[]>(`/nomina/liquidaciones${proyectoId ? `?proyectoId=${encodeURIComponent(proyectoId)}` : ''}`)
+}
+
+// Corregir un pago ya liquidado: solo se envía lo que cambia. "novedades" REEMPLAZA las del pago.
+export interface CorregirPagoPayload {
+  motivo: string
+  dias?: string
+  valorDia?: string
+  horasExtra?: string
+  valorHoraExtra?: string
+  novedades?: { tipo: TipoNovedad; valor: string; descripcion?: string }[]
+  observaciones?: string
+  fechaPago?: string
+  medioPago?: MedioPago
+  cuentaId?: string
+}
+
+export interface ResultadoCorreccion {
+  pago: { id: string; trabajador: { id: string; nombre: string; documento: string }; dias: string; valorDia: string; valorDevengado: string; valorPagado: string }
+  avisos: { trabajadorId: string; mensaje: string }[]
+}
+
+export function corregirPagoNomina(pagoId: string, payload: CorregirPagoPayload) {
+  return solicitar<ResultadoCorreccion>(`/nomina/pagos/${pagoId}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
 export interface TrabajadorConPagos extends Trabajador {
