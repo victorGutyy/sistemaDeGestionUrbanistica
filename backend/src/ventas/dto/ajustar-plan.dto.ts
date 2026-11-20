@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const SOLO_PESOS = /^\d{1,12}$/;
@@ -58,6 +58,15 @@ export class AjustarPlanDto {
   @ValidateNested({ each: true })
   @Type(() => ValorDeCuotaDto)
   valoresCuotas?: ValorDeCuotaDto[];
+
+  // Ampliar el plazo (RF-VEN-17): el número TOTAL de cuotas mensuales que debe tener el plan después del ajuste. Tiene que ser
+  // mayor al actual; se agregan las cuotas del final y hay que enviar el valor de cada una en valoresCuotas (con el total fijo).
+  // Sus fechas, si no se indican, siguen mes a mes; se pueden fijar con fechasCuotas (números mayores a los actuales).
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(240)
+  numeroCuotas?: number;
 
   // true: solo calcula y muestra los cambios, sin guardar nada.
   @IsOptional()

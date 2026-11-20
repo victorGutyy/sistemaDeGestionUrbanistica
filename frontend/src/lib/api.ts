@@ -724,6 +724,8 @@ export interface AjustarPlanPayload {
   fechasCuotas?: { numero: number; fecha: string }[]
   // El nuevo valor de las cuotas que se cambian (0 = cuota inicial). El total del plan debe seguir igual.
   valoresCuotas?: { numero: number; valor: string }[]
+  // Ampliar el plazo: el número TOTAL de cuotas mensuales que debe quedar (mayor al actual). Exige el valor de cada cuota nueva en valoresCuotas.
+  numeroCuotas?: number
   soloVistaPrevia?: boolean
 }
 
@@ -731,8 +733,11 @@ export interface RespuestaAjustarPlan {
   guardado: boolean
   // Lo que suman las cuotas del plan (no cambia con un ajuste).
   totalCuotas: string
-  // Por cuota: la fecha y el valor de antes y de después (iguales si ese dato no cambia).
-  cambios: { cuotaId: string; numero: number; antes: string; despues: string; valorAntes: string; valorDespues: string }[]
+  // Cuántas cuotas mensuales tenía el plan y cuántas tendrá (cambian al ampliar el plazo).
+  numeroCuotasAntes: number
+  numeroCuotasDespues: number
+  // Por cuota: la fecha y el valor de antes y de después (iguales si ese dato no cambia). Una cuota nueva trae nueva: true.
+  cambios: { cuotaId: string; numero: number; antes: string; despues: string; valorAntes: string; valorDespues: string; nueva?: boolean }[]
 }
 
 export function ajustarPlanDePagos(ventaId: string, payload: AjustarPlanPayload) {

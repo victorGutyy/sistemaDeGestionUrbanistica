@@ -1,5 +1,6 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import { PERMISOS } from '../auth/permisos.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { EstadoCuota, EstadoVenta, FormaPago } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -23,6 +24,7 @@ interface Montaje {
   visible?: boolean;
   venta?: { estado: EstadoVenta; formaPago: FormaPago } | null;
   cuotas?: CuotaDeLaBase[];
+  plazoMaximo?: number;
 }
 
 // Plan de ejemplo: cuota inicial de $16.200.000 y tres cuotas de $12.600.000 (suman $54.000.000), todas pendientes.
@@ -35,15 +37,16 @@ const CUOTAS: CuotaDeLaBase[] = [0, 1, 2, 3].map((numero) => ({
   aplicaciones: [],
 }));
 
-function montar({ visible = true, venta = { estado: EstadoVenta.ACTIVA, formaPago: FormaPago.FINANCIADO }, cuotas = CUOTAS }: Montaje = {}) {
+function montar({ visible = true, venta = { estado: EstadoVenta.ACTIVA, formaPago: FormaPago.FINANCIADO }, cuotas = CUOTAS, plazoMaximo = 12 }: Montaje = {}) {
   const tx = {
     $queryRaw: vi.fn().mockResolvedValue([]),
     venta: { findUnique: vi.fn().mockResolvedValue(venta), update: vi.fn().mockResolvedValue({}) },
-    cuota: { findMany: vi.fn().mockResolvedValue(cuotas), update: vi.fn().mockResolvedValue({}) },
+    cuota: { findMany: vi.fn().mockResolvedValue(cuotas), update: vi.fn().mockResolvedValue({}), create: vi.fn().mockResolvedValue({}) },
     registroAuditoria: { create: vi.fn().mockResolvedValue({}) },
   };
   const prisma = {
     venta: { findFirst: vi.fn().mockResolvedValue(visible ? { id: 'v-1' } : null) },
+    configuracionEmpresa: { findUnique: vi.fn().mockResolvedValue({ plazoMaximoMeses: plazoMaximo }) },
     $transaction: vi.fn().mockImplementation((fn: (cliente: typeof tx) => unknown) => fn(tx)),
   };
   return { servicio: new AjustarPlanService(prisma as unknown as PrismaService), tx, prisma };
@@ -194,6 +197,141 @@ describe('AjustarPlanService', () => {
     it('exige indicar qué se ajusta', async () => {
       const { servicio } = montar();
       await expect(servicio.ajustar('v-1', { motivo: MOTIVO }, usuarioDePrueba())).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  // RF-VEN-17: ampliar el plazo agregando cuotas al final. El plan de ejemplo (cuota inicial + 3 cuotas de $12.600.000) pasa a 5 cuotas.
+  describe('ampliar el plazo (agregar cuotas)', () => {
+    const IGUALES = [1, 2, 3, 4, 5].map((numero) => ({ numero, valor: '7560000' })); // 5 x 7.560.000 = 37.800.000, lo mismo que 3 x 12.600.000
+
+    it('agrega las cuotas nuevas al final, con las fechas siguientes, y reparte el saldo con el total fijo', async () => {
+      const { servicio, tx } = montar();
+      const r = await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, usuarioDePrueba());
+
+      expect(r.guardado).toBe(true);
+      expect(r.numeroCuotasAntes).toBe(3);
+      expect(r.numeroCuotasDespues).toBe(5);
+      expect(r.totalCuotas).toBe('54000000');
+      // Las dos cuotas nuevas se crean pendientes, con su valor y los días siguientes de la serie (12/03 y 12/04 de 2027).
+      expect(tx.cuota.create).toHaveBeenCalledTimes(2);
+      const [primera, segunda] = tx.cuota.create.mock.calls.map(([a]) => a.data);
+      expect(primera).toMatchObject({ ventaId: 'v-1', numero: 4, fechaVencimiento: d(2027, 3, 12), estado: EstadoCuota.PENDIENTE });
+      expect(primera.valor.toString()).toBe('7560000');
+      expect(segunda).toMatchObject({ numero: 5, fechaVencimiento: d(2027, 4, 12) });
+      // Las existentes cambian de valor, sin tocar su fecha, y el "financiada en N cuotas" de la venta sigue al plan.
+      expect(tx.cuota.update).toHaveBeenCalledTimes(3);
+      for (const [llamada] of tx.cuota.update.mock.calls) expect(Object.keys(llamada.data).sort()).toEqual(['estado', 'recordatorioEnviadoEn', 'valor']);
+      expect(tx.venta.update).toHaveBeenCalledWith({ where: { id: 'v-1' }, data: { numeroCuotas: 5 } });
+    });
+
+    it('la presentación marca las cuotas nuevas y la auditoría deja el número de cuotas de antes y de después', async () => {
+      const { servicio, tx } = montar();
+      const r = await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, usuarioDePrueba());
+      expect(r.cambios.map((c) => [c.numero, c.nueva, c.valorAntes, c.valorDespues])).toEqual([
+        [1, false, '12600000', '7560000'],
+        [2, false, '12600000', '7560000'],
+        [3, false, '12600000', '7560000'],
+        [4, true, '0', '7560000'],
+        [5, true, '0', '7560000'],
+      ]);
+      const auditoria = tx.registroAuditoria.create.mock.calls[0][0].data;
+      expect(auditoria.accion).toBe('VENTA_AJUSTAR_PLAN');
+      expect(auditoria.resumen).toMatch(/plazo de 3 a 5 cuotas \(2 nuevas\)/);
+      expect(auditoria.antes.numeroCuotas).toBe(3);
+      expect(auditoria.antes.cuotas.map((c: { numero: number }) => c.numero)).toEqual([1, 2, 3]); // las nuevas no existían
+      expect(auditoria.despues.numeroCuotas).toBe(5);
+      expect(auditoria.despues.cuotas.filter((c: { nueva?: boolean }) => c.nueva).map((c: { numero: number }) => c.numero)).toEqual([4, 5]);
+    });
+
+    it('la vista previa muestra las cuotas nuevas sin crear nada', async () => {
+      const { servicio, tx } = montar();
+      const r = await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES, soloVistaPrevia: true }, usuarioDePrueba());
+      expect(r.guardado).toBe(false);
+      expect(r.numeroCuotasDespues).toBe(5);
+      expect(r.cambios.filter((c) => c.nueva)).toHaveLength(2);
+      expect(tx.cuota.create).not.toHaveBeenCalled();
+      expect(tx.cuota.update).not.toHaveBeenCalled();
+      expect(tx.venta.update).not.toHaveBeenCalled();
+    });
+
+    it('exige indicar el valor de las cuotas: no se amplía el plazo sin decir cómo queda el saldo', async () => {
+      const { servicio, tx } = montar();
+      await expect(servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5 }, usuarioDePrueba())).rejects.toThrow(/indica el valor de las cuotas/);
+      expect(tx.cuota.create).not.toHaveBeenCalled();
+    });
+
+    it('exige el valor de CADA cuota nueva', async () => {
+      const { servicio, tx } = montar();
+      const sinLaQuinta = IGUALES.slice(0, 4).map((v) => ({ ...v, valor: '9450000' })); // 4 x 9.450.000 = 37.800.000
+      await expect(servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: sinLaQuinta }, usuarioDePrueba())).rejects.toThrow(/valor de la cuota 5, que es nueva/);
+      expect(tx.cuota.create).not.toHaveBeenCalled();
+    });
+
+    it('el total del plan sigue fijo: si los valores no suman lo mismo, no guarda nada y dice cuánto falta', async () => {
+      const { servicio, tx } = montar();
+      const de = IGUALES.map((v) => ({ ...v, valor: '7500000' })); // 37.500.000: faltan 300.000
+      await expect(servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: de }, usuarioDePrueba())).rejects.toThrow(/faltan \$300\.000 por distribuir/);
+      expect(tx.cuota.create).not.toHaveBeenCalled();
+      expect(tx.venta.update).not.toHaveBeenCalled();
+    });
+
+    it('no amplía a un número igual o menor al de cuotas actuales', async () => {
+      const { servicio } = montar();
+      await expect(servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 3, valoresCuotas: [{ numero: 1, valor: '13000000' }] }, usuarioDePrueba())).rejects.toThrow(/ya tiene 3 cuotas/);
+    });
+
+    it('si cambian a la vez las fechas de las existentes, las cuotas nuevas siguen a la última ya reprogramada', async () => {
+      const { servicio, tx } = montar();
+      await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES, fechasCuotas: [{ numero: 3, fecha: '2027-03-15' }] }, usuarioDePrueba());
+      const fechas = tx.cuota.create.mock.calls.map(([a]) => a.data.fechaVencimiento);
+      // La cuota 3 pasó al 15/03, así que la 4 cae el 15/04 y la 5 el 15/05 (nunca antes de la anterior).
+      expect(fechas).toEqual([d(2027, 4, 15), d(2027, 5, 15)]);
+    });
+
+    it('las fechas de las cuotas nuevas se pueden elegir una por una', async () => {
+      const { servicio, tx } = montar();
+      await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES, fechasCuotas: [{ numero: 5, fecha: '2027-06-30' }] }, usuarioDePrueba());
+      const fechas = tx.cuota.create.mock.calls.map(([a]) => a.data.fechaVencimiento);
+      expect(fechas).toEqual([d(2027, 3, 12), d(2027, 6, 30)]);
+    });
+
+    it('una fecha elegida para una cuota nueva no puede ser anterior a la de la cuota que la precede', async () => {
+      const { servicio, tx } = montar();
+      await expect(
+        servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES, fechasCuotas: [{ numero: 4, fecha: '2027-01-01' }] }, usuarioDePrueba()),
+      ).rejects.toThrow(/no puede vencer antes que la cuota 3/);
+      expect(tx.cuota.create).not.toHaveBeenCalled();
+    });
+
+    it('una cuota con pagos parciales se conserva (y se completa si su nuevo valor es justo lo pagado)', async () => {
+      const cuotas = CUOTAS.map((c) => (c.numero === 1 ? { ...c, estado: EstadoCuota.PARCIAL, aplicaciones: [{ valor: D(7_560_000) }] } : c));
+      const { servicio, tx } = montar({ cuotas });
+      await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, usuarioDePrueba());
+      const cuota1 = tx.cuota.update.mock.calls.find(([a]) => a.where.id === 'c1')![0];
+      expect(cuota1.data.estado).toBe(EstadoCuota.PAGADA);
+      expect(tx.cuota.create).toHaveBeenCalledTimes(2);
+    });
+
+    describe('plazo máximo configurado', () => {
+      it('pasar del máximo exige la autorización del gerente y no guarda nada sin ella', async () => {
+        const { servicio, tx } = montar({ plazoMaximo: 4 });
+        await expect(servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, usuarioDePrueba())).rejects.toBeInstanceOf(ForbiddenException);
+        expect(tx.cuota.create).not.toHaveBeenCalled();
+      });
+
+      it('con el permiso de autorizar (gerente) sí se puede pasar del máximo', async () => {
+        const { servicio, tx } = montar({ plazoMaximo: 4 });
+        const gerente = { ...usuarioDePrueba(), permisos: [PERMISOS.VENTAS_AUTORIZAR] };
+        const r = await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, gerente);
+        expect(r.guardado).toBe(true);
+        expect(tx.cuota.create).toHaveBeenCalledTimes(2);
+      });
+
+      it('dentro del máximo no hace falta autorización', async () => {
+        const { servicio } = montar({ plazoMaximo: 5 });
+        const r = await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, usuarioDePrueba());
+        expect(r.guardado).toBe(true);
+      });
     });
   });
 
