@@ -75,12 +75,17 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
     numeroCuotas: ampliaValida ? numeroDeseado : undefined,
   })
 
-  // Reparte en partes iguales lo que falta por pagar entre las cuotas mensuales pendientes (y las nuevas): lo que queda del total,
-  // después de lo ya pagado y de la cuota inicial (con el valor que lleva en pantalla). La última absorbe el residuo.
+  // Las cuotas que se pueden repartir en partes iguales: las pendientes SIN ningún pago y las nuevas. Una cuota con pagos parciales se
+  // deja como está: ya se le aplicó dinero y su saldo es lo primero que se paga.
+  const repartibles = [...pendientes.filter((c) => Number(c.pagado ?? 0) === 0), ...nuevas]
+
+  // Reparte en partes iguales el SALDO que falta por pagar entre las cuotas repartibles: lo que queda del total del plan después de
+  // todo lo que no se reparte (la cuota inicial y las cuotas pagadas o con pagos, con el valor que llevan en pantalla). La última
+  // absorbe el residuo. Devuelve null si el saldo no alcanza para darle al menos un peso a cada cuota.
   function repartir(aRepartirEntre: Cuota[], base: Record<number, string>) {
-    const pagadas = cuotas.filter((c) => c.estado === 'PAGADA' && c.numero >= 1).reduce((suma, c) => suma + valorActual(c), 0)
-    const inicial = cuotaCero ? Number(base[0] ?? valorActual(cuotaCero)) : 0
-    const aRepartir = totalPlan - pagadas - inicial
+    const fijas = cuotas.filter((c) => !aRepartirEntre.some((r) => r.numero === c.numero))
+    const aRepartir = totalPlan - fijas.reduce((suma, c) => suma + Number(base[c.numero] ?? valorActual(c)), 0)
+    if (aRepartirEntre.length === 0 || aRepartir < aRepartirEntre.length) return null
     const parte = Math.floor(aRepartir / aRepartirEntre.length)
     const resultado = { ...base }
     aRepartirEntre.forEach((c, i) => {
@@ -102,9 +107,12 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
   }
 
   function repartirEnPartesIguales() {
-    if (!valores || pendientes.length + nuevas.length === 0) return
+    if (!valores || repartibles.length === 0) return
     setVista(null)
-    setValores(repartir([...pendientes, ...nuevas], valores))
+    const repartido = repartir(repartibles, valores)
+    if (!repartido) return setError('El saldo que falta no alcanza para repartirlo entre tantas cuotas')
+    setError(null)
+    setValores(repartido)
   }
 
   // Al escribir el número de cuotas, si es válido, se reparte el saldo entre todas las que quedarían (en partes iguales, editable).
@@ -116,7 +124,13 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
     if (n > cuotasActuales && n <= MAXIMO_CUOTAS) {
       const base = Object.fromEntries(Object.entries(valores ?? valoresDeHoy()).filter(([numero]) => Number(numero) <= cuotasActuales))
       const lasNuevas = Array.from({ length: n - cuotasActuales }, (_, i) => cuotaNueva(cuotasActuales + 1 + i))
-      setValores(repartir([...pendientes, ...lasNuevas], base))
+      const repartido = repartir([...pendientes.filter((c) => Number(c.pagado ?? 0) === 0), ...lasNuevas], base)
+      if (!repartido) {
+        setError('El saldo que falta no alcanza para repartirlo entre tantas cuotas')
+        return
+      }
+      setError(null)
+      setValores(repartido)
     }
   }
 
@@ -331,7 +345,11 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
                         {etiquetaCuota(cuota.numero)}
                         {esNueva(cuota) && <span className="ml-1 text-xs text-blue-700">(nueva)</span>}
                       </p>
-                      {Number(cuota.pagado ?? 0) > 0 && <p className="text-xs text-slate-500">Pagado {formatearCOP(cuota.pagado ?? 0)}</p>}
+                      {Number(cuota.pagado ?? 0) > 0 && (
+                        <p className="text-xs text-slate-500">
+                          Pagado {formatearCOP(cuota.pagado ?? 0)} · le faltan {formatearCOP(Math.max(0, valorEditado(cuota) - Number(cuota.pagado)))}
+                        </p>
+                      )}
                     </div>
                     <input
                       inputMode="numeric"
@@ -351,10 +369,15 @@ export function TarjetaAjustarPlan({ ventaId, cuotas, puedeAjustar, onCambio }: 
                   Las cuotas suman <strong>{formatearCOP(totalNuevo)}</strong> y deben sumar <strong>{formatearCOP(totalPlan)}</strong>.{' '}
                   {diferencia === 0 ? 'Cuadra.' : `${diferencia < 0 ? 'Faltan' : 'Sobran'} ${formatearCOP(Math.abs(diferencia))} por distribuir.`}
                 </p>
-                {pendientes.length + nuevas.length > 0 && (
-                  <button type="button" onClick={repartirEnPartesIguales} className={CLASE_BOTON_SECUNDARIO}>
-                    Repartir lo que falta en partes iguales
-                  </button>
+                {repartibles.length > 0 && (
+                  <>
+                    <button type="button" onClick={repartirEnPartesIguales} className={CLASE_BOTON_SECUNDARIO}>
+                      Repartir lo que falta en partes iguales
+                    </button>
+                    <p className="text-xs text-slate-500">
+                      Reparte el saldo pendiente entre las {repartibles.length} cuota(s) sin pagos. La cuota inicial, las pagadas y las que ya tienen un pago parcial se dejan como están: su saldo se sigue pagando primero.
+                    </p>
+                  </>
                 )}
               </div>
             </div>
