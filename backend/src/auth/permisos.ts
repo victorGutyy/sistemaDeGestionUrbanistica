@@ -16,6 +16,10 @@ export const PERMISOS = {
   VENTAS_AUTORIZAR: 'ventas.autorizar', // aprobar o rechazar ventas con excepción
   VENTAS_DESISTIR: 'ventas.desistir', // registrar el desistimiento de una venta
   VENTAS_AJUSTAR_PLAN: 'ventas.ajustar_plan', // reprogramar las fechas del plan de pagos de una venta ya registrada
+  // Ampliar el plazo de una venta por encima del máximo configurado (RF-VEN-17). El gerente lo tiene siempre. El ADMINISTRADOR lo tiene
+  // de forma TEMPORAL mientras dura la migración de las ventas desde Excel (decisión del 20/11/2026): para quitárselo, agrega en el filtro
+  // del rol ADMINISTRADOR más abajo la línea `permiso !== PERMISOS.VENTAS_EXCEDER_PLAZO &&` y despliega. Cada uso queda en la auditoría.
+  VENTAS_EXCEDER_PLAZO: 'ventas.exceder_plazo',
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
   ABONOS_ANULAR: 'abonos.anular', // anular un abono y su recibo (solo gerente)

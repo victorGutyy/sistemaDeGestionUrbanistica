@@ -313,18 +313,40 @@ describe('AjustarPlanService', () => {
     });
 
     describe('plazo máximo configurado', () => {
-      it('pasar del máximo exige la autorización del gerente y no guarda nada sin ella', async () => {
+      it('pasar del máximo exige el permiso de ampliar el plazo por encima del máximo y no guarda nada sin él', async () => {
         const { servicio, tx } = montar({ plazoMaximo: 4 });
         await expect(servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, usuarioDePrueba())).rejects.toBeInstanceOf(ForbiddenException);
         expect(tx.cuota.create).not.toHaveBeenCalled();
       });
 
-      it('con el permiso de autorizar (gerente) sí se puede pasar del máximo', async () => {
+      it('con el permiso de ampliar por encima del máximo (gerente, y administrador mientras dure la migración) sí se puede', async () => {
         const { servicio, tx } = montar({ plazoMaximo: 4 });
-        const gerente = { ...usuarioDePrueba(), permisos: [PERMISOS.VENTAS_AUTORIZAR] };
-        const r = await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, gerente);
+        const conPermiso = { ...usuarioDePrueba(), permisos: [PERMISOS.VENTAS_AJUSTAR_PLAN, PERMISOS.VENTAS_EXCEDER_PLAZO] };
+        const r = await servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, conPermiso);
         expect(r.guardado).toBe(true);
         expect(tx.cuota.create).toHaveBeenCalledTimes(2);
+      });
+
+      it('el permiso general de autorizar ventas con excepción NO alcanza: es un permiso distinto', async () => {
+        const { servicio, tx } = montar({ plazoMaximo: 4 });
+        const soloAutoriza = { ...usuarioDePrueba(), permisos: [PERMISOS.VENTAS_AUTORIZAR] };
+        await expect(servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, soloAutoriza)).rejects.toBeInstanceOf(ForbiddenException);
+        expect(tx.cuota.create).not.toHaveBeenCalled();
+      });
+
+      it('cuando se pasa del máximo, la auditoría lo anota con el máximo vigente; dentro del máximo no lo anota', async () => {
+        const conPermiso = { ...usuarioDePrueba(), permisos: [PERMISOS.VENTAS_EXCEDER_PLAZO] };
+        const pasado = montar({ plazoMaximo: 4 });
+        await pasado.servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, conPermiso);
+        const registro = pasado.tx.registroAuditoria.create.mock.calls[0][0].data;
+        expect(registro.resumen).toMatch(/supera el plazo máximo de 4 cuotas/);
+        expect(registro.despues).toMatchObject({ superaPlazoMaximo: true, plazoMaximo: 4 });
+
+        const dentro = montar({ plazoMaximo: 12 });
+        await dentro.servicio.ajustar('v-1', { motivo: MOTIVO, numeroCuotas: 5, valoresCuotas: IGUALES }, usuarioDePrueba());
+        const normal = dentro.tx.registroAuditoria.create.mock.calls[0][0].data;
+        expect(normal.resumen).not.toMatch(/plazo máximo/);
+        expect(normal.despues.superaPlazoMaximo).toBeUndefined();
       });
 
       it('dentro del máximo no hace falta autorización', async () => {

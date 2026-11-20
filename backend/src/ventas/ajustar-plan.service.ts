@@ -105,12 +105,16 @@ export class AjustarPlanService {
       throw new BadRequestException('Para ampliar el plazo indica el valor de las cuotas: lo que falta por pagar se reparte entre las cuotas que quedan');
     }
 
-    // Pasar del plazo máximo configurado es una excepción, igual que al registrar la venta: la autoriza el gerente.
+    // Pasar del plazo máximo configurado es una excepción, igual que al registrar la venta: exige un permiso propio (el gerente lo tiene
+    // siempre; el administrador, de forma temporal durante la migración desde Excel). Cuando se usa, la auditoría lo deja anotado.
+    let plazoMaximo: number | undefined;
+    let superaPlazoMaximo = false;
     if (pideAmpliar) {
       const empresa = await this.prisma.configuracionEmpresa.findUnique({ where: { id: 1 }, select: { plazoMaximoMeses: true } });
-      const maximo = empresa?.plazoMaximoMeses;
-      if (maximo !== undefined && dto.numeroCuotas! > maximo && !usuario.permisos.includes(PERMISOS.VENTAS_AUTORIZAR)) {
-        throw new ForbiddenException(`Un plazo de ${dto.numeroCuotas} cuotas supera el máximo configurado (${maximo}): lo autoriza el gerente`);
+      plazoMaximo = empresa?.plazoMaximoMeses;
+      superaPlazoMaximo = plazoMaximo !== undefined && dto.numeroCuotas! > plazoMaximo;
+      if (superaPlazoMaximo && !usuario.permisos.includes(PERMISOS.VENTAS_EXCEDER_PLAZO)) {
+        throw new ForbiddenException(`Un plazo de ${dto.numeroCuotas} cuotas supera el máximo configurado (${plazoMaximo}): ampliarlo por encima del máximo lo autoriza el gerente`);
       }
     }
 
@@ -243,9 +247,15 @@ export class AjustarPlanService {
         accion: 'VENTA_AJUSTAR_PLAN',
         entidad: 'VENTA',
         entidadId: ventaId,
-        resumen: `Ajustó el plan de pagos (${partes}): ${motivo}`,
+        resumen: `Ajustó el plan de pagos (${partes})${superaPlazoMaximo ? ` — supera el plazo máximo de ${plazoMaximo} cuotas` : ''}: ${motivo}`,
         antes: { numeroCuotas: cuotasActuales, cuotas: paraAuditoria(cambios, 'antes'), totalCuotas },
-        despues: { numeroCuotas: numeroCuotasDespues, cuotas: paraAuditoria(cambios, 'despues'), totalCuotas, motivo },
+        despues: {
+          numeroCuotas: numeroCuotasDespues,
+          cuotas: paraAuditoria(cambios, 'despues'),
+          totalCuotas,
+          motivo,
+          ...(superaPlazoMaximo ? { superaPlazoMaximo: true, plazoMaximo } : {}),
+        },
       });
       return { guardado: true, totalCuotas, numeroCuotasAntes: cuotasActuales, numeroCuotasDespues, cambios: presentar(cambios) };
     });

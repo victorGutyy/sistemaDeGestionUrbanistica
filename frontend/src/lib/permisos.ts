@@ -13,6 +13,7 @@ export const PERMISOS = {
   VENTAS_AUTORIZAR: 'ventas.autorizar',
   VENTAS_DESISTIR: 'ventas.desistir',
   VENTAS_AJUSTAR_PLAN: 'ventas.ajustar_plan',
+  VENTAS_EXCEDER_PLAZO: 'ventas.exceder_plazo',
   ABONOS_VER: 'abonos.ver',
   ABONOS_REGISTRAR: 'abonos.registrar',
   ABONOS_ANULAR: 'abonos.anular',

@@ -69,6 +69,15 @@ describe('catálogo de permisos y roles del sistema', () => {
     expect(quienes.sort()).toEqual(['ADMINISTRADOR', CLAVE_GERENTE].sort());
   });
 
+  // TEMPORAL (decisión del 20/11/2026): el administrador amplía el plazo por encima del máximo mientras dura la migración desde Excel.
+  // Cuando se le quite, esta prueba pasa a decir que solo lo tiene el gerente.
+  it('ampliar el plazo de una venta por encima del máximo (RF-VEN-17) lo hacen el gerente y, por ahora, el administrador; nadie más', () => {
+    const quienes = ROLES_SISTEMA.filter((r) => (r.permisos as string[]).includes(PERMISOS.VENTAS_EXCEDER_PLAZO)).map((r) => r.clave);
+    expect(quienes.sort()).toEqual(['ADMINISTRADOR', CLAVE_GERENTE].sort());
+    // El administrador NO recibe por esto el permiso de aprobar o rechazar ventas con excepción.
+    expect(rol('ADMINISTRADOR').permisos).not.toContain(PERMISOS.VENTAS_AUTORIZAR);
+  });
+
   it('los acuerdos de pago (CC-07) los manejan el gerente y el administrador, y nadie más', () => {
     const quienes = ROLES_SISTEMA.filter((r) => (r.permisos as string[]).includes(PERMISOS.ACUERDOS_GESTIONAR)).map((r) => r.clave);
     expect(quienes.sort()).toEqual(['ADMINISTRADOR', CLAVE_GERENTE].sort());
